@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../shared/models/enums.dart';
+import '../../../shared/widgets/mawkib_logo.dart';
 
 /// شاشة الدخول وإنشاء الحساب.
 ///
@@ -57,7 +58,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(child: Image.asset('assets/logo/logo.png', height: 110)),
+                  const Center(
+                    child: MawkibLogo(height: 108, radius: 22),
+                  ),
                   const SizedBox(height: 22),
                   Text(
                     _isRegister ? 'إنشاء حساب جديد' : 'تسجيل الدخول',

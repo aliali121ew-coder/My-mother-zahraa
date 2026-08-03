@@ -9,6 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../shared/models/permissions.dart';
 import '../../../shared/widgets/contributor_tile.dart';
+import '../../../shared/widgets/mawkib_logo.dart';
 import '../../../shared/widgets/stat_cards.dart';
 
 /// الشاشة الرئيسية.
@@ -47,7 +48,12 @@ class HomePage extends ConsumerWidget {
               titleSpacing: 16,
               title: Row(
                 children: [
-                  Image.asset('assets/logo/logo.png', height: 36),
+                  const MawkibLogo(
+                    height: 30,
+                    small: true,
+                    radius: 9,
+                    padding: EdgeInsets.all(3),
+                  ),
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(

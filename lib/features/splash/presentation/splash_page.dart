@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../shared/widgets/mawkib_logo.dart';
 
 /// واجهة الترحيب مع شعار الموكب.
 ///
@@ -56,11 +57,11 @@ class _SplashPageState extends State<SplashPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // الشعار الرسمي للموكب — بخلفية شفافة
-                  Image.asset(
-                    'assets/logo/logo.png',
-                    width: MediaQuery.sizeOf(context).width * 0.56,
-                    fit: BoxFit.contain,
+                  // الشعار الرسمي للموكب بخلفيته البيضاء، داخل لوحة
+                  MawkibLogo(
+                    width: MediaQuery.sizeOf(context).width * 0.52,
+                    radius: 28,
+                    padding: const EdgeInsets.all(16),
                   ),
                   const SizedBox(height: 26),
                   const Text(
