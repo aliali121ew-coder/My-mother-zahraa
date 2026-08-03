@@ -56,3 +56,6 @@ key.properties
 
 # رموز التصحيح الناتجة عن التشويش
 build/symbols/
+
+android/keys/
+android/key.properties
