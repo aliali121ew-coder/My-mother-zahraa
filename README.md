@@ -89,6 +89,14 @@ update public.profiles
 
 ### ٣. تشغيل التطبيق
 
+> ⚠️ **خطوة إلزامية بعد الاستنساخ:** الخطوط ليست في المستودع (أدوات الرفع
+> الآلية تفسد الملفات الثنائية). اجلبها أولاً وإلا فشل البناء بأصول مفقودة:
+>
+> ```bash
+> powershell -ExecutionPolicy Bypass -File tools\fetch_fonts.ps1   # ويندوز
+> bash tools/fetch_fonts.sh                                        # لينكس و macOS
+> ```
+
 ```bash
 flutter pub get
 
