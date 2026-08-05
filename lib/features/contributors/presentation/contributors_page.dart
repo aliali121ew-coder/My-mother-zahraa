@@ -5,40 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../shared/models/enums.dart';
+import 'widgets/add_contributor_dialog.dart';
 
 /// صفحة المشتركين والمتبرعين — تصميم بـ 6 كروت شبكية متناسقة بحسب النموذج المطلوب.
 class ContributorsPage extends ConsumerWidget {
   const ContributorsPage({super.key});
-
-  void _showLaterMessage(BuildContext context, String title) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'ميزة «$title» — سوف يتم برمجتها لاحقاً',
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.greenDeep,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 115),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -136,14 +108,14 @@ class ContributorsPage extends ConsumerWidget {
                 subtitle: 'تسجيل مشترك جديد',
                 icon: Icons.person_add_rounded,
                 iconColor: const Color(0xFF2E9E6B),
-                onTap: () => _showLaterMessage(context, 'إضافة مشترك'),
+                onTap: () => AddContributorDialog.show(context, ContributorType.subscriber),
               ),
               _GridActionCard(
                 title: 'إضافة متبرع',
                 subtitle: 'تسجيل تبرع جديد',
                 icon: Icons.volunteer_activism_rounded,
                 iconColor: const Color(0xFFD79A3C),
-                onTap: () => _showLaterMessage(context, 'إضافة متبرع'),
+                onTap: () => AddContributorDialog.show(context, ContributorType.donor),
               ),
               _GridActionCard(
                 title: 'عرض المشتركين',
@@ -168,10 +140,10 @@ class ContributorsPage extends ConsumerWidget {
               ),
               _GridActionCard(
                 title: 'الدعم',
-                subtitle: 'مركز المساعدة والخدمات',
+                subtitle: 'تسجيل مساهمة داعم عينية',
                 icon: Icons.support_agent_rounded,
                 iconColor: const Color(0xFF0077B6),
-                onTap: () => _showLaterMessage(context, 'الدعم'),
+                onTap: () => AddContributorDialog.show(context, ContributorType.inKind),
               ),
             ],
           ),

@@ -35,7 +35,8 @@ enum UserStatus {
 /// نوع المساهم: مشترك أو متبرع — كلاهما مانح بفئتين مختلفتين.
 enum ContributorType {
   subscriber('subscriber', 'مشترك'),
-  donor('donor', 'متبرع');
+  donor('donor', 'متبرع'),
+  inKind('in_kind', 'داعم');
 
   const ContributorType(this.value, this.label);
   final String value;
