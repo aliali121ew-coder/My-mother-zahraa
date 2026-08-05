@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/auth_page.dart';
 import '../../features/auth/presentation/pending_page.dart';
+import '../../features/contributors/presentation/all_contributors_categories_page.dart';
 import '../../features/contributors/presentation/contributors_page.dart';
 import '../../features/contributors/presentation/contributors_list_page.dart';
 import '../../features/home/presentation/home_page.dart';
@@ -57,6 +58,11 @@ final appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'all',
+                  builder: (_, _) =>
+                      const AllContributorsCategoriesPage(),
+                ),
+                GoRoute(
+                  path: 'list_all',
                   builder: (_, _) =>
                       const ContributorsListPage(showAll: true),
                 ),
