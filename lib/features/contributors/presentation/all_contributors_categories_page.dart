@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass.dart';
 
-/// صفحة «عرض الكل»: تحتوي على كارتات عمودية للفئات الثلاث (المشتركون، المتبرعون، المساهمون).
+/// صفحة «عرض الكل»: تحتوي على كارتات عمودية ملمومة وأنيقة للفئات الثلاث.
 class AllContributorsCategoriesPage extends ConsumerWidget {
   const AllContributorsCategoriesPage({super.key});
 
@@ -24,37 +24,38 @@ class AllContributorsCategoriesPage extends ConsumerWidget {
         title: const Text('عرض الكل — فئات المساهمين'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
         children: [
           Text(
             'اختر الفئة لعرض القائمة التفصيلية الكاملة:',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontFamily: AppTheme.fontFamily,
               fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // 1. كارت المشتركين العمودي
+          // 1. كارت المشتركين العمودي (ملموم ومصغّر)
           _CategoryVerticalCard(
             title: 'المشتركون',
-            subtitle: 'سجل المشتركين الملتزمين بحسب الاشتراك الشهري والسنوي',
+            subtitle: 'سجل المشتركين الملتزمين بالسداد',
             icon: Icons.people_alt_rounded,
             iconColor: const Color(0xFF14512F),
             count: s?.subscribersCount,
             total: s?.subscriptionsTotal,
             badge: (s?.overdueCount ?? 0) > 0
-                ? '${Fmt.count(s!.overdueCount)} متأخر عن السداد'
+                ? '${Fmt.count(s!.overdueCount)} متأخر'
                 : null,
             onTap: () => context.go('/contributors/subscribers'),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
-          // 2. كارت المتبرعين العمودي
+          // 2. كارت المتبرعين العمودي (ملموم ومصغّر)
           _CategoryVerticalCard(
             title: 'المتبرعون',
-            subtitle: 'سجل المتبرعين والداعمين للموكب ومبالغ تبرعاتهم',
+            subtitle: 'سجل المتبرعين والداعمين ومبالغهم',
             icon: Icons.volunteer_activism_rounded,
             iconColor: const Color(0xFFD79A3C),
             count: s?.donorsCount,
@@ -62,12 +63,12 @@ class AllContributorsCategoriesPage extends ConsumerWidget {
             onTap: () => context.go('/contributors/donors'),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
           // 3. كارت المساهمين العمودي (كافة المشتركين والمتبرعين معاً)
           _CategoryVerticalCard(
             title: 'المساهمون (كافة البيانات)',
-            subtitle: 'عرض كافّة المشتركين والمتبرعين في قائمة واحدة موحّدة',
+            subtitle: 'عرض كافّة المشتركين والمتبرعين في قائمة واحدة',
             icon: Icons.groups_rounded,
             iconColor: const Color(0xFF7B2CBF),
             count: s != null ? s.subscribersCount + s.donorsCount : null,
@@ -109,8 +110,8 @@ class _CategoryVerticalCard extends StatelessWidget {
     return GlassCard(
       blur: true,
       onTap: onTap,
-      radius: AppTheme.radiusLarge,
-      padding: const EdgeInsets.all(18),
+      radius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       gradient: isDark ? AppColors.countCardGradient : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,18 +119,18 @@ class _CategoryVerticalCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(11),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: isDark ? 0.22 : 0.14),
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: iconColor.withValues(alpha: 0.35),
                     width: 1,
                   ),
                 ),
-                child: Icon(icon, color: iconColor, size: 24),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,72 +139,68 @@ class _CategoryVerticalCard extends StatelessWidget {
                       title,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 12,
+                        fontSize: 11,
                         color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left_rounded, size: 26),
+              const Icon(Icons.chevron_left_rounded, size: 22),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             children: [
               _Metric(label: 'العدد', value: Fmt.count(count ?? 0)),
-              const SizedBox(width: 22),
+              const SizedBox(width: 18),
               Flexible(
                 child: _Metric(
                   label: 'المجموع',
                   value: Fmt.moneyShort(total ?? 0),
                 ),
               ),
+              if (badge != null) ...[
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.overdue.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          size: 12, color: AppColors.overdue),
+                      const SizedBox(width: 4),
+                      Text(
+                        badge!,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.overdue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
-          if (badge != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.overdue.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 14, color: AppColors.overdue),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      badge!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.overdue,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -218,30 +215,29 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
-          label,
+          '$label: ',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 11.5,
+            fontSize: 11,
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppColors.textOnDarkMuted
                 : AppColors.textOnLightMuted,
           ),
         ),
-        const SizedBox(height: 2),
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
           child: Text(
             value,
             maxLines: 1,
             style: const TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 16.5,
+              fontSize: 14.5,
               fontWeight: FontWeight.w700,
               color: AppColors.gold,
             ),
