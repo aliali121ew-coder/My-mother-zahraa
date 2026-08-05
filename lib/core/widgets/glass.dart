@@ -194,11 +194,13 @@ class GoldBorder extends StatelessWidget {
     required this.child,
     this.radius = AppTheme.radius,
     this.width = 1.4,
+    this.showGlow = true,
   });
 
   final Widget child;
   final double radius;
   final double width;
+  final bool showGlow;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +209,16 @@ class GoldBorder extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: AppColors.goldGradient,
         borderRadius: BorderRadius.circular(radius + width),
+        boxShadow: showGlow
+            ? [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: 0.22),
+                  blurRadius: 16,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),

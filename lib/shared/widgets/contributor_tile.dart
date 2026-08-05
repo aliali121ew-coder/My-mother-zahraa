@@ -40,17 +40,42 @@ class ContributorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final c = contributor;
     final amount = c.isSubscriber ? c.subscriptionAmount : c.totalPaid;
+
+    final isRank1 = rank == 1;
+    final isRank2 = rank == 2;
+    final isRank3 = rank == 3;
+
+    final borderColor = isRank1
+        ? AppColors.gold.withValues(alpha: 0.75)
+        : isRank2
+            ? AppColors.silverMedal.withValues(alpha: 0.6)
+            : isRank3
+                ? AppColors.bronzeMedal.withValues(alpha: 0.6)
+                : (isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.gold.withValues(alpha: 0.15));
+
+    final cardGradient = isRank1 && isDark
+        ? LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [
+              AppColors.gold.withValues(alpha: 0.16),
+              AppColors.greenDeep.withValues(alpha: 0.8),
+            ],
+          )
+        : null;
 
     return GlassCard(
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      borderColor: _hasMedal ? AppColors.gold.withValues(alpha: 0.42) : null,
+      borderColor: borderColor,
+      gradient: cardGradient,
       child: Row(
         children: [
           _Avatar(contributor: c, rank: rank, hideName: hideName),
-          const SizedBox(width: 13),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,19 +88,48 @@ class ContributorTile extends StatelessWidget {
                         hideName ? 'مساهم مُخفى الاسم' : c.fullName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 15.5,
+                          fontWeight: _hasMedal ? FontWeight.w700 : FontWeight.w600,
+                          color: isRank1
+                              ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                              : (isDark ? AppColors.textOnDark : AppColors.textOnLight),
+                        ),
                       ),
                     ),
                     if (_hasMedal) ...[
                       const SizedBox(width: 6),
-                      Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 17,
-                        color: switch (rank!) {
-                          1 => AppColors.goldBright,
-                          2 => const Color(0xFFC0C0C0),
-                          _ => AppColors.bronze,
-                        },
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: switch (rank!) {
+                            1 => AppColors.rank1Gradient,
+                            2 => AppColors.rank2Gradient,
+                            _ => AppColors.rank3Gradient,
+                          },
+                          boxShadow: [
+                            BoxShadow(
+                              color: (switch (rank!) {
+                                1 => AppColors.gold,
+                                2 => AppColors.silverMedal,
+                                _ => AppColors.bronzeMedal,
+                              })
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          switch (rank!) {
+                            1 => Icons.emoji_events_rounded,
+                            2 => Icons.workspace_premium_rounded,
+                            _ => Icons.military_tech_rounded,
+                          },
+                          size: 14,
+                          color: AppColors.greenAbyss,
+                        ),
                       ),
                     ],
                   ],
@@ -84,15 +138,20 @@ class ContributorTile extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        Fmt.moneyShort(amount),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.gold,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          Fmt.moneyShort(amount),
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: isRank1
+                                ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                                : (isDark ? AppColors.gold : AppColors.goldDark),
+                          ),
                         ),
                       ),
                     ),
@@ -175,7 +234,6 @@ class _Avatar extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        // صورة مصغّرة في الذاكرة: يمنع تحميل صور ضخمة داخل قائمة طويلة
         memCacheWidth: 132,
         placeholder: (_, _) => _letterBox(context, letter),
         errorWidget: (_, _, _) => _letterBox(context, letter),
@@ -184,7 +242,22 @@ class _Avatar extends StatelessWidget {
       inner = _letterBox(context, letter);
     }
 
-    final avatar = ClipOval(child: SizedBox(width: size, height: size, child: inner));
+    final avatar = Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: rank == 1
+              ? AppColors.gold
+              : rank == 2
+                  ? AppColors.silverMedal
+                  : rank == 3
+                      ? AppColors.bronzeMedal
+                      : AppColors.gold.withValues(alpha: 0.3),
+          width: rank != null && rank! <= 3 ? 2.0 : 1.0,
+        ),
+      ),
+      child: ClipOval(child: SizedBox(width: size, height: size, child: inner)),
+    );
 
     if (rank == null) return avatar;
     return Stack(
@@ -195,9 +268,16 @@ class _Avatar extends StatelessWidget {
           bottom: -2,
           right: -2,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
             decoration: BoxDecoration(
-              color: rank! <= 3 ? AppColors.gold : AppColors.greenMid,
+              gradient: rank == 1
+                  ? AppColors.rank1Gradient
+                  : rank == 2
+                      ? AppColors.rank2Gradient
+                      : rank == 3
+                          ? AppColors.rank3Gradient
+                          : null,
+              color: rank! > 3 ? AppColors.greenMid : null,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: Theme.of(context).scaffoldBackgroundColor,
@@ -209,7 +289,7 @@ class _Avatar extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 10,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: rank! <= 3 ? AppColors.greenAbyss : AppColors.textOnDark,
               ),
             ),

@@ -50,13 +50,16 @@ class _SplashPageState extends State<SplashPage>
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
-          child: FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+          child: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: FadeTransition(
+              opacity: _fade,
+              child: ScaleTransition(
+                scale: _scale,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   // الشعار الرسمي للموكب بخلفيته البيضاء، داخل لوحة
                   MawkibLogo(
                     width: MediaQuery.sizeOf(context).width * 0.52,
@@ -98,6 +101,7 @@ class _SplashPageState extends State<SplashPage>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

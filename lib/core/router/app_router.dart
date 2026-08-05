@@ -6,6 +6,7 @@ import '../../features/contributors/presentation/contributors_page.dart';
 import '../../features/contributors/presentation/contributors_list_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/posts/presentation/posts_page.dart';
+import '../../features/reports/presentation/report_details_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/splash/presentation/splash_page.dart';
@@ -63,7 +64,20 @@ final appRouter = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/reports', builder: (_, _) => const ReportsPage()),
+            GoRoute(
+              path: '/reports',
+              builder: (_, _) => const ReportsPage(),
+              routes: [
+                GoRoute(
+                  path: 'subscribers',
+                  builder: (_, _) => const ReportDetailPage(isDonorsReport: false),
+                ),
+                GoRoute(
+                  path: 'donors',
+                  builder: (_, _) => const ReportDetailPage(isDonorsReport: true),
+                ),
+              ],
+            ),
           ],
         ),
         StatefulShellBranch(

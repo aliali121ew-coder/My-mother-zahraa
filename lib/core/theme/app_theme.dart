@@ -10,7 +10,7 @@ import 'app_colors.dart';
 /// شبه شفافة مع ظل ناعم، لأن التمويه على خلفية فاتحة يفقد أثره البصري.
 /// الذهبي لون الإبراز في الوضعين، لكن بدرجة أغمق في النهاري ليحقق تبايناً كافياً.
 abstract final class AppTheme {
-  static const fontFamily = 'IBMPlexSansArabic';
+  static const fontFamily = 'Cairo';
 
   /// نصف قطر الحواف الناعمة الموحّد في كل التطبيق
   static const radius = 22.0;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -74,7 +75,7 @@ class ReportsPage extends ConsumerWidget {
                     child: _SquareReportCard(
                       title: 'المشتركون',
                       icon: Icons.groups_2_rounded,
-                      onTap: () => _soon(context),
+                      onTap: () => context.go('/reports/subscribers'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -84,7 +85,7 @@ class ReportsPage extends ConsumerWidget {
                     child: _SquareReportCard(
                       title: 'المتبرعون',
                       icon: Icons.volunteer_activism_rounded,
-                      onTap: () => _soon(context),
+                      onTap: () => context.go('/reports/donors'),
                     ),
                   ),
                 ],
@@ -120,10 +121,6 @@ class ReportsPage extends ConsumerWidget {
       ),
     );
   }
-
-  void _soon(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('جدول التقرير قيد البناء')),
-      );
 }
 
 class _SquareReportCard extends StatelessWidget {

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
 
@@ -20,7 +21,7 @@ class HiveService {
   static final instance = HiveService._();
 
   static const _keyName = 'mawkib_hive_key_v1';
-  static const _secure = FlutterSecureStorage(
+  static final _secure = FlutterSecureStorage(
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
@@ -29,7 +30,13 @@ class HiveService {
 
   Future<void> init() async {
     if (_ready) return;
-    await Hive.initFlutter();
+    try {
+      final dir = await getApplicationSupportDirectory();
+      Hive.init(dir.path);
+    } catch (_) {
+      await Hive.initFlutter('mawkib_zahra_db');
+    }
+
     final cipher = HiveAesCipher(await _encryptionKey());
 
     for (final name in const [
@@ -41,26 +48,48 @@ class HiveService {
       AppConfig.boxStats,
       AppConfig.boxOutbox,
     ]) {
-      await Hive.openBox<String>(name, encryptionCipher: cipher);
+      await _openBoxSafe<String>(name, cipher: cipher);
     }
+
     // صندوق الإعدادات غير مشفّر: لا يحوي بيانات حساسة ويُقرأ قبل التشفير
-    await Hive.openBox<dynamic>(AppConfig.boxSettings);
+    await _openBoxSafe<dynamic>(AppConfig.boxSettings);
     _ready = true;
   }
 
-  Future<List<int>> _encryptionKey() async {
-    final existing = await _secure.read(key: _keyName);
-    if (existing != null) {
+  Future<void> _openBoxSafe<T>(String name, {HiveCipher? cipher}) async {
+    if (Hive.isBoxOpen(name)) return;
+    try {
+      await Hive.openBox<T>(name, encryptionCipher: cipher);
+    } catch (_) {
       try {
-        final k = base64Decode(existing);
-        if (k.length == 32) return k;
+        await Hive.deleteBoxFromDisk(name);
+      } catch (_) {}
+      try {
+        await Hive.openBox<T>(name, encryptionCipher: cipher);
       } catch (_) {
-        // مفتاح تالف — نولّد بديلاً
+        try {
+          await Hive.openBox<T>(name);
+        } catch (_) {}
       }
     }
+  }
+
+  Future<List<int>> _encryptionKey() async {
+    try {
+      final existing = await _secure.read(key: _keyName);
+      if (existing != null) {
+        try {
+          final k = base64Decode(existing);
+          if (k.length == 32) return k;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
     final rnd = Random.secure();
     final key = List<int>.generate(32, (_) => rnd.nextInt(256));
-    await _secure.write(key: _keyName, value: base64Encode(key));
+    try {
+      await _secure.write(key: _keyName, value: base64Encode(key));
+    } catch (_) {}
     return key;
   }
 
@@ -116,7 +145,7 @@ class HiveService {
         AppConfig.boxDonations,
         AppConfig.boxPosts,
         AppConfig.boxStories,
-      ].fold(0, (sum, n) => sum + box(n).length);
+      ].fold<int>(0, (sum, n) => sum + box(n).length);
 
   /// مسح كل البيانات المخزّنة محلياً — لا يمسّ طابور المزامنة
   Future<void> clearCache() async {

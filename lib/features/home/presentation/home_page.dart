@@ -101,32 +101,34 @@ class HomePage extends ConsumerWidget {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 sliver: SliverToBoxAdapter(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: CountCard(
-                          label: 'عدد المتبرعين',
-                          icon: Icons.volunteer_activism_outlined,
-                          count: stats.valueOrNull?.donorsCount ?? 0,
-                          loading: stats.isLoading,
-                          onTap: () => context.go('/contributors'),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: CountCard(
+                            label: 'عدد المتبرعين',
+                            icon: Icons.volunteer_activism_outlined,
+                            count: stats.valueOrNull?.donorsCount ?? 0,
+                            loading: stats.isLoading,
+                            onTap: () => context.go('/contributors'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: CountCard(
-                          label: 'عدد المشتركين',
-                          icon: Icons.groups_2_outlined,
-                          count: stats.valueOrNull?.subscribersCount ?? 0,
-                          loading: stats.isLoading,
-                          badge: (stats.valueOrNull?.overdueCount ?? 0) > 0
-                              ? '${Fmt.count(stats.valueOrNull!.overdueCount)} متأخر'
-                              : null,
-                          onTap: () => context.go('/contributors'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CountCard(
+                            label: 'عدد المشتركين',
+                            icon: Icons.groups_2_outlined,
+                            count: stats.valueOrNull?.subscribersCount ?? 0,
+                            loading: stats.isLoading,
+                            badge: (stats.valueOrNull?.overdueCount ?? 0) > 0
+                                ? '${Fmt.count(stats.valueOrNull!.overdueCount)} متأخر'
+                                : null,
+                            onTap: () => context.go('/contributors'),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -134,21 +136,67 @@ class HomePage extends ConsumerWidget {
 
             // القسم الثاني: أعلى المتبرعين — قائمة عمودية
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 26, 16, 10),
+              padding: const EdgeInsets.fromLTRB(16, 26, 16, 12),
               sliver: SliverToBoxAdapter(
                 child: Row(
                   children: [
-                    const Icon(Icons.emoji_events_outlined,
-                        size: 19, color: AppColors.gold),
-                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.rank1Gradient,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.gold.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.emoji_events_rounded,
+                        size: 18,
+                        color: AppColors.greenAbyss,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Text('أعلى المتبرعين',
-                          style: theme.textTheme.titleLarge),
+                      child: Text(
+                        'أعلى المتبرعين',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
                     ),
                     if (donors.hasValue && donors.value!.length > _topDonorsLimit)
-                      TextButton(
-                        onPressed: () => context.go('/contributors/donors'),
-                        child: const Text('عرض الكل'),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppColors.gold.withValues(alpha: 0.3),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: () => context.go('/contributors/donors'),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            child: Text(
+                              'عرض الكل',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: theme.brightness == Brightness.dark
+                                    ? AppColors.goldBright
+                                    : AppColors.goldDark,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                   ],
                 ),

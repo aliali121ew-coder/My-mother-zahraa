@@ -67,16 +67,19 @@ class _GlassNavBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         child: GlassCard(
-          blur: true, // شريط واحد ثابت — التمويه هنا لا يؤثر على الأداء
-          radius: 26,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          blur: true,
+          radius: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          borderColor: AppColors.gold.withValues(alpha: 0.25),
           gradient: isDark
               ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: 0.10),
-                    Colors.white.withValues(alpha: 0.05),
+                    Color(0xFF103623).withValues(alpha: 0.85),
+                    Color(0xFF071B11).withValues(alpha: 0.95),
                   ],
                 )
               : null,
@@ -112,28 +115,49 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeColor = AppColors.gold;
+    final activeColor = isDark ? AppColors.goldBright : AppColors.goldDark;
     final idleColor = isDark
         ? AppColors.textOnDarkMuted
         : AppColors.textOnLightMuted;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: selected
-                    ? activeColor.withValues(alpha: 0.16)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                gradient: selected
+                    ? LinearGradient(
+                        colors: [
+                          AppColors.gold.withValues(alpha: 0.28),
+                          AppColors.gold.withValues(alpha: 0.12),
+                        ],
+                      )
+                    : null,
+                color: selected ? null : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                border: selected
+                    ? Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.45),
+                        width: 1.0,
+                      )
+                    : null,
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: AppColors.gold.withValues(alpha: 0.25),
+                          blurRadius: 10,
+                          spreadRadius: -1,
+                        ),
+                      ]
+                    : null,
               ),
               child: Icon(
                 selected ? item.activeIcon : item.icon,
@@ -142,7 +166,6 @@ class _NavButton extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 3),
-            // FittedBox يمنع أي overflow في التسميات على الشاشات الضيقة جداً
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
@@ -151,7 +174,7 @@ class _NavButton extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                   color: selected ? activeColor : idleColor,
                 ),
               ),

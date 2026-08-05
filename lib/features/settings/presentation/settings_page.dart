@@ -49,7 +49,9 @@ class SettingsPage extends ConsumerWidget {
                     session.isGuest
                         ? Icons.person_outline_rounded
                         : Icons.person_rounded,
-                    color: AppColors.goldBright,
+                    color: theme.brightness == Brightness.dark
+                        ? AppColors.goldBright
+                        : AppColors.goldDark,
                     size: 26,
                   ),
                 ),

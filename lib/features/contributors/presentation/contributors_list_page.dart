@@ -273,7 +273,8 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
       ),
     );
     if (picked == null) return;
-    setState(() =>
-        _typeFilter = picked is SubscriptionType ? picked : null);
+    setState(() {
+      _typeFilter = picked is SubscriptionType ? picked : null;
+    });
   }
 }
