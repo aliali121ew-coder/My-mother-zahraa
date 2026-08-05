@@ -250,7 +250,7 @@ class HomePage extends ConsumerWidget {
               },
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 28)),
+            const SliverToBoxAdapter(child: SizedBox(height: 110)),
           ],
         ),
       ),
