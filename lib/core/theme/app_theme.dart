@@ -17,7 +17,7 @@ abstract final class AppTheme {
   /// خط الواجهة أعلاه هندسي سانس، وهذا نسخي كلاسيكي. التباين بينهما هو
   /// مصدر الإحساس الاحترافي: الشاشة التي كل نصّها بخط واحد تبدو مستوية
   /// بلا تدرّج في الأهمية مهما كان الخط جيداً.
-  static const displayFamily = 'Amiri';
+  static const displayFamily = 'Cairo';
 
   /// نصف قطر الحواف الناعمة الموحّد في كل التطبيق
   static const radius = 22.0;

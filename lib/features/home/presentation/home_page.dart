@@ -20,7 +20,7 @@ import '../../../shared/widgets/stat_cards.dart';
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
-  static const _topDonorsLimit = 10;
+  static const _topDonorsLimit = 5;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
