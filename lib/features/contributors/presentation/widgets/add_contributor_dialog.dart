@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,7 +12,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../shared/models/contributor_model.dart';
 import '../../../../shared/models/enums.dart';
 
-/// نافذة حوارية تفاعلية جذابة بعرض 50% موحّد، ترويسة ملونة في الأعلى وباقي الجسم أبيض ناصع في الوضع النهاري.
+/// نافذة حوارية تفاعلية جذابة بعرض 50% موحّد، ترويسة ملونة في الأعلى وخلفية ضبابية زجاجية خلف النافذة.
 class AddContributorDialog extends ConsumerStatefulWidget {
   const AddContributorDialog({
     super.key,
@@ -24,7 +25,13 @@ class AddContributorDialog extends ConsumerStatefulWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AddContributorDialog(mode: mode),
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: AddContributorDialog(mode: mode),
+        );
+      },
     );
   }
 
