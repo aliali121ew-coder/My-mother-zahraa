@@ -11,6 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../shared/models/contributor_model.dart';
 import '../../../../shared/models/enums.dart';
+import '../../../../shared/widgets/app_date_picker_dialog.dart';
 
 /// نافذة حوارية تفاعلية جذابة بعرض 50% موحّد، ترويسة ملونة في الأعلى وخلفية ضبابية زجاجية خلف النافذة.
 class AddContributorDialog extends ConsumerStatefulWidget {
@@ -90,32 +91,12 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
     DateTime initialDate,
     ValueChanged<DateTime> onSelected,
   ) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final picked = await showDatePicker(
+    final picked = await AppDatePickerDialog.show(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: isDark
-                ? ColorScheme.dark(
-                    primary: AppColors.gold,
-                    onPrimary: Colors.black,
-                    surface: const Color(0xFF0D2818),
-                    onSurface: Colors.white,
-                  )
-                : ColorScheme.light(
-                    primary: _accentColor(),
-                    onPrimary: Colors.white,
-                    surface: Colors.white,
-                    onSurface: Colors.black,
-                  ),
-          ),
-          child: child!,
-        );
-      },
+      primaryColor: _accentColor(),
     );
     if (picked != null) {
       onSelected(picked);
