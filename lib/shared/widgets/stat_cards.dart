@@ -81,11 +81,12 @@ class TotalAmountCard extends StatelessWidget {
                           Text(
                             'المبلغ الكلي',
                             style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 16,
+                              // نسخي لا سانس: يتباين مع الرقم أدناه
+                              fontFamily: AppTheme.displayFamily,
+                              fontSize: 20,
                               fontWeight: FontWeight.w700,
                               color: AppColors.goldBright,
-                              letterSpacing: 0.2,
+                              height: 1.15,
                             ),
                           ),
                           SizedBox(height: 2),
@@ -128,40 +129,69 @@ class TotalAmountCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                const _GoldRule(),
+                const SizedBox(height: 16),
                 if (loading)
                   const _ShimmerBar(width: 190, height: 42)
                 else
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      Fmt.money(total),
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 38,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textOnDark,
-                        letterSpacing: -0.5,
-                        height: 1.1,
-                      ),
+                    child: Row(
+                      textBaseline: TextBaseline.alphabetic,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          Fmt.amount(total),
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textOnDark,
+                            letterSpacing: -1.0,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        // العملة منفصلة أصغر وذهبية فلا تزاحم الرقم على الانتباه
+                        Text(
+                          'د.ع',
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.goldBright.withValues(alpha: 0.92),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text(
-                      'مجموع الاشتراكات والتبرعات النقدية',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12.5,
-                        color: AppColors.textOnDark.withValues(alpha: 0.72),
+                    // Flexible ضروري: النص العربي طويل وبلا قيد يفيض الصف
+                    // ١٨٤ بكسل على الشاشات الضيقة فيظهر شريط التحذير المخطط
+                    Flexible(
+                      child: Text(
+                        'مجموع الاشتراكات والتبرعات النقدية',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.5,
+                          color: AppColors.textOnDark.withValues(alpha: 0.72),
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.gold.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(6),
@@ -246,40 +276,48 @@ class CountCard extends StatelessWidget {
                 ),
               ),
               if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.overdue.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.overdue.withValues(alpha: 0.4),
-                      width: 0.8,
+                // Flexible: الكارت نصف عرض الشاشة، والشارة تفيض بلا قيد
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.overdue,
-                        ),
+                    decoration: BoxDecoration(
+                      color: AppColors.overdue.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.overdue.withValues(alpha: 0.4),
+                        width: 0.8,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        badge!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.overdue,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.overdue,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            badge!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.overdue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -309,10 +347,12 @@ class CountCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+              fontFamily: AppTheme.displayFamily,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: isDark
+                  ? AppColors.textOnDarkMuted
+                  : AppColors.textOnLightMuted,
             ),
           ),
         ],
@@ -338,6 +378,72 @@ class _ShimmerBar extends StatelessWidget {
         color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
+    );
+  }
+}
+
+/// خط ذهبي شعري يتلاشى عند طرفه — يفصل ترويسة الكارت عن قيمته.
+class _GoldRule extends StatelessWidget {
+  const _GoldRule();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 1,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          AppColors.gold.withValues(alpha: 0.45),
+          AppColors.gold.withValues(alpha: 0.12),
+          AppColors.gold.withValues(alpha: 0.0),
+        ],
+      ),
+    ),
+  );
+}
+
+/// عنوان قسم: خط نسخي يمتدّ منه خط ذهبي، بدل نص عادي بجانب أيقونة.
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({super.key, required this.title, this.icon, this.action});
+
+  final String title;
+  final IconData? icon;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: AppColors.gold),
+          const SizedBox(width: 9),
+        ],
+        Text(
+          title,
+          style: TextStyle(
+            fontFamily: AppTheme.displayFamily,
+            fontSize: 21,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.gold.withValues(alpha: 0.38),
+                  AppColors.gold.withValues(alpha: 0.0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        ?action,
+      ],
     );
   }
 }

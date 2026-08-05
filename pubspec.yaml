@@ -78,15 +78,19 @@ flutter:
     - assets/images/
 
   fonts:
+    # خط كايرو المتغيّر. الملفات الثابتة السابقة كانت صفحات HTML لا خطوطاً
+    # (بدأت بـ <!DOCTYPE html>)، فكان Flutter يرتدّ صامتاً للخط الافتراضي.
     - family: Cairo
       fonts:
-        - asset: assets/fonts/Cairo-Regular.ttf
+        - asset: assets/fonts/Cairo-Variable.ttf
+    # خط العرض النسخي: للعناوين والأسماء فقط. التباين بينه وبين خط
+    # الواجهة السانس هو ما يمنح الشاشة تدرّجاً في الأهمية بدل أن تبدو
+    # كلها بمستوى واحد. يُجلب بـ tools/fetch_fonts
+    - family: Amiri
+      fonts:
+        - asset: assets/fonts/Amiri-Regular.ttf
           weight: 400
-        - asset: assets/fonts/Cairo-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Cairo-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Cairo-Bold.ttf
+        - asset: assets/fonts/Amiri-Bold.ttf
           weight: 700
     - family: IBMPlexSansArabic
       fonts:

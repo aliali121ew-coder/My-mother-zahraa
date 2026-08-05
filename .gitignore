@@ -59,3 +59,8 @@ build/symbols/
 
 android/keys/
 android/key.properties
+
+# الخطوط تُجلب بـ tools/fetch_fonts — لا تُودَع لأن الرفع الآلي يفسدها
+assets/fonts/Amiri-*.ttf
+assets/fonts/Cairo-Variable.ttf
+test/goldens/

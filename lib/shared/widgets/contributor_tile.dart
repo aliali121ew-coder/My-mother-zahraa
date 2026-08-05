@@ -89,8 +89,8 @@ class ContributorTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 15.5,
+                          fontFamily: AppTheme.displayFamily,
+                          fontSize: 17.5,
                           fontWeight: _hasMedal ? FontWeight.w700 : FontWeight.w600,
                           color: isRank1
                               ? (isDark ? AppColors.goldBright : AppColors.goldDark)

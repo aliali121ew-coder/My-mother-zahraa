@@ -61,7 +61,7 @@ class HomePage extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
+                        fontFamily: AppTheme.displayFamily,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
@@ -160,15 +160,32 @@ class HomePage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
+                    Text(
+                      'أعلى المتبرعين',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        // نسخي: يتباين مع أرقام الكروت أعلاه
+                        fontFamily: AppTheme.displayFamily,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // خط ذهبي يمتدّ من العنوان حتى زر «عرض الكل»
                     Expanded(
-                      child: Text(
-                        'أعلى المتبرعين',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
+                      child: Container(
+                        height: 1,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.gold.withValues(alpha: 0.38),
+                              AppColors.gold.withValues(alpha: 0.0),
+                            ],
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     if (donors.hasValue && donors.value!.length > _topDonorsLimit)
                       Container(
                         decoration: BoxDecoration(
