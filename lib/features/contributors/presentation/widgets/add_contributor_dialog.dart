@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -193,7 +194,14 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       ref.invalidate(allContributorsProvider);
 
       if (mounted) {
+        // الترحيل المباشر لصفحة القسم المناسب بعد الحفظ
         Navigator.of(context).pop();
+        final destination = switch (widget.mode) {
+          ContributorType.subscriber => '/contributors/subscribers',
+          ContributorType.donor => '/contributors/donors',
+          ContributorType.inKind => '/contributors/all',
+        };
+        if (mounted) context.go(destination);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
