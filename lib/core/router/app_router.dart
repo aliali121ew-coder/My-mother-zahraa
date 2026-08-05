@@ -55,6 +55,11 @@ final appRouter = GoRouter(
                   builder: (_, _) =>
                       const ContributorsListPage(showDonors: false),
                 ),
+                GoRoute(
+                  path: 'all',
+                  builder: (_, _) =>
+                      const ContributorsListPage(showAll: true),
+                ),
               ],
             ),
           ],

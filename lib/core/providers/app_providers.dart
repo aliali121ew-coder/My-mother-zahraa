@@ -226,6 +226,16 @@ final subscribersProvider = FutureProvider<List<ContributorModel>>(
   (ref) async => (await ref.watch(subscribersRawProvider.future)).data,
 );
 
+final allContributorsRawProvider =
+    FutureProvider<CachedResult<List<ContributorModel>>>((ref) async {
+  ref.watch(sessionProvider);
+  return ref.read(contributorsRepositoryProvider).load(null);
+});
+
+final allContributorsProvider = FutureProvider<List<ContributorModel>>(
+  (ref) async => (await ref.watch(allContributorsRawProvider.future)).data,
+);
+
 /// هل أي من القوائم معروضة من المخزن المحلي بلا اتصال؟
 final dataIsStaleProvider = Provider<bool>((ref) {
   final s = ref.watch(statsRawProvider).valueOrNull?.isStale ?? false;

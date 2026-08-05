@@ -22,9 +22,14 @@ enum _SortBy {
 
 /// قائمة المتبرعين أو المشتركين كاملة، مع بحث وفلترة وترتيب كما طُلب.
 class ContributorsListPage extends ConsumerStatefulWidget {
-  const ContributorsListPage({super.key, required this.showDonors});
+  const ContributorsListPage({
+    super.key,
+    this.showDonors,
+    this.showAll = false,
+  });
 
-  final bool showDonors;
+  final bool? showDonors;
+  final bool showAll;
 
   @override
   ConsumerState<ContributorsListPage> createState() =>
@@ -46,14 +51,20 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
-    final async = widget.showDonors
-        ? ref.watch(donorsProvider)
-        : ref.watch(subscribersProvider);
+    final async = widget.showAll
+        ? ref.watch(allContributorsProvider)
+        : (widget.showDonors == true
+            ? ref.watch(donorsProvider)
+            : ref.watch(subscribersProvider));
+
+    final title = widget.showAll
+        ? 'قائمة كافة المساهمين'
+        : (widget.showDonors == true ? 'قائمة المتبرعين' : 'قائمة المشتركين');
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(widget.showDonors ? 'قائمة المتبرعين' : 'قائمة المشتركين'),
+        title: Text(title),
       ),
       body: async.when(
         loading: () => const Center(
@@ -83,7 +94,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, i) => ContributorTile(
                           contributor: list[i],
-                          showStatus: !widget.showDonors,
+                          showStatus: widget.showDonors != true,
                           hideName: !session.role.canSeeNames,
                           rank: _sort == _SortBy.amountDesc ? i + 1 : null,
                         ),
@@ -131,7 +142,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                   selected: true,
                   onTap: _pickSort,
                 ),
-                if (!widget.showDonors) ...[
+                if (widget.showDonors != true) ...[
                   const SizedBox(width: 8),
                   _chip(
                     label: _typeFilter?.label ?? 'كل الأنواع',

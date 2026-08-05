@@ -2,50 +2,178 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass.dart';
 
-/// صفحة المشتركين: كارتان — المتبرعين والمشتركين — وكل واحد ينقل
-/// لشاشة قائمة كاملة كما حُدّد.
+/// صفحة المشتركين والمتبرعين — تصميم بـ 6 كروت شبكية متناسقة بحسب النموذج المطلوب.
 class ContributorsPage extends ConsumerWidget {
   const ContributorsPage({super.key});
 
+  void _showLaterMessage(BuildContext context, String title) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'ميزة «$title» — سوف يتم برمجتها لاحقاً',
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.greenDeep,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 115),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stats = ref.watch(statsProvider);
-    final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('المشتركون والمتبرعون')),
+      appBar: AppBar(
+        title: const Text('إدارة المساهمين'),
+      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 115),
         children: [
-          Text('اختر القائمة التي تريد عرضها',
-              style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 18),
-          _BigCategoryCard(
-            title: 'المتبرعون',
-            subtitle: 'قائمة كاملة بالمتبرعين ومبالغهم',
-            icon: Icons.volunteer_activism_rounded,
-            count: stats.valueOrNull?.donorsCount,
-            total: stats.valueOrNull?.donationsTotal,
-            onTap: () => context.go('/contributors/donors'),
+          // 1. Hero Banner Top Card (مثل بطاقة العبادات في النموذج المرفق)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  AppColors.green,
+                  AppColors.greenDeep,
+                ],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.greenAbyss.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.groups_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'إدارة المساهمين',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'جميع الأدوات وسجلات الاشتراكات والتبرعات في مكان واحد',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.88),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          _BigCategoryCard(
-            title: 'المشتركون',
-            subtitle: 'قائمة كاملة بالمشتركين وحالة سدادهم',
-            icon: Icons.groups_2_rounded,
-            count: stats.valueOrNull?.subscribersCount,
-            total: stats.valueOrNull?.subscriptionsTotal,
-            badge: (stats.valueOrNull?.overdueCount ?? 0) > 0
-                ? '${Fmt.count(stats.valueOrNull!.overdueCount)} متأخر عن السداد'
-                : null,
-            onTap: () => context.go('/contributors/subscribers'),
+
+          const SizedBox(height: 18),
+
+          // 2. شبكة الكروت الـ 6 (2 أعمدة × 3 صفوف)
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            childAspectRatio: 1.02,
+            children: [
+              _GridActionCard(
+                title: 'إضافة مشترك',
+                subtitle: 'تسجيل مشترك جديد',
+                icon: Icons.person_add_rounded,
+                iconColor: const Color(0xFF2E9E6B),
+                onTap: () => _showLaterMessage(context, 'إضافة مشترك'),
+              ),
+              _GridActionCard(
+                title: 'إضافة متبرع',
+                subtitle: 'تسجيل تبرع جديد',
+                icon: Icons.volunteer_activism_rounded,
+                iconColor: const Color(0xFFD79A3C),
+                onTap: () => _showLaterMessage(context, 'إضافة متبرع'),
+              ),
+              _GridActionCard(
+                title: 'عرض المشتركين',
+                subtitle: 'سجل المشتركين وحالة سدادهم',
+                icon: Icons.people_alt_rounded,
+                iconColor: const Color(0xFF14512F),
+                onTap: () => context.go('/contributors/subscribers'),
+              ),
+              _GridActionCard(
+                title: 'عرض المتبرعين',
+                subtitle: 'سجل الداعمين والتبرعات',
+                icon: Icons.handshake_rounded,
+                iconColor: const Color(0xFF3D6D78),
+                onTap: () => context.go('/contributors/donors'),
+              ),
+              _GridActionCard(
+                title: 'عرض الكل',
+                subtitle: 'كافة المساهمين والداعمين',
+                icon: Icons.groups_rounded,
+                iconColor: const Color(0xFF7B2CBF),
+                onTap: () => context.go('/contributors/all'),
+              ),
+              _GridActionCard(
+                title: 'الإحصائيات',
+                subtitle: 'مؤشرات وتقارير مجمعة',
+                icon: Icons.analytics_rounded,
+                iconColor: const Color(0xFF0077B6),
+                onTap: () => _showLaterMessage(context, 'الإحصائيات'),
+              ),
+            ],
           ),
         ],
       ),
@@ -53,24 +181,20 @@ class ContributorsPage extends ConsumerWidget {
   }
 }
 
-class _BigCategoryCard extends StatelessWidget {
-  const _BigCategoryCard({
+class _GridActionCard extends StatelessWidget {
+  const _GridActionCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.iconColor,
     required this.onTap,
-    this.count,
-    this.total,
-    this.badge,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
+  final Color iconColor;
   final VoidCallback onTap;
-  final int? count;
-  final num? total;
-  final String? badge;
 
   @override
   Widget build(BuildContext context) {
@@ -80,118 +204,53 @@ class _BigCategoryCard extends StatelessWidget {
     return GlassCard(
       blur: true,
       onTap: onTap,
-      radius: AppTheme.radiusLarge,
-      padding: const EdgeInsets.all(20),
-      gradient: isDark ? AppColors.countCardGradient : null,
+      radius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: AppColors.gold.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: AppColors.gold, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 3),
-                    Text(subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_left_rounded, size: 28),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _Metric(label: 'العدد', value: Fmt.count(count ?? 0)),
-              const SizedBox(width: 22),
-              Flexible(
-                child: _Metric(
-                  label: 'المجموع',
-                  value: Fmt.moneyShort(total ?? 0),
-                ),
-              ),
-            ],
-          ),
-          if (badge != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.overdue.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 14, color: AppColors.overdue),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      badge!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.overdue,
-                      ),
-                    ),
-                  ),
-                ],
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: isDark ? 0.22 : 0.14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: iconColor.withValues(alpha: 0.35),
+                width: 1,
               ),
             ),
-          ],
+            child: Icon(
+              icon,
+              color: isDark ? iconColor.withValues(alpha: 0.95) : iconColor,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 11,
+              color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+            ),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 2),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
-          child: Text(
-            value,
-            maxLines: 1,
-            style: const TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: AppColors.gold,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

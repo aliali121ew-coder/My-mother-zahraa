@@ -11,7 +11,7 @@ import '../../home/data/demo_data.dart';
 /// برؤية الأسماء. الواجهة تُظهر له الإحصائيات المجمّعة بدلاً منها.
 class ContributorsRepository extends SupabaseRepository {
   /// جلب كل المساهمين من نوع محدّد، مرتّبين بالأعلى مبلغاً
-  Future<CachedResult<List<ContributorModel>>> load(ContributorType type) async {
+  Future<CachedResult<List<ContributorModel>>> load(ContributorType? type) async {
     if (!isLive) {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       final demo = type == ContributorType.donor
@@ -28,10 +28,11 @@ class ContributorsRepository extends SupabaseRepository {
       boxName: AppConfig.boxContributors,
       idOf: (m) => m['id'].toString(),
       fetch: () async {
-        final rows = await db
-            .from('contributors')
-            .select()
-            .eq('type', type.value)
+        var query = db.from('contributors').select();
+        if (type != null) {
+          query = query.eq('type', type.value);
+        }
+        final rows = await query
             .isFilter('deleted_at', null)
             .order('total_paid', ascending: false);
         return List<Map<String, dynamic>>.from(rows);
@@ -40,7 +41,7 @@ class ContributorsRepository extends SupabaseRepository {
 
     final list = res.data
         .map(ContributorModel.fromJson)
-        .where((c) => c.type == type)
+        .where((c) => type == null || c.type == type)
         .toList();
 
     return CachedResult(
