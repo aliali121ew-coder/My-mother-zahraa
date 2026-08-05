@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +11,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../shared/models/contributor_model.dart';
 import '../../../../shared/models/enums.dart';
 
-/// نافذة حوارية تفاعلية جذابة في وسط الشاشة بحجم 50% مع انطباع 3D وتدرج داكن وفاخر.
+/// نافذة حوارية تفاعلية جذابة بعرض 50% موحّد، ترويسة ملونة في الأعلى وباقي الجسم أبيض ناصع في الوضع النهاري.
 class AddContributorDialog extends ConsumerStatefulWidget {
   const AddContributorDialog({
     super.key,
@@ -45,9 +44,10 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
   DateTime _paymentDate = DateTime.now();
   DateTime _supportDate = DateTime.now();
 
-  SubscriptionType _subscriptionType = SubscriptionType.monthly;
+  // للمشترك: اختيار نوع الاشتراك يفتح حقل المبلغ
+  SubscriptionType? _selectedSubscriptionType;
 
-  // للمتبرع: نوع التبرع يفتح حقل المبلغ بعد الاختيار
+  // للمتبرع: اختيار نوع التبرع يفتح حقل المبلغ
   String? _selectedDonationType;
 
   String _inKindType = 'غذائية';
@@ -83,6 +83,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
     DateTime initialDate,
     ValueChanged<DateTime> onSelected,
   ) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -91,12 +92,19 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: AppColors.gold,
-              onPrimary: Colors.black,
-              surface: const Color(0xFF0D2818),
-              onSurface: Colors.white,
-            ),
+            colorScheme: isDark
+                ? ColorScheme.dark(
+                    primary: AppColors.gold,
+                    onPrimary: Colors.black,
+                    surface: const Color(0xFF0D2818),
+                    onSurface: Colors.white,
+                  )
+                : ColorScheme.light(
+                    primary: _accentColor(),
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Colors.black,
+                  ),
           ),
           child: child!,
         );
@@ -110,11 +118,26 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    if (widget.mode == ContributorType.subscriber &&
+        _selectedSubscriptionType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'يرجى تحديد نوع الاشتراك أولاً قبل الحفظ',
+            style: TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppColors.overdue,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (widget.mode == ContributorType.donor && _selectedDonationType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'يرجى اختيار نوع التبرع أولاً قبل الحفظ',
+        const SnackBar(
+          content: Text(
+            'يرجى تحديد نوع التبرع أولاً قبل الحفظ',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: AppColors.overdue,
@@ -132,7 +155,6 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
           ? null
           : _phoneController.text.trim();
 
-      // تنظيف النص من الفوارز عند تحويله إلى عدد
       final cleanAmountText =
           _amountController.text.replaceAll(',', '').replaceAll('٬', '').trim();
       final amount = num.tryParse(cleanAmountText) ?? 0;
@@ -143,15 +165,15 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       num totalPaidAmount = 0;
 
       if (widget.mode == ContributorType.subscriber) {
-        subType = _subscriptionType;
+        subType = _selectedSubscriptionType;
         subAmount = amount;
         totalPaidAmount = amount;
-        notes = 'تاريخ الاشتراك: ${DateFormat('yyyy/MM/dd').format(_startDate)}';
+        notes =
+            'نوع الاشتراك: ${_selectedSubscriptionType?.label} · تاريخ الاشتراك: ${DateFormat('yyyy/MM/dd').format(_startDate)}';
       } else if (widget.mode == ContributorType.donor) {
         totalPaidAmount = amount;
         notes = 'نوع التبرع: ${_selectedDonationType ?? "نقدي"}';
       } else {
-        // داعم / عيني
         final supportKind = _inKindType == 'أخرى'
             ? _customSupportTypeController.text.trim()
             : _inKindType;
@@ -175,10 +197,8 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
         createdAt: DateTime.now(),
       );
 
-      // حفظ المساهم عبر المخزن
       await ref.read(contributorsRepositoryProvider).create(newContributor);
 
-      // تحديث المزوّدات
       ref.invalidate(statsProvider);
       ref.invalidate(donorsProvider);
       ref.invalidate(subscribersProvider);
@@ -194,7 +214,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'تمت إضافة ${_titleText()} بنجاح (المبلغ: ${Fmt.money(totalPaidAmount)})',
+                    'تمت إضافة ${_titleText()} بنجاح: $name',
                     style: const TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w600,
@@ -258,554 +278,580 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final accent = _accentColor();
     final dateFormat = DateFormat('yyyy/MM/dd');
 
-    // تصغير الحجم إلى حوالي 50% من عرض الشاشة مخصص للتمركز المريح
+    // مقاسات موحدة 50% من عرض الشاشة
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = (screenWidth * 0.52).clamp(330.0, 420.0);
+    final dialogWidth = screenWidth * 0.50;
+
+    // ألوان داكنة للترويسة فقط وباقي الجسم أبيض ناصع في النهاري
+    final bodyBgColor = isDark ? const Color(0xFF0F2D1C) : Colors.white;
+    final textColor = isDark ? Colors.white : AppColors.textOnLight;
+    final mutedTextColor =
+        isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
       child: Container(
         width: dialogWidth,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          // طابع داكن متدرج يبرز الكارت بقوة
-          gradient: const LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [
-              Color(0xFF0F2D1C), // أخضر زردي عميق
-              Color(0xFF05150D), // أسود مائل للأخضر
-              Color(0xFF143823), // أخضر داكن فاخر
-            ],
-          ),
+          color: bodyBgColor,
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: accent.withValues(alpha: 0.65),
+            color: accent.withValues(alpha: isDark ? 0.65 : 0.4),
             width: 1.5,
           ),
-          // انطباع 3D برفع وتوهّج عميق متعدد الطبقات
           boxShadow: [
             BoxShadow(
-              color: accent.withValues(alpha: 0.35),
-              blurRadius: 28,
-              spreadRadius: 2,
-              offset: const Offset(0, 8),
+              color: accent.withValues(alpha: isDark ? 0.35 : 0.2),
+              blurRadius: 24,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.75),
-              blurRadius: 36,
-              spreadRadius: 4,
-              offset: const Offset(0, 16),
+              color: Colors.black.withValues(alpha: isDark ? 0.7 : 0.18),
+              blurRadius: 32,
+              spreadRadius: 2,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(25),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 1. الترويسة الفاخرة ذات الانطباع البارز
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accent.withValues(alpha: 0.95),
-                        accent.withValues(alpha: 0.75),
-                      ],
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                    ),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(24)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
+          borderRadius: BorderRadius.circular(23),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. الترويسة الملونة الداكنة البارزة فوق فقط
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      accent,
+                      accent.withValues(alpha: 0.85),
                     ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child:
-                            Icon(_headerIcon(), color: Colors.white, size: 22),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(23)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _titleText(),
-                          style: const TextStyle(
+                      child:
+                          Icon(_headerIcon(), color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _titleText(),
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
+                      icon:
+                          const Icon(Icons.close_rounded, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 2. جسم التبويب الأبيض الصريح في النهاري مع التمرير (SCROLL)
+              Flexible(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // الاسم الثلاثي
+                        _buildLabel(
+                          widget.mode == ContributorType.subscriber
+                              ? 'اسم المشترك الثلاثي'
+                              : (widget.mode == ContributorType.donor
+                                  ? 'اسم المتبرع الثلاثي'
+                                  : 'اسم الداعم الثلاثي'),
+                          textColor,
+                        ),
+                        TextFormField(
+                          controller: _nameController,
+                          style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            fontSize: 13.5,
+                            color: textColor,
                           ),
+                          decoration: _inputDecoration(
+                            hint: 'أدخل الاسم الكامل',
+                            icon: Icons.person_outline_rounded,
+                            isDark: isDark,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'الاسم مطلوب'
+                              : null,
                         ),
-                      ),
-                      IconButton(
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
-                        icon:
-                            const Icon(Icons.close_rounded, color: Colors.white),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                ),
+                        const SizedBox(height: 12),
 
-                // 2. جسم التبويب المتمرّر (SCROLL) مع الفيزياء المرنة
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // الاسم الثلاثي
-                          _buildLabel(
-                            widget.mode == ContributorType.subscriber
-                                ? 'اسم المشترك الثلاثي'
-                                : (widget.mode == ContributorType.donor
-                                    ? 'اسم المتبرع الثلاثي'
-                                    : 'اسم الداعم الثلاثي'),
-                          ),
+                        // رقم الهاتف (إن كان مشتركاً أو متبرعاً)
+                        if (widget.mode != ContributorType.inKind) ...[
+                          _buildLabel('رقم الهاتف', textColor),
                           TextFormField(
-                            controller: _nameController,
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13.5,
-                              color: Colors.white,
-                            ),
-                            decoration: _inputDecoration(
-                              hint: 'أدخل الاسم الكامل',
-                              icon: Icons.person_outline_rounded,
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'الاسم مطلوب'
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // رقم الهاتف (إن كان مشتركاً أو متبرعاً)
-                          if (widget.mode != ContributorType.inKind) ...[
-                            _buildLabel('رقم الهاتف'),
-                            TextFormField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              style: const TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 13.5,
-                                color: Colors.white,
-                              ),
-                              decoration: _inputDecoration(
-                                hint: '07700000000 (اختياري)',
-                                icon: Icons.phone_outlined,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // للمتبرع: اختيار نوع التبرع أولاً
-                          if (widget.mode == ContributorType.donor) ...[
-                            _buildLabel('اختر نوع التبرع أولاً'),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                'نقدي دفعة واحدة',
-                                'كفالة',
-                                'تبرع دوري',
-                              ]
-                                  .map((t) => _buildChoiceChip(
-                                        label: t,
-                                        selected: _selectedDonationType == t,
-                                        onTap: () {
-                                          setState(() => _selectedDonationType = t);
-                                        },
-                                      ))
-                                  .toList(),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // للمشترك: حقل المبلغ مباشرة
-                          if (widget.mode == ContributorType.subscriber ||
-                              (widget.mode == ContributorType.donor &&
-                                  _selectedDonationType != null)) ...[
-                            _buildLabel('المبلغ (د.ع) — يُكتب بفوارز'),
-                            TextFormField(
-                              controller: _amountController,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.gold,
-                              ),
-                              onChanged: (val) {
-                                // تنسيق الرقم بفوارز آلاف تلقائياً عند الكتابة
-                                final raw = val
-                                    .replaceAll(',', '')
-                                    .replaceAll('٬', '')
-                                    .trim();
-                                if (raw.isNotEmpty) {
-                                  final numVal = num.tryParse(raw);
-                                  if (numVal != null) {
-                                    final formatted = Fmt.amount(numVal);
-                                    if (formatted != val) {
-                                      _amountController.value = TextEditingValue(
-                                        text: formatted,
-                                        selection: TextSelection.collapsed(
-                                          offset: formatted.length,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                }
-                              },
-                              decoration: _inputDecoration(
-                                hint: 'مثال: 25,000',
-                                icon: Icons.payments_outlined,
-                              ),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) {
-                                  return 'المبلغ مطلوب';
-                                }
-                                final raw = v
-                                    .replaceAll(',', '')
-                                    .replaceAll('٬', '')
-                                    .trim();
-                                if (num.tryParse(raw) == null) {
-                                  return 'أدخل رقماً صحيحاً';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // نوع الاشتراك (للمشترك)
-                          if (widget.mode == ContributorType.subscriber) ...[
-                            _buildLabel('نوع الاشتراك'),
-                            Row(
-                              children: [
-                                _buildChoiceChip(
-                                  label: 'شهري',
-                                  selected: _subscriptionType ==
-                                      SubscriptionType.monthly,
-                                  onTap: () => setState(() =>
-                                      _subscriptionType =
-                                          SubscriptionType.monthly),
-                                ),
-                                const SizedBox(width: 8),
-                                _buildChoiceChip(
-                                  label: 'سنوي',
-                                  selected: _subscriptionType ==
-                                      SubscriptionType.yearly,
-                                  onTap: () => setState(() =>
-                                      _subscriptionType =
-                                          SubscriptionType.yearly),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            _buildLabel('تاريخ الاشتراك'),
-                            _buildDatePickerButton(
-                              date: _startDate,
-                              onTap: () => _selectDate(
-                                context,
-                                _startDate,
-                                (d) => setState(() => _startDate = d),
-                              ),
-                              dateFormat: dateFormat,
-                            ),
-                            const SizedBox(height: 12),
-
-                            _buildLabel('تاريخ الدفع'),
-                            _buildDatePickerButton(
-                              date: _paymentDate,
-                              onTap: () => _selectDate(
-                                context,
-                                _paymentDate,
-                                (d) => setState(() => _paymentDate = d),
-                              ),
-                              dateFormat: dateFormat,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // تاريخ الدفع (للمتبرع بعد اختيار نوع التبرع)
-                          if (widget.mode == ContributorType.donor &&
-                              _selectedDonationType != null) ...[
-                            _buildLabel('تاريخ الدفع'),
-                            _buildDatePickerButton(
-                              date: _paymentDate,
-                              onTap: () => _selectDate(
-                                context,
-                                _paymentDate,
-                                (d) => setState(() => _paymentDate = d),
-                              ),
-                              dateFormat: dateFormat,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // نوع المساهمة وتاريخ الدعم (للداعم)
-                          if (widget.mode == ContributorType.inKind) ...[
-                            _buildLabel('نوع المساهمة'),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: ['غذائية', 'خدمية', 'أثاث وقاعات', 'أخرى']
-                                  .map((k) => _buildChoiceChip(
-                                        label: k,
-                                        selected: _inKindType == k,
-                                        onTap: () =>
-                                            setState(() => _inKindType = k),
-                                      ))
-                                  .toList(),
-                            ),
-                            if (_inKindType == 'أخرى') ...[
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _customSupportTypeController,
-                                style: const TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 13.5,
-                                  color: Colors.white,
-                                ),
-                                decoration: _inputDecoration(
-                                  hint: 'اكتب نوع المساهمة يدويّاً...',
-                                  icon: Icons.edit_note_rounded,
-                                ),
-                                validator: (v) => (_inKindType == 'أخرى' &&
-                                        (v == null || v.trim().isEmpty))
-                                    ? 'اكتب نوع المساهمة'
-                                    : null,
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-
-                            _buildLabel('تاريخ الدعم'),
-                            _buildDatePickerButton(
-                              date: _supportDate,
-                              onTap: () => _selectDate(
-                                context,
-                                _supportDate,
-                                (d) => setState(() => _supportDate = d),
-                              ),
-                              dateFormat: dateFormat,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          // حقل تحميل الصورة مع المعاينة
-                          _buildLabel('الصورة الشخصية / التوضيحية (تحميل)'),
-                          const SizedBox(height: 4),
-                          InkWell(
-                            onTap: _pickImage,
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              height: 90,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: accent.withValues(alpha: 0.4),
-                                  style: BorderStyle.solid,
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: _pickedImage != null
-                                  ? Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(15),
-                                          child: Image.file(
-                                            File(_pickedImage!.path),
-                                            width: double.infinity,
-                                            height: 90,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: 6,
-                                          left: 6,
-                                          child: CircleAvatar(
-                                            radius: 13,
-                                            backgroundColor: Colors.black54,
-                                            child: IconButton(
-                                              padding: EdgeInsets.zero,
-                                              icon: const Icon(Icons.close,
-                                                  size: 13, color: Colors.white),
-                                              onPressed: () => setState(
-                                                  () => _pickedImage = null),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.cloud_upload_outlined,
-                                            color: accent, size: 26),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'انقر لاختيار صورة من المعرض',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontFamily,
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textOnDarkMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 3. أزرار الإجراءات في الأسفل
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'إلغاء',
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white70,
+                              color: textColor,
+                            ),
+                            decoration: _inputDecoration(
+                              hint: '07700000000 (اختياري)',
+                              icon: Icons.phone_outlined,
+                              isDark: isDark,
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: accent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 4,
-                            shadowColor: accent.withValues(alpha: 0.5),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // للمشترك: تحديد نوع الاشتراك أولاً
+                        if (widget.mode == ContributorType.subscriber) ...[
+                          _buildLabel('اختر نوع الاشتراك أولاً', textColor),
+                          Row(
+                            children: [
+                              _buildChoiceChip(
+                                label: 'شهري',
+                                selected: _selectedSubscriptionType ==
+                                    SubscriptionType.monthly,
+                                onTap: () => setState(() =>
+                                    _selectedSubscriptionType =
+                                        SubscriptionType.monthly),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildChoiceChip(
+                                label: 'سنوي',
+                                selected: _selectedSubscriptionType ==
+                                    SubscriptionType.yearly,
+                                onTap: () => setState(() =>
+                                    _selectedSubscriptionType =
+                                        SubscriptionType.yearly),
+                              ),
+                            ],
                           ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(Icons.check_rounded, size: 19),
-                                    SizedBox(width: 5),
-                                    Text(
-                                      'حفظ وإضافة',
-                                      style: TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
+                          const SizedBox(height: 12),
+                        ],
+
+                        // للمتبرع: تحديد نوع التبرع أولاً
+                        if (widget.mode == ContributorType.donor) ...[
+                          _buildLabel('اختر نوع التبرع أولاً', textColor),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              'نقدي دفعة واحدة',
+                              'كفالة',
+                              'تبرع دوري',
+                            ]
+                                .map((t) => _buildChoiceChip(
+                                      label: t,
+                                      selected: _selectedDonationType == t,
+                                      onTap: () {
+                                        setState(() => _selectedDonationType = t);
+                                      },
+                                    ))
+                                .toList(),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // حقل المبلغ (د.ع) يظهر حتماً فقط بعد اختيار نوع الاشتراك أو نوع التبرع
+                        if ((widget.mode == ContributorType.subscriber &&
+                                _selectedSubscriptionType != null) ||
+                            (widget.mode == ContributorType.donor &&
+                                _selectedDonationType != null)) ...[
+                          _buildLabel(
+                              'المبلغ (د.ع) — يُكتب بفوارز تلقائياً', textColor),
+                          TextFormField(
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.goldDark,
+                            ),
+                            onChanged: (val) {
+                              final raw = val
+                                  .replaceAll(',', '')
+                                  .replaceAll('٬', '')
+                                  .trim();
+                              if (raw.isNotEmpty) {
+                                final numVal = num.tryParse(raw);
+                                if (numVal != null) {
+                                  final formatted = Fmt.amount(numVal);
+                                  if (formatted != val) {
+                                    _amountController.value = TextEditingValue(
+                                      text: formatted,
+                                      selection: TextSelection.collapsed(
+                                        offset: formatted.length,
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            decoration: _inputDecoration(
+                              hint: 'مثال: 25,000',
+                              icon: Icons.payments_outlined,
+                              isDark: isDark,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'المبلغ مطلوب';
+                              }
+                              final raw = v
+                                  .replaceAll(',', '')
+                                  .replaceAll('٬', '')
+                                  .trim();
+                              if (num.tryParse(raw) == null) {
+                                return 'أدخل رقماً صحيحاً';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // باقي تواريخ الاشتراك والدفع (للمشترك)
+                        if (widget.mode == ContributorType.subscriber &&
+                            _selectedSubscriptionType != null) ...[
+                          _buildLabel('تاريخ الاشتراك', textColor),
+                          _buildDatePickerButton(
+                            date: _startDate,
+                            onTap: () => _selectDate(
+                              context,
+                              _startDate,
+                              (d) => setState(() => _startDate = d),
+                            ),
+                            dateFormat: dateFormat,
+                            isDark: isDark,
+                            textColor: textColor,
+                          ),
+                          const SizedBox(height: 12),
+
+                          _buildLabel('تاريخ الدفع', textColor),
+                          _buildDatePickerButton(
+                            date: _paymentDate,
+                            onTap: () => _selectDate(
+                              context,
+                              _paymentDate,
+                              (d) => setState(() => _paymentDate = d),
+                            ),
+                            dateFormat: dateFormat,
+                            isDark: isDark,
+                            textColor: textColor,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // تاريخ الدفع (للمتبرع بعد اختيار نوع التبرع)
+                        if (widget.mode == ContributorType.donor &&
+                            _selectedDonationType != null) ...[
+                          _buildLabel('تاريخ الدفع', textColor),
+                          _buildDatePickerButton(
+                            date: _paymentDate,
+                            onTap: () => _selectDate(
+                              context,
+                              _paymentDate,
+                              (d) => setState(() => _paymentDate = d),
+                            ),
+                            dateFormat: dateFormat,
+                            isDark: isDark,
+                            textColor: textColor,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // نوع المساهمة وتاريخ الدعم (للداعم)
+                        if (widget.mode == ContributorType.inKind) ...[
+                          _buildLabel('نوع المساهمة', textColor),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ['غذائية', 'خدمية', 'أثاث وقاعات', 'أخرى']
+                                .map((k) => _buildChoiceChip(
+                                      label: k,
+                                      selected: _inKindType == k,
+                                      onTap: () =>
+                                          setState(() => _inKindType = k),
+                                    ))
+                                .toList(),
+                          ),
+                          if (_inKindType == 'أخرى') ...[
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _customSupportTypeController,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13.5,
+                                color: textColor,
+                              ),
+                              decoration: _inputDecoration(
+                                hint: 'اكتب نوع المساهمة يدويّاً...',
+                                icon: Icons.edit_note_rounded,
+                                isDark: isDark,
+                              ),
+                              validator: (v) => (_inKindType == 'أخرى' &&
+                                      (v == null || v.trim().isEmpty))
+                                  ? 'اكتب نوع المساهمة'
+                                  : null,
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+
+                          _buildLabel('تاريخ الدعم', textColor),
+                          _buildDatePickerButton(
+                            date: _supportDate,
+                            onTap: () => _selectDate(
+                              context,
+                              _supportDate,
+                              (d) => setState(() => _supportDate = d),
+                            ),
+                            dateFormat: dateFormat,
+                            isDark: isDark,
+                            textColor: textColor,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // حقل تحميل الصورة مع المعاينة
+                        _buildLabel('الصورة الشخصية / التوضيحية (تحميل)', textColor),
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: _pickImage,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 90,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.grey.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: accent.withValues(alpha: 0.4),
+                                style: BorderStyle.solid,
+                                width: 1.2,
+                              ),
+                            ),
+                            child: _pickedImage != null
+                                ? Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(15),
+                                        child: Image.file(
+                                          File(_pickedImage!.path),
+                                          width: double.infinity,
+                                          height: 90,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 6,
+                                        left: 6,
+                                        child: CircleAvatar(
+                                          radius: 13,
+                                          backgroundColor: Colors.black54,
+                                          child: IconButton(
+                                            padding: EdgeInsets.zero,
+                                            icon: const Icon(Icons.close,
+                                                size: 13, color: Colors.white),
+                                            onPressed: () => setState(
+                                                () => _pickedImage = null),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.cloud_upload_outlined,
+                                          color: accent, size: 26),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'انقر لاختيار صورة من المعرض',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: mutedTextColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // 3. أزرار الإجراءات في الأسفل
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'إلغاء',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: mutedTextColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                          shadowColor: accent.withValues(alpha: 0.4),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.check_rounded, size: 19),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'حفظ وإضافة',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLabel(String label) {
+  Widget _buildLabel(String label, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: AppTheme.fontFamily,
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: color,
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration(
-      {required String hint, required IconData icon}) {
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+    required bool isDark,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(
         fontFamily: AppTheme.fontFamily,
         fontSize: 12,
-        color: Colors.white.withValues(alpha: 0.4),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.4)
+            : Colors.black.withValues(alpha: 0.4),
       ),
       prefixIcon: Icon(icon, size: 19, color: _accentColor()),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.06),
+      fillColor: isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : Colors.grey.withValues(alpha: 0.08),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
         borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.grey.withValues(alpha: 0.25),
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
         borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : Colors.grey.withValues(alpha: 0.25),
         ),
       ),
       focusedBorder: OutlineInputBorder(
@@ -844,6 +890,8 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
     required DateTime date,
     required VoidCallback onTap,
     required DateFormat dateFormat,
+    required bool isDark,
+    required Color textColor,
   }) {
     return InkWell(
       onTap: onTap,
@@ -851,10 +899,14 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.grey.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.withValues(alpha: 0.25),
           ),
         ),
         child: Row(
@@ -863,11 +915,11 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
             const SizedBox(width: 8),
             Text(
               dateFormat.format(date),
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: textColor,
               ),
             ),
             const Spacer(),
