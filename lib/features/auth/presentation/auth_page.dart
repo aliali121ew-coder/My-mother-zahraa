@@ -189,16 +189,51 @@ class _AuthPageState extends ConsumerState<AuthPage> {
       _snack('قاعدة البيانات غير مهيّأة — استخدم أزرار وضع التجربة أدناه');
       return;
     }
+
     setState(() => _busy = true);
-    // TODO(supabase): ربط signUp / signInWithPassword بعد تهيئة المشروع
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (mounted) setState(() => _busy = false);
+    final notifier = ref.read(sessionProvider.notifier);
+    final error = _isRegister
+        ? await notifier.signUp(
+            _email.text, _password.text, _name.text)
+        : await notifier.signIn(_email.text, _password.text);
+
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (error != null) {
+      _snack(error, isError: true);
+      return;
+    }
+
+    final session = ref.read(sessionProvider);
+
+    if (session.isBanned) {
+      _snack('حسابك محظور — راجع إدارة الموكب', isError: true);
+      await notifier.signOut();
+      return;
+    }
+
+    // التسجيل ينجح لكن الحساب ينتظر موافقة المدير قبل رؤية أي رقم
+    if (session.isPending) {
+      context.go('/pending');
+      return;
+    }
+
+    if (session.isGuest) {
+      // نجح الدخول لكن لم يُقرأ الملف بعد (قد يتأخّر مشغّل قاعدة البيانات)
+      _snack('تم الدخول. جارٍ تحميل حسابك…');
+      await notifier.refresh();
+      if (!mounted) return;
+    }
+
+    context.go('/home');
   }
 
-  void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(
+  void _snack(String msg, {bool isError = false}) =>
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
-          backgroundColor: AppColors.greenMid,
+          backgroundColor: isError ? AppColors.overdue : AppColors.greenMid,
         ),
       );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/auth_page.dart';
+import '../../features/auth/presentation/pending_page.dart';
 import '../../features/contributors/presentation/contributors_page.dart';
 import '../../features/contributors/presentation/contributors_list_page.dart';
 import '../../features/home/presentation/home_page.dart';
@@ -29,6 +30,7 @@ final appRouter = GoRouter(
       path: '/auth',
       builder: (_, _) => const AuthPage(),
     ),
+    GoRoute(path: '/pending', builder: (_, _) => const PendingPage()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [

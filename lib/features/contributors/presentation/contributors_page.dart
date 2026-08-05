@@ -22,7 +22,7 @@ class ContributorsPage extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('المشتركون والمتبرعون')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
         children: [
           Text('اختر القائمة التي تريد عرضها',
               style: theme.textTheme.bodyMedium),
