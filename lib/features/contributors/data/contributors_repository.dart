@@ -10,17 +10,45 @@ import '../../home/data/demo_data.dart';
 /// على قائمة فارغة — وهذا **سلوك صحيح مقصود** لا خطأ، لأنه لا يُصرَّح له
 /// برؤية الأسماء. الواجهة تُظهر له الإحصائيات المجمّعة بدلاً منها.
 class ContributorsRepository extends SupabaseRepository {
+  // اسم صندوق Hive الخاص بالإضافات المحلية في وضع الديمو
+  static const _demoBox = AppConfig.boxContributors;
+
   /// جلب كل المساهمين من نوع محدّد، مرتّبين بالأعلى مبلغاً
   Future<CachedResult<List<ContributorModel>>> load(ContributorType? type) async {
     if (!isLive) {
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      final demo = type == ContributorType.donor
-          ? [...DemoData.donors]
-          : [...DemoData.subscribers];
-      if (type == ContributorType.donor) {
-        demo.sort((a, b) => b.totalPaid.compareTo(a.totalPaid));
+
+      // اقرأ الإضافات المحلية من Hive (المحفوظة في وضع الديمو)
+      final localAdded = cache.readAll(_demoBox).map((m) {
+        try {
+          return ContributorModel.fromJson(m);
+        } catch (_) {
+          return null;
+        }
+      }).whereType<ContributorModel>().toList();
+
+      // دمج البيانات التجريبية مع المُضاف محلياً
+      final List<ContributorModel> combined;
+      if (type == null) {
+        // عرض الكل: DemoData كاملة + جميع الإضافات المحلية
+        combined = [
+          ...DemoData.donors,
+          ...DemoData.subscribers,
+          ...localAdded,
+        ];
+      } else {
+        // عرض نوع محدد: DemoData للنوع + الإضافات المحلية من نفس النوع
+        final demoList = type == ContributorType.donor
+            ? [...DemoData.donors]
+            : type == ContributorType.subscriber
+                ? [...DemoData.subscribers]
+                : <ContributorModel>[];
+        final localOfType = localAdded.where((c) => c.type == type).toList();
+        combined = [...demoList, ...localOfType];
       }
-      return CachedResult(data: demo, fromCache: false);
+
+      combined.sort((a, b) => b.totalPaid.compareTo(a.totalPaid));
+      return CachedResult(data: combined, fromCache: false);
     }
 
     // نخزّن كل نوع في مفتاح مستقل داخل نفس الصندوق
@@ -51,8 +79,16 @@ class ContributorsRepository extends SupabaseRepository {
     );
   }
 
-  /// إضافة مساهم — المدير فقط (تفرضه RLS، والواجهة تخفي الزر أصلاً)
+  /// إضافة مساهم — في الديمو يُحفظ محلياً في Hive، وفي الإنتاج يُرسل لـ Supabase.
   Future<ContributorModel> create(ContributorModel c) async {
+    if (!isLive) {
+      // حفظ محلي في Hive بالمعرف الخاص به
+      final json = c.toWriteJson();
+      json['id'] = c.id;
+      await cache.put(_demoBox, c.id, json);
+      return c;
+    }
+
     final row = await db
         .from('contributors')
         .insert(c.toWriteJson()..remove('id'))
