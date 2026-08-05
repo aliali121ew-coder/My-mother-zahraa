@@ -188,10 +188,11 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
 
       await ref.read(contributorsRepositoryProvider).create(newContributor);
 
-      ref.invalidate(statsProvider);
-      ref.invalidate(donorsProvider);
-      ref.invalidate(subscribersProvider);
-      ref.invalidate(allContributorsProvider);
+      // إبطال المزوّدات الخام لإجبار إعادة الجلب الفعلي
+      ref.invalidate(statsRawProvider);
+      ref.invalidate(donorsRawProvider);
+      ref.invalidate(subscribersRawProvider);
+      ref.invalidate(allContributorsRawProvider);
 
       if (mounted) {
         // الترحيل المباشر لصفحة القسم المناسب بعد الحفظ
