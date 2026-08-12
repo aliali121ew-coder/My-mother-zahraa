@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -71,6 +72,152 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
       _selectedYear += delta;
     });
     _loadLedger();
+  }
+
+  Future<void> _show3DSuccessDialog({
+    required String title,
+    required String subtitle,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (ctx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [
+                          AppColors.greenDeep.withValues(alpha: 0.95),
+                          AppColors.greenAbyss.withValues(alpha: 0.98),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.96),
+                          const Color(0xFFF7F0DF).withValues(alpha: 0.96),
+                        ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppColors.gold.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.green.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🌟 علامة صح 3D البارزة والجميلة 🌟
+                  Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppColors.green,
+                          AppColors.greenDeep,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: AppColors.goldBright,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.green.withValues(alpha: 0.5),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                        BoxShadow(
+                          color: AppColors.gold.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // عنوان النجاح
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFamily,
+                      fontSize: 18.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // التفاصيل الفرعية
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // زر الإغلاق الموافق
+                  SizedBox(
+                    width: 140,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.green,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'موافق',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -954,7 +1101,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
         : DateTime.now();
 
     final amountController = TextEditingController(
-        text: currentAmount > 0 ? currentAmount.toStringAsFixed(0) : '');
+        text: currentAmount > 0 ? Fmt.amount(currentAmount) : '');
     DateTime paymentDate = currentPaidAt;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1040,6 +1187,10 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                               controller: amountController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: false),
                               textAlign: TextAlign.center,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                ThousandsFormatter(),
+                              ],
                               style: const TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 18,
@@ -1153,8 +1304,6 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                   }
 
                                   final nav = Navigator.of(ctx);
-                                  final messenger =
-                                      ScaffoldMessenger.of(context);
                                   final repo =
                                       ref.read(contributorsRepositoryProvider);
 
@@ -1176,13 +1325,13 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
                                   if (mounted) {
                                     nav.pop();
-                                    messenger.showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '✅ تم تسجيل تسديد شهر $monthName بمبلغ ${Fmt.money(amount)} بنجاح!',
-                                        ),
-                                        backgroundColor: AppColors.greenDeep,
-                                      ),
+                                    await _show3DSuccessDialog(
+                                      title: isDonor
+                                          ? 'تم حفظ التبرع بنجاح ✅'
+                                          : 'تم حفظ التعديل بنجاح ✅',
+                                      subtitle: isDonor
+                                          ? 'تم تسجيل تبرع شهر $monthName بمبلغ ${Fmt.money(amount)}'
+                                          : 'تم تسجيل تسديد شهر $monthName بمبلغ ${Fmt.money(amount)}',
                                     );
                                   }
                                 },
@@ -1197,9 +1346,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                 child: OutlinedButton.icon(
                                   icon: const Icon(Icons.cancel_outlined,
                                       size: 16, color: Colors.redAccent),
-                                  label: const Text(
-                                    'إلغاء التسديد',
-                                    style: TextStyle(
+                                  label: Text(
+                                    isDonor ? 'إلغاء التبرع' : 'إلغاء التسديد',
+                                    style: const TextStyle(
                                       fontFamily: AppTheme.fontFamily,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -1217,8 +1366,6 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                   ),
                                   onPressed: () async {
                                     final nav = Navigator.of(ctx);
-                                    final messenger =
-                                        ScaffoldMessenger.of(context);
                                     final repo =
                                         ref.read(contributorsRepositoryProvider);
 
@@ -1240,13 +1387,13 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
                                     if (mounted) {
                                       nav.pop();
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '🔄 تم إلغاء تسديد شهر $monthName',
-                                          ),
-                                          backgroundColor: Colors.orange,
-                                        ),
+                                      await _show3DSuccessDialog(
+                                        title: isDonor
+                                            ? 'تم إلغاء التبرع ✅'
+                                            : 'تم إلغاء التسديد ✅',
+                                        subtitle: isDonor
+                                            ? 'تم إلغاء تبرع شهر $monthName بنجاح'
+                                            : 'تم إلغاء تسديد شهر $monthName بنجاح',
                                       );
                                     }
                                   },
@@ -2616,6 +2763,29 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           ),
         );
       },
+    );
+  }
+}
+
+/// منسق أرقام يضيف فوارز الآلاف تلقائياً أثناء الكتابة
+class ThousandsFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+    final cleanText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanText.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+    final number = int.tryParse(cleanText);
+    if (number == null) return newValue;
+
+    final formatted = Fmt.amount(number);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
