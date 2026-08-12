@@ -82,14 +82,6 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
             ? 'قائمة الداعمين والمساهمين'
             : (widget.showDonors == true ? 'قائمة المتبرعين' : 'قائمة المشتركين'));
 
-    final sectionName = widget.showAll
-        ? 'جميع السجلات'
-        : (widget.showSupporters
-            ? 'سجلات الداعمين'
-            : (widget.showDonors == true
-                ? 'سجلات المتبرعين'
-                : 'سجلات المشتركين'));
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -284,10 +276,53 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
               ),
             ),
           ] else if (session.role.canManageContributors) ...[
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
-              tooltip: 'تحديد $sectionName للحذف',
-              onPressed: () => setState(() => _isSelectionMode = true),
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.more_vert_rounded,
+                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+              ),
+              tooltip: 'خيارات الإدارة',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: AppColors.gold.withValues(alpha: 0.3),
+                ),
+              ),
+              onSelected: (val) {
+                if (val == 'delete_mode') {
+                  setState(() => _isSelectionMode = true);
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem<String>(
+                  value: 'delete_mode',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        widget.showAll
+                            ? 'حذف المساهمين'
+                            : (widget.showSupporters
+                                ? 'حذف الداعمين'
+                                : (widget.showDonors == true
+                                    ? 'حذف المتبرعين'
+                                    : 'حذف المشتركين')),
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ],
