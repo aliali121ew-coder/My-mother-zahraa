@@ -1862,7 +1862,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
   ) async {
     final monthName = _monthNames[monthIndex - 1];
     String currentMode = 'add'; // 'add' (🟢 إضافة / ✏️ تعديل) أو 'edit' (📋 القائمة)
-    String selectedKind = 'cash'; // 'cash', 'construction', 'food'
+    String selectedKind = 'construction'; // 'construction', 'food'
     String? editingDonationId; // معرف التبرع المختار للتعديل
 
     final amountController = TextEditingController();
@@ -2133,16 +2133,10 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                   onSelectForEdit: (don) {
                                     setModalState(() {
                                       editingDonationId = don['id']?.toString();
-                                      selectedKind = don['kind']?.toString() ?? 'cash';
-                                      final amt = (don['amount'] as num?) ?? 0;
+                                      selectedKind = don['kind']?.toString() ?? 'construction';
+                                      if (selectedKind == 'cash') selectedKind = 'construction';
                                       final textVal = don['text_value']?.toString() ?? '';
-                                      if (selectedKind == 'cash') {
-                                        amountController.text = amt > 0 ? Fmt.amount(amt) : '';
-                                        textValueController.clear();
-                                      } else {
-                                        textValueController.text = textVal;
-                                        amountController.clear();
-                                      }
+                                      textValueController.text = textVal;
                                       final dateStr = don['date']?.toString();
                                       if (dateStr != null) {
                                         final parsed = DateTime.tryParse(dateStr);
@@ -2246,16 +2240,6 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           children: [
             Expanded(
               child: _buildKindChip(
-                label: 'مبالغ مالية',
-                icon: Icons.payments_rounded,
-                selected: selectedKind == 'cash',
-                onTap: () => onKindChanged('cash'),
-                isDark: isDark,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _buildKindChip(
                 label: 'مواد أنشائية',
                 icon: Icons.construction_rounded,
                 selected: selectedKind == 'construction',
@@ -2263,7 +2247,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                 isDark: isDark,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: _buildKindChip(
                 label: 'مواد غذائية',
@@ -2280,72 +2264,33 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
         // الخلية المتزحلقة بحسب نوع التبرع
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          child: selectedKind == 'cash'
-              ? TextField(
-                  key: const ValueKey('cash_field'),
-                  controller: amountController,
-                  keyboardType: TextInputType.number,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.goldBright : AppColors.goldDark,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'المبلغ المالي (د.ع)',
-                    hintText: '10,000',
-                    prefixIcon:
-                        const Icon(Icons.payments_outlined, color: AppColors.gold),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                  ),
-                  onChanged: (val) {
-                    final raw =
-                        val.replaceAll(',', '').replaceAll('٬', '').trim();
-                    if (raw.isNotEmpty) {
-                      final n = num.tryParse(raw);
-                      if (n != null) {
-                        final fmt = Fmt.amount(n);
-                        if (fmt != val) {
-                          amountController.value = TextEditingValue(
-                            text: fmt,
-                            selection:
-                                TextSelection.collapsed(offset: fmt.length),
-                          );
-                        }
-                      }
-                    }
-                  },
-                )
-              : TextField(
-                  key: ValueKey('${selectedKind}_field'),
-                  controller: textValueController,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 14,
-                    color: isDark ? AppColors.goldBright : AppColors.goldDark,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: selectedKind == 'food'
-                        ? 'وصف المواد الغذائية (مثال: 5 سلات غذائية)'
-                        : 'وصف المواد الإنشائية (مثال: 10 أكياس سمنت)',
-                    hintText: selectedKind == 'food'
-                        ? 'أدخل نوع وكمية التبرع الغذائي'
-                        : 'أدخل نوع وكمية التبرع الإنشائي',
-                    prefixIcon: Icon(
-                      selectedKind == 'food'
-                          ? Icons.rice_bowl_outlined
-                          : Icons.construction_outlined,
-                      color: AppColors.gold,
-                    ),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                  ),
-                ),
+          child: TextField(
+            key: ValueKey('${selectedKind}_field'),
+            controller: textValueController,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14,
+              color: isDark ? AppColors.goldBright : AppColors.goldDark,
+            ),
+            decoration: InputDecoration(
+              labelText: selectedKind == 'food'
+                  ? 'وصف المواد الغذائية (مثال: 5 سلات غذائية)'
+                  : 'وصف المواد الإنشائية (مثال: 10 أكياس سمنت)',
+              hintText: selectedKind == 'food'
+                  ? 'أدخل نوع وكمية التبرع الغذائي'
+                  : 'أدخل نوع وكمية التبرع الإنشائي',
+              prefixIcon: Icon(
+                selectedKind == 'food'
+                    ? Icons.rice_bowl_outlined
+                    : Icons.construction_outlined,
+                color: AppColors.gold,
+              ),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
 
