@@ -85,8 +85,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             loading: () => const SizedBox(height: 80),
             error: (err, stack) => const SizedBox.shrink(),
             data: (stats) {
-              final totalContribsCount =
-                  stats.subscribersCount + stats.donorsCount + stats.inKindCount;
               final subscribersCount =
                   allContribsAsync.valueOrNull
                           ?.where((c) => c.isSubscriber)
@@ -151,44 +149,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                                         ? AppColors.goldBright
                                         : AppColors.greenDeep,
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.gold.withValues(alpha: 0.2)
-                                : AppColors.greenDeep.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.gold.withValues(alpha: 0.4)
-                                  : AppColors.greenDeep.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.verified_user_rounded,
-                                  size: 14,
-                                  color: isDark
-                                      ? AppColors.goldBright
-                                      : AppColors.greenDeep),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$totalContribsCount مساهم',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark
-                                      ? AppColors.goldBright
-                                      : AppColors.greenDeep,
                                 ),
                               ),
                             ],
