@@ -494,11 +494,19 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
             // شبكة تفاصيل الكارت الثلاثية المنظمة برقي من غير أي تداخل
             Builder(builder: (context) {
               final isDonor = c.type != ContributorType.subscriber;
+              final isInKind = c.type == ContributorType.inKind;
 
+              int totalInKindContributionsCount = 0;
               num calcTotalPaid = 0;
               for (final e in _ledger.values) {
                 if (e['is_paid'] == true) {
                   calcTotalPaid += (e['amount'] as num? ?? 0);
+                  final donations = e['donations'];
+                  if (donations is List && donations.isNotEmpty) {
+                    totalInKindContributionsCount += donations.length;
+                  } else {
+                    totalInKindContributionsCount += 1;
+                  }
                 }
               }
               final displayTotalPaid =
@@ -544,9 +552,13 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                     _vMetricDivider(isDark),
                     Expanded(
                       child: _buildDetailMetric(
-                        label: 'إجمالي الدفعات',
-                        value: Fmt.money(displayTotalPaid),
-                        icon: Icons.monetization_on_rounded,
+                        label: isInKind ? 'إجمالي المساهمات' : 'إجمالي الدفعات',
+                        value: isInKind
+                            ? '$totalInKindContributionsCount مساهمة'
+                            : Fmt.money(displayTotalPaid),
+                        icon: isInKind
+                            ? Icons.inventory_2_rounded
+                            : Icons.monetization_on_rounded,
                         isDark: isDark,
                       ),
                     ),
@@ -838,7 +850,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // السطر الأول: العنوان مع أيقونة المحفظة الفخمة
+                          // السطر الأول: العنوان مع أيقونة فخمة
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -852,7 +864,11 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                   ),
                                 ),
                                 child: Icon(
-                                  Icons.account_balance_wallet_rounded,
+                                  isSubscriberType
+                                      ? Icons.account_balance_wallet_rounded
+                                      : (isDonorType
+                                          ? Icons.payments_rounded
+                                          : Icons.inventory_2_rounded),
                                   size: 16,
                                   color: isDark ? AppColors.goldBright : AppColors.goldDark,
                                 ),
@@ -864,7 +880,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                       ? 'إجمالي اشتراكات عام $_selectedYear'
                                       : (isDonorType
                                           ? 'إجمالي تبرعات عام $_selectedYear'
-                                          : 'إجمالي المساهمات المالية لعام $_selectedYear'),
+                                          : 'إجمالي المساهمات لعام $_selectedYear'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: AppTheme.displayFamily,
@@ -878,36 +894,51 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                           ),
                           const SizedBox(height: 8),
 
-                          // السطر الثاني: شارة المبلغ الرقمي البارزة في المنتصف كسطر مستقل
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.35)
-                                  : Colors.white.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.gold.withValues(alpha: 0.45),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.gold.withValues(alpha: 0.12),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
+                          // السطر الثاني: شارة القيمة البارزة في المنتصف كسطر مستقل
+                          Builder(builder: (context) {
+                            int yearInKindCount = 0;
+                            for (final e in _ledger.values) {
+                              if (e['is_paid'] == true) {
+                                final dons = e['donations'];
+                                if (dons is List && dons.isNotEmpty) {
+                                  yearInKindCount += dons.length;
+                                } else {
+                                  yearInKindCount += 1;
+                                }
+                              }
+                            }
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.black.withValues(alpha: 0.35)
+                                    : Colors.white.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.gold.withValues(alpha: 0.45),
                                 ),
-                              ],
-                            ),
-                            child: Text(
-                              Fmt.money(yearTotal),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: AppTheme.displayFamily,
-                                fontSize: 16.5,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.gold.withValues(alpha: 0.12),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
+                              child: Text(
+                                (!isSubscriberType && !isDonorType)
+                                    ? '$yearInKindCount مساهمة'
+                                    : Fmt.money(yearTotal),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.displayFamily,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                                ),
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
