@@ -1856,3 +1856,7 @@ esolutionStrategy في [build.gradle.kts](file:///E:/zaharaa-cuorse/android/buil
 ### ??????:
 - lutter analyze: **No issues found!** ?
 - lutter test: ???? ???? ?
+
+## إدارة الفروع ودورة العمل (Git Workflow)
+- تم إنشاء فرع التطوير والتعديلات dev ورفعه إلى GitHub (origin/dev).
+- المبدأ المعمول به: جميع التعديلات والتطويرات تجري على فرع dev أولاً، وبعد اختبارها وتأكيد استقرارها يتم دمجها (Merge) في الفرع الرئيسي main (الإنتاجي).
