@@ -114,11 +114,24 @@ final appRouter = GoRouter(
               routes: [
                 GoRoute(
                   path: 'subscribers',
-                  builder: (_, _) => const ReportDetailPage(isDonorsReport: false),
+                  builder: (_, _) => const ReportDetailPage(
+                    isDonorsReport: false,
+                    reportType: 'subscribers',
+                  ),
                 ),
                 GoRoute(
                   path: 'donors',
-                  builder: (_, _) => const ReportDetailPage(isDonorsReport: true),
+                  builder: (_, _) => const ReportDetailPage(
+                    isDonorsReport: true,
+                    reportType: 'donors',
+                  ),
+                ),
+                GoRoute(
+                  path: ':type',
+                  builder: (context, state) => ReportDetailPage(
+                    isDonorsReport: false,
+                    reportType: state.pathParameters['type'],
+                  ),
                 ),
               ],
             ),

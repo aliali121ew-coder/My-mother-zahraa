@@ -16,9 +16,14 @@ import '../data/pdf_report_service.dart';
 /// تمتاز بتثبيت عمود الاسم وتمرير أفقي لبقية الأعمدة مع شريط أدوات
 /// علوي للطباعة والمشاركة بتنسيق A4 احترافي باللغة العربية.
 class ReportDetailPage extends ConsumerStatefulWidget {
-  const ReportDetailPage({super.key, required this.isDonorsReport});
+  const ReportDetailPage({
+    super.key,
+    required this.isDonorsReport,
+    this.reportType,
+  });
 
   final bool isDonorsReport;
+  final String? reportType;
 
   @override
   ConsumerState<ReportDetailPage> createState() => _ReportDetailPageState();
@@ -58,13 +63,44 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
     super.dispose();
   }
 
+  String _getReportTitle() {
+    final type = widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers');
+    switch (type) {
+      case 'donors':
+        return 'تقرير المتبرعين التفصيلي';
+      case 'supporters':
+        return 'تقرير الداعمين والمساهمين (العيني)';
+      case 'paid':
+        return 'تقرير المشتركين المسددين';
+      case 'overdue':
+        return 'تقرير المشتركين المتأخرين';
+      case 'all_consolidated':
+        return 'تقرير كافة المساهمين الموحد (الفئات الـ 3)';
+      case 'vault':
+        return 'كشف حركة الخزنة والمالية';
+      case 'purchases':
+        return 'سجل المشتريات والنفقات';
+      case 'visits_log':
+        return 'سجل الزيارات والضيوف';
+      case 'interactions_log':
+        return 'سجل تفاعلات المنشورات';
+      case 'account_requests':
+        return 'طلبات تسجيل الحسابات';
+      case 'blocked_users':
+        return 'سجل المستخدمين المحظورين';
+      case 'archive_log':
+        return 'السجل الأرشيفي والإداري';
+      case 'subscribers':
+      default:
+        return 'تقرير المشتركين التفصيلي';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final asyncData = widget.isDonorsReport
-        ? ref.watch(donorsProvider)
-        : ref.watch(subscribersProvider);
-
-    final title = widget.isDonorsReport ? 'تقرير المتبرعين التفصيلي' : 'تقرير المشتركين التفصيلي';
+    final asyncData = ref.watch(allContributorsProvider);
+    final title = _getReportTitle();
+    final type = widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers');
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -102,14 +138,34 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
         ),
         data: (allContributors) {
           final query = _searchController.text.trim();
-          final filtered = allContributors.where((c) {
+
+          // تصفية العناصر حسب نوع التقرير المطلوبة
+          final rawFiltered = allContributors.where((c) {
+            switch (type) {
+              case 'donors':
+                return c.type == ContributorType.donor;
+              case 'supporters':
+                return c.type == ContributorType.inKind;
+              case 'paid':
+                return c.isSubscriber && !c.isOverdue;
+              case 'overdue':
+                return c.isSubscriber && c.isOverdue;
+              case 'all_consolidated':
+                return true; // الفئات الثلاث
+              case 'subscribers':
+              default:
+                return c.isSubscriber;
+            }
+          }).toList();
+
+          final filtered = rawFiltered.where((c) {
             if (query.isEmpty) return true;
             return c.fullName.contains(query) || (c.phone?.contains(query) ?? false);
           }).toList();
 
           num totalSum = 0;
           for (final c in filtered) {
-            totalSum += widget.isDonorsReport
+            totalSum += (type == 'donors' || type == 'all_consolidated')
                 ? c.totalPaid
                 : (c.subscriptionAmount ?? 0);
           }

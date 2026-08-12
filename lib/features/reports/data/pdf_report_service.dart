@@ -442,4 +442,22 @@ class PdfReportService {
       ),
     );
   }
+
+  /// توليد وطباعة التقرير الشامل لجميع المساهمين (الفئات الـ 3) في ملف A4 واحد
+  static Future<void> printConsolidatedReport({
+    required String title,
+    required List<ContributorModel> allItems,
+  }) async {
+    final pdfBytes = await generateReportPdf(
+      title: title,
+      items: allItems,
+      isDonorsReport: false,
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdfBytes,
+      name: '$title - ${DateFormat('yyyy-MM-dd', 'en').format(DateTime.now())}',
+    );
+  }
 }
+
