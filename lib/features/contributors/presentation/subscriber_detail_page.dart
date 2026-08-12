@@ -602,10 +602,10 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                       if (m < 12) const Divider(height: 1, thickness: 0.5),
                     ],
 
-                    // تذييل المجموع السنوي الفخم والاحترافي
+                    // تذييل المجموع السنوي الفخم والاحترافي المرتّب سطر تحت سطر
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: isDark
@@ -617,8 +617,8 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                                   AppColors.lightGreenTint,
                                   AppColors.gold.withValues(alpha: 0.12),
                                 ],
-                          begin: Alignment.centerRight,
-                          end: Alignment.centerLeft,
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
                         border: Border(
                           top: BorderSide(
@@ -627,88 +627,75 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                           ),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // أيقونة المحفظة الفخمة
-                          Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.gold.withValues(alpha: 0.18),
-                              border: Border.all(
-                                color: AppColors.gold.withValues(alpha: 0.4),
+                          // السطر الأول: العنوان مع أيقونة المحفظة الفخمة
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.gold.withValues(alpha: 0.18),
+                                  border: Border.all(
+                                    color: AppColors.gold.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.account_balance_wallet_rounded,
+                                  size: 16,
+                                  color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                                ),
                               ),
-                            ),
-                            child: Icon(
-                              Icons.account_balance_wallet_rounded,
-                              size: 18,
-                              color: isDark ? AppColors.goldBright : AppColors.goldDark,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-
-                          // عنوان المجموع حسب نوع المساهم
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
                                   isSubscriberType
                                       ? 'إجمالي اشتراكات عام $_selectedYear'
                                       : (isDonorType
                                           ? 'إجمالي تبرعات عام $_selectedYear'
                                           : 'إجمالي المساهمات المالية لعام $_selectedYear'),
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: AppTheme.displayFamily,
-                                    fontSize: 13,
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.bold,
                                     color: isDark ? Colors.white : Colors.black87,
                                   ),
                                 ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  isSubscriberType
-                                      ? 'مجموع التسديدات المسجلة'
-                                      : (isDonorType
-                                          ? 'صافي التبرعات المدفوعة'
-                                          : 'إجمالي المبالغ النقدية'),
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 10.5,
-                                    color: isDark
-                                        ? AppColors.textOnDarkMuted
-                                        : AppColors.textOnLightMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
 
-                          // شارة المبلغ الرقمي البارزة الفخمة
+                          // السطر الثاني: شارة المبلغ الرقمي البارزة في المنتصف كسطر مستقل
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                             decoration: BoxDecoration(
                               color: isDark
                                   ? Colors.black.withValues(alpha: 0.35)
                                   : Colors.white.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: AppColors.gold.withValues(alpha: 0.4),
+                                color: AppColors.gold.withValues(alpha: 0.45),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.gold.withValues(alpha: 0.1),
-                                  blurRadius: 6,
+                                  color: AppColors.gold.withValues(alpha: 0.12),
+                                  blurRadius: 8,
                                   spreadRadius: 1,
                                 ),
                               ],
                             ),
                             child: Text(
                               Fmt.money(yearTotal),
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontFamily: AppTheme.displayFamily,
-                                fontSize: 15.5,
+                                fontSize: 16.5,
                                 fontWeight: FontWeight.w800,
                                 color: isDark ? AppColors.goldBright : AppColors.goldDark,
                               ),
