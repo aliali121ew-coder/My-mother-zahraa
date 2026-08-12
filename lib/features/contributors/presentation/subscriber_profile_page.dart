@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -160,6 +161,157 @@ class _SubscriberProfilePageState
     }
   }
 
+  /// التحقق مما إذا قام المستخدم بإجراء أي تعديلات غير محفوظة
+  bool _hasUnsavedChanges(ContributorModel original) {
+    if (!_isInitialized) return false;
+
+    final nameText = _nameController.text.trim();
+    final nameChanged = nameText.isNotEmpty && nameText != original.fullName;
+
+    final phoneText = _phoneController.text.trim();
+    final originalPhone = original.phone ?? '';
+    final phoneChanged = phoneText != originalPhone;
+
+    final addressText = _addressController.text.trim();
+    final originalAddress = original.address ?? '';
+    final addressChanged = addressText != originalAddress;
+
+    final notesText = _notesController.text.trim();
+    final originalNotes = original.notes ?? '';
+    final notesChanged = notesText != originalNotes;
+
+    final rawAmount = _amountController.text
+        .replaceAll(',', '')
+        .replaceAll('٬', '')
+        .trim();
+    final parsedAmount = num.tryParse(rawAmount);
+    final originalAmount = original.subscriptionAmount;
+    final amountChanged = parsedAmount != originalAmount;
+
+    final typeChanged = _selectedType != original.type;
+    final subTypeChanged =
+        _selectedSubType != (original.subscriptionType ?? SubscriptionType.monthly);
+
+    final photoChanged = _pickedImage != null;
+
+    return nameChanged ||
+        phoneChanged ||
+        addressChanged ||
+        notesChanged ||
+        amountChanged ||
+        typeChanged ||
+        subTypeChanged ||
+        photoChanged;
+  }
+
+  /// معالجة طلب الرجوع وإظهار نافذة التنبيه عند وجود تعديلات
+  Future<bool> _handleBackPress(ContributorModel subscriber) async {
+    if (!_hasUnsavedChanges(subscriber)) {
+      return true;
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final shouldPop = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
+      builder: (ctx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.overdue.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppColors.overdue,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'تنبيه: إلغاء التعديلات؟',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFamily,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'لقد قمت بإجراء تعديلات على بيانات الملف الشخصي. هل أنت تأكيد من الخروج وإلغاء التعديلات؟',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13,
+                      color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'متابعة التعديل',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.overdue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            'إلغاء التعديلات',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return shouldPop ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final subscribersAsync = ref.watch(allContributorsProvider);
@@ -175,24 +327,50 @@ class _SubscriberProfilePageState
         fullName: 'المساهم',
       ),
     );
-    final isDonor = currentContrib.type != ContributorType.subscriber;
-    final pageTitle = isDonor ? 'ملف المتبرع الشخصي' : 'ملف المشترك الشخصي';
+    final isSubscriber = currentContrib.type == ContributorType.subscriber;
+    final isDonor = currentContrib.type == ContributorType.donor;
+    final pageTitle = isSubscriber
+        ? 'ملف المشترك الشخصي'
+        : (isDonor ? 'ملف المتبرع الشخصي' : 'ملف الداعم الشخصي');
 
-    return AppBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AutoHidingAppBar(
-          title: Text(
-            pageTitle,
-            style: TextStyle(
-              fontFamily: AppTheme.displayFamily,
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.goldBright : AppColors.goldDark,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final ok = await _handleBackPress(currentContrib);
+        if (ok && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: AppBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AutoHidingAppBar(
+            title: Text(
+              pageTitle,
+              style: TextStyle(
+                fontFamily: AppTheme.displayFamily,
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+              ),
+            ),
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                size: 20,
+              ),
+              tooltip: 'رجوع',
+              onPressed: () async {
+                final ok = await _handleBackPress(currentContrib);
+                if (ok && context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
           ),
-        ),
-        body: subscribersAsync.when(
+          body: subscribersAsync.when(
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppColors.gold),
           ),
@@ -246,7 +424,8 @@ class _SubscriberProfilePageState
           orElse: () => const SizedBox.shrink(),
         ),
       ),
-    );
+    ),
+  );
   }
 
   /// 1️⃣ كارت الاسم والصورة الشخصية الهيرو بتصميم بطاقة رسمية احترافية
