@@ -349,11 +349,53 @@ class ContributorsRepository extends SupabaseRepository {
           : <String, dynamic>{};
 
       if (isPaid && amount > 0) {
-        map[month.toString()] = {
+        final monthStr = month.toString();
+        final monthData = map.containsKey(monthStr) && map[monthStr] is Map
+            ? Map<String, dynamic>.from(map[monthStr] as Map)
+            : <String, dynamic>{};
+
+        final donationsList = monthData.containsKey('donations') &&
+                monthData['donations'] is List
+            ? List<Map<String, dynamic>>.from(monthData['donations'] as List)
+            : <Map<String, dynamic>>[];
+
+        if (donationsList.isEmpty &&
+            monthData.containsKey('amount') &&
+            (monthData['amount'] as num? ?? 0) > 0) {
+          donationsList.add({
+            'id': 'legacy_1',
+            'kind': 'cash',
+            'amount': monthData['amount'],
+            'date': monthData['paid_at'] ?? paidAt.toUtc().toIso8601String(),
+          });
+        }
+
+        donationsList.add({
+          'id': DateTime.now().millisecondsSinceEpoch.toString(),
+          'kind': 'cash',
           'amount': amount,
-          'paid_at': paidAt.toUtc().toIso8601String(),
-          'is_paid': true,
-        };
+          'date': paidAt.toUtc().toIso8601String(),
+        });
+
+        num totalCash = 0;
+        DateTime latestDate = paidAt;
+        for (final d in donationsList) {
+          totalCash += (d['amount'] as num? ?? 0);
+          final dDateStr = d['date']?.toString();
+          if (dDateStr != null) {
+            final parsed = DateTime.tryParse(dDateStr);
+            if (parsed != null && parsed.isAfter(latestDate)) {
+              latestDate = parsed;
+            }
+          }
+        }
+
+        monthData['amount'] = totalCash;
+        monthData['paid_at'] = latestDate.toUtc().toIso8601String();
+        monthData['is_paid'] = true;
+        monthData['donations'] = donationsList;
+
+        map[monthStr] = monthData;
       } else {
         map.remove(month.toString());
       }
