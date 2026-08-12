@@ -293,6 +293,16 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
             // شبكة تفاصيل الكارت الثلاثية المنظمة برقي من غير أي تداخل
             Builder(builder: (context) {
               final isDonor = c.type != ContributorType.subscriber;
+
+              num calcTotalPaid = 0;
+              for (final e in _ledger.values) {
+                if (e['is_paid'] == true) {
+                  calcTotalPaid += (e['amount'] as num? ?? 0);
+                }
+              }
+              final displayTotalPaid =
+                  calcTotalPaid > 0 ? calcTotalPaid : c.totalPaid;
+
               return Container(
                 padding:
                     const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -333,13 +343,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                     _vMetricDivider(isDark),
                     Expanded(
                       child: _buildDetailMetric(
-                        label: isDonor ? 'إجمالي الدفعات' : 'نوع الاشتراك',
-                        value: isDonor
-                            ? Fmt.money(c.totalPaid)
-                            : (c.subscriptionType?.label ?? 'شهري'),
-                        icon: isDonor
-                            ? Icons.monetization_on_rounded
-                            : Icons.repeat_rounded,
+                        label: 'إجمالي الدفعات',
+                        value: Fmt.money(displayTotalPaid),
+                        icon: Icons.monetization_on_rounded,
                         isDark: isDark,
                       ),
                     ),

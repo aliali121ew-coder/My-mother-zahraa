@@ -49,7 +49,7 @@ void main() {
     expect(find.text('ملف المشترك التفصيلي'), findsOneWidget);
     expect(find.text('سيد عباس الغريفي'), findsOneWidget);
     expect(find.text('فئة الاشتراك'), findsOneWidget);
-    expect(find.text('نوع الاشتراك'), findsOneWidget);
+    expect(find.text('إجمالي الدفعات'), findsOneWidget);
 
     // التحقق من ترويسة جدول المشتركين
     expect(find.text('جدول التسديدات الشهري (12 شهراً)'), findsOneWidget);
