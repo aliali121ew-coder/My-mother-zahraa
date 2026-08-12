@@ -1929,156 +1929,347 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     if (entry == null) return;
     final monthName = _monthNames[monthIndex - 1];
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final donations = entry['donations'] is List
+    final rawDonations = entry['donations'] is List
         ? List<Map<String, dynamic>>.from(entry['donations'] as List)
         : <Map<String, dynamic>>[];
+
+    final paidAtStr = entry['paid_at']?.toString();
+    final fallbackDate =
+        paidAtStr != null ? DateTime.tryParse(paidAtStr) : DateTime.now();
     final totalAmt = (entry['amount'] as num?) ?? 0;
+
+    final donations = rawDonations.isNotEmpty
+        ? rawDonations
+        : [
+            if (totalAmt > 0)
+              {
+                'id': 'legacy_1',
+                'kind': 'cash',
+                'amount': totalAmt,
+                'text_value': '',
+                'date': fallbackDate?.toUtc().toIso8601String(),
+              }
+          ];
 
     await showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.50),
+      barrierColor: Colors.black.withValues(alpha: 0.55),
       builder: (ctx) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded,
-                    color: AppColors.gold, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'تفاصيل تبرعات شهر $monthName ($_selectedYear)',
-                    style: const TextStyle(
-                      fontFamily: AppTheme.displayFamily,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+            child: Container(
+              width: 380,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.greenAbyss : Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: AppColors.gold.withValues(alpha: 0.4),
+                  width: 1.2,
                 ),
-              ],
-            ),
-            content: SingleChildScrollView(
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (donations.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('المبلغ المسدد:',
-                              style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 13,
-                                  color:
-                                      isDark ? Colors.white70 : Colors.black87)),
-                          Text(Fmt.money(totalAmt),
-                              style: const TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.green)),
+                  // ── الهيدر الملكي ──
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.greenDeep.withValues(alpha: 0.95),
+                          AppColors.greenAbyss,
                         ],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
                       ),
-                    )
-                  else
-                    Column(
-                      children: donations.map((d) {
-                        final amt = (d['amount'] as num?) ?? 0;
-                        final dateStr = d['date']?.toString();
-                        final dDate =
-                            dateStr != null ? DateTime.tryParse(dateStr) : null;
-                        final kind = d['kind']?.toString() ?? 'cash';
-                        final textVal = d['text_value']?.toString() ?? '';
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.05)
-                                : Colors.black.withValues(alpha: 0.03),
-                            borderRadius: BorderRadius.circular(12),
+                            shape: BoxShape.circle,
+                            color: AppColors.gold.withValues(alpha: 0.2),
                             border: Border.all(
-                              color: AppColors.gold.withValues(alpha: 0.3),
+                              color: AppColors.gold.withValues(alpha: 0.5),
                             ),
                           ),
-                          child: Row(
+                          child: const Icon(
+                            Icons.info_outline_rounded,
+                            color: AppColors.goldBright,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.payments_rounded,
-                                  size: 16, color: AppColors.gold),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      kind == 'cash'
-                                          ? Fmt.money(amt)
-                                          : '$textVal (${kind == "food" ? "غذائي" : "إنشائي"})',
-                                      style: const TextStyle(
-                                        fontFamily: AppTheme.fontFamily,
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (dDate != null)
-                                      Text(
-                                        Fmt.date(dDate),
-                                        style: TextStyle(
-                                          fontFamily: AppTheme.fontFamily,
-                                          fontSize: 11,
-                                          color: isDark
-                                              ? AppColors.textOnDarkMuted
-                                              : AppColors.textOnLightMuted,
-                                        ),
-                                      ),
-                                  ],
+                              Text(
+                                'كشف تبرعات شهر $monthName',
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.displayFamily,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                'السنة المالية: $_selectedYear',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11.5,
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      }).toList(),
+                        ),
+                      ],
                     ),
-                  const Divider(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'إجمالي التبرعات المسددة:',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
+                  ),
+
+                  // ── قائمة الكروت التفصيلية ──
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (donations.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              child: Text(
+                                'لا توجد دفعات مسجلة لهذا الشهر',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white60 : Colors.black54,
+                                ),
+                              ),
+                            )
+                          else
+                            ...List.generate(donations.length, (idx) {
+                              final don = donations[idx];
+                              final amt = (don['amount'] as num?) ?? 0;
+                              final dateStr = don['date']?.toString();
+                              final dDate = dateStr != null
+                                  ? DateTime.tryParse(dateStr)
+                                  : fallbackDate;
+                              final kind = don['kind']?.toString() ?? 'cash';
+                              final textVal = don['text_value']?.toString() ?? '';
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.05)
+                                      : Colors.black.withValues(alpha: 0.03),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: AppColors.gold.withValues(alpha: 0.35),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isDark
+                                          ? Colors.black.withValues(alpha: 0.3)
+                                          : Colors.black.withValues(alpha: 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // السطر الأول: رقم الدفعة #1 والمبلغ الرئيسي
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // الوسام الرقمي للدفعة #1
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.gold.withValues(alpha: 0.18),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: AppColors.gold.withValues(alpha: 0.4),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '#${idx + 1}',
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.displayFamily,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark
+                                                  ? AppColors.goldBright
+                                                  : AppColors.goldDark,
+                                            ),
+                                          ),
+                                        ),
+
+                                        // المبلغ الرئيسي بخط عريض
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            kind == 'cash'
+                                                ? Fmt.money(amt)
+                                                : textVal,
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.displayFamily,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                              color: kind == 'cash'
+                                                  ? AppColors.green
+                                                  : (isDark
+                                                      ? AppColors.goldBright
+                                                      : AppColors.goldDark),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Divider(height: 1),
+                                    const SizedBox(height: 10),
+
+                                    // السطر الثاني: تاريخ الإضافة الدقيق
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_today_rounded,
+                                          size: 13,
+                                          color: isDark
+                                              ? AppColors.textOnDarkMuted
+                                              : AppColors.textOnLightMuted,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'تاريخ الدفعة: ',
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontSize: 11.5,
+                                            color: isDark
+                                                ? AppColors.textOnDarkMuted
+                                                : AppColors.textOnLightMuted,
+                                          ),
+                                        ),
+                                        Text(
+                                          dDate != null ? Fmt.date(dDate) : '—',
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+
+                          const SizedBox(height: 6),
+
+                          // ── شارة المجموع النهائي منظم سطر تحت سطر بلا أي OverFlow ──
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isDark
+                                    ? [
+                                        AppColors.greenDeep.withValues(alpha: 0.9),
+                                        AppColors.greenAbyss,
+                                      ]
+                                    : [
+                                        AppColors.lightGreenTint,
+                                        AppColors.gold.withValues(alpha: 0.1),
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.gold.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'إجمالي تبرعات شهر $monthName',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.displayFamily,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    Fmt.money(totalAmt),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.displayFamily,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: isDark
+                                          ? AppColors.goldBright
+                                          : AppColors.goldDark,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── زر الإغلاق ──
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text(
+                          'إغلاق النافذة',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
-                      Text(
-                        Fmt.money(totalAmt),
-                        style: const TextStyle(
-                          fontFamily: AppTheme.displayFamily,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.gold,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('إغلاق',
-                    style: TextStyle(fontFamily: AppTheme.fontFamily)),
-              ),
-            ],
           ),
         );
       },
