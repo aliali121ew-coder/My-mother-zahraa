@@ -152,6 +152,11 @@ class ContributorsRepository extends SupabaseRepository {
         .eq('id', id);
   }
 
+  /// مسح جميع البيانات السابقة والوهمية من التخزين المحلي
+  Future<void> clearAllDemoData() async {
+    await cache.box(_demoBox).clear();
+  }
+
   /// تجاوز المدير اليدوي لحالة السداد. null = عُد للحساب التلقائي.
   Future<void> setLateOverride(String id, bool? isLate) =>
       db.from('contributors').update({'is_late_override': isLate}).eq('id', id);

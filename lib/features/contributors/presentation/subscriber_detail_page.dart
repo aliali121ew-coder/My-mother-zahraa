@@ -261,6 +261,60 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           ),
           actions: [
             IconButton(
+              tooltip: 'حذف المساهم',
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+              ),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('حذف المساهم؟',
+                        style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontWeight: FontWeight.bold)),
+                    content: Text(
+                        'هل أنت تأكيد من حذف السجل "${currentContrib.fullName}" نهائياً؟'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('إلغاء'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('حذف السجل',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  final nav = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final repo = ref.read(contributorsRepositoryProvider);
+                  await repo.softDelete(currentContrib.id);
+                  await Future.wait([
+                    ref.refresh(donorsRawProvider.future),
+                    ref.refresh(subscribersRawProvider.future),
+                    ref.refresh(allContributorsRawProvider.future),
+                    ref.refresh(statsRawProvider.future),
+                  ]);
+                  if (mounted) {
+                    nav.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('تم حذف المساهم بنجاح!'),
+                        backgroundColor: AppColors.greenDeep,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            IconButton(
               tooltip: 'الملف الشخصي',
               icon: Icon(
                 Icons.person_rounded,

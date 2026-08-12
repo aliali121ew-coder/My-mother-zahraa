@@ -92,6 +92,57 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
             ),
           ),
         ),
+        actions: [
+          if (session.role.canManageContributors)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+              tooltip: 'حذف البيانات الوهمية والتجريبية',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('حذف البيانات الوهمية؟',
+                        style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontWeight: FontWeight.bold)),
+                    content: const Text(
+                        'هل أنت تأكيد من حذف جميع السجلات والبيانات التجريبية نهائياً؟'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('إلغاء'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.overdue),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('حذف الكل',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  final repo = ref.read(contributorsRepositoryProvider);
+                  await repo.clearAllDemoData();
+                  await Future.wait([
+                    ref.refresh(donorsRawProvider.future),
+                    ref.refresh(subscribersRawProvider.future),
+                    ref.refresh(allContributorsRawProvider.future),
+                    ref.refresh(statsRawProvider.future),
+                  ]);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('تم حذف البيانات الوهمية بنجاح!'),
+                        backgroundColor: AppColors.greenDeep,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+        ],
       ),
       body: async.when(
         loading: () => const Center(
@@ -115,17 +166,87 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                             style: Theme.of(context).textTheme.bodyMedium),
                       )
                     : ListView.separated(
-                        // physics افتراضية + builder = تمرير سلس بلا بناء كل العناصر
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
                         itemCount: list.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, i) => ContributorTile(
-                          contributor: list[i],
-                          showStatus: widget.showDonors != true && !widget.showSupporters,
-                          showTypeBadge: widget.showAll,
-                          hideName: !session.role.canSeeNames,
-                          rank: _sort == _SortBy.amountDesc ? i + 1 : null,
-                        ),
+                        itemBuilder: (context, i) {
+                          final item = list[i];
+                          return Dismissible(
+                            key: Key('contrib_${item.id}'),
+                            direction: session.role.canManageContributors
+                                ? DismissDirection.endToStart
+                                : DismissDirection.none,
+                            background: Container(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'حذف السجل',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.delete_forever_rounded,
+                                      color: Colors.white, size: 24),
+                                  SizedBox(width: 16),
+                                ],
+                              ),
+                            ),
+                            confirmDismiss: (_) async {
+                              return await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('حذف المساهم؟',
+                                      style: TextStyle(
+                                          fontFamily: AppTheme.displayFamily,
+                                          fontWeight: FontWeight.bold)),
+                                  content: Text(
+                                      'هل أنت تأكيد من حذف السجل "${item.fullName}" نهائياً؟'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('إلغاء'),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.redAccent),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('حذف',
+                                          style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            onDismissed: (_) async {
+                              final repo = ref.read(contributorsRepositoryProvider);
+                              await repo.softDelete(item.id);
+                              await Future.wait([
+                                ref.refresh(donorsRawProvider.future),
+                                ref.refresh(subscribersRawProvider.future),
+                                ref.refresh(allContributorsRawProvider.future),
+                                ref.refresh(statsRawProvider.future),
+                              ]);
+                            },
+                            child: ContributorTile(
+                              contributor: item,
+                              showStatus: widget.showDonors != true &&
+                                  !widget.showSupporters,
+                              showTypeBadge: widget.showAll,
+                              hideName: !session.role.canSeeNames,
+                              rank: _sort == _SortBy.amountDesc ? i + 1 : null,
+                            ),
+                          );
+                        },
                       ),
               ),
             ],
