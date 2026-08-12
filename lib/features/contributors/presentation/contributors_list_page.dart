@@ -78,6 +78,22 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
             ? 'قائمة الداعمين والمساهمين'
             : (widget.showDonors == true ? 'قائمة المتبرعين' : 'قائمة المشتركين'));
 
+    final ContributorType? currentSectionType = widget.showAll
+        ? null
+        : (widget.showSupporters
+            ? ContributorType.inKind
+            : (widget.showDonors == true
+                ? ContributorType.donor
+                : ContributorType.subscriber));
+
+    final sectionName = widget.showAll
+        ? 'جميع السجلات'
+        : (widget.showSupporters
+            ? 'سجلات الداعمين'
+            : (widget.showDonors == true
+                ? 'سجلات المتبرعين'
+                : 'سجلات المشتركين'));
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -96,17 +112,17 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
           if (session.role.canManageContributors)
             IconButton(
               icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
-              tooltip: 'حذف البيانات الوهمية والتجريبية',
+              tooltip: 'حذف $sectionName فقط',
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('حذف البيانات الوهمية؟',
-                        style: TextStyle(
+                    title: Text('حذف $sectionName؟',
+                        style: const TextStyle(
                             fontFamily: AppTheme.displayFamily,
                             fontWeight: FontWeight.bold)),
-                    content: const Text(
-                        'هل أنت تأكيد من حذف جميع السجلات والبيانات التجريبية نهائياً؟'),
+                    content: Text(
+                        'هل أنت تأكيد من مسح وحذف $sectionName فقط نهائياً؟'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -116,15 +132,15 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                         style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.overdue),
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('حذف الكل',
-                            style: TextStyle(color: Colors.white)),
+                        child: Text('حذف $sectionName',
+                            style: const TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
                 );
-                if (confirm == true) {
+                if (confirm == true && context.mounted) {
                   final repo = ref.read(contributorsRepositoryProvider);
-                  await repo.clearAllDemoData();
+                  await repo.clearDemoDataByType(currentSectionType);
                   await Future.wait([
                     ref.refresh(donorsRawProvider.future),
                     ref.refresh(subscribersRawProvider.future),
@@ -133,8 +149,8 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                   ]);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('تم حذف البيانات الوهمية بنجاح!'),
+                      SnackBar(
+                        content: Text('تم حذف $sectionName بنجاح!'),
                         backgroundColor: AppColors.greenDeep,
                       ),
                     );

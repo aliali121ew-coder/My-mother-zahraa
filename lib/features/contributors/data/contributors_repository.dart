@@ -157,6 +157,48 @@ class ContributorsRepository extends SupabaseRepository {
     await cache.box(_demoBox).clear();
   }
 
+  /// مسح سجلات قسم محدد (متبرعين / مشتركون / داعمون) من التخزين المحلي فقط
+  Future<void> clearDemoDataByType(ContributorType? type) async {
+    if (type == null) {
+      await cache.box(_demoBox).clear();
+      return;
+    }
+
+    if (!isLive) {
+      final rawAll = cache.readAll(_demoBox);
+      final nowStr = DateTime.now().toUtc().toIso8601String();
+
+      for (final entry in rawAll) {
+        try {
+          final model = ContributorModel.fromJson(entry);
+          if (model.type == type) {
+            final map = Map<String, dynamic>.from(entry);
+            map['deleted_at'] = nowStr;
+            await cache.put(_demoBox, model.id, map);
+          }
+        } catch (_) {}
+      }
+
+      final demoList = type == ContributorType.donor
+          ? DemoData.donors
+          : (type == ContributorType.subscriber
+              ? DemoData.subscribers
+              : <ContributorModel>[]);
+
+      for (final c in demoList) {
+        await cache.put(_demoBox, 'del_${c.id}', {
+          'id': c.id,
+          'deleted_at': nowStr,
+        });
+      }
+    } else {
+      await db
+          .from('contributors')
+          .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('type', type.value);
+    }
+  }
+
   /// تجاوز المدير اليدوي لحالة السداد. null = عُد للحساب التلقائي.
   Future<void> setLateOverride(String id, bool? isLate) =>
       db.from('contributors').update({'is_late_override': isLate}).eq('id', id);
