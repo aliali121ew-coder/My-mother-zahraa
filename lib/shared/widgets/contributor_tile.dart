@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/app_config.dart';
+import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -61,6 +63,41 @@ class ContributorTile extends ConsumerWidget {
         ? c.totalPaid
         : (c.isSubscriber ? (c.subscriptionAmount ?? c.totalPaid) : c.totalPaid);
 
+    int inKindCount = 0;
+    if (c.type == ContributorType.inKind) {
+      final repo = ref.watch(contributorsRepositoryProvider);
+      for (int y = 2024; y <= 2030; y++) {
+        final boxKey = 'ledger_${c.id}_$y';
+        var raw = repo.cache.readOne(AppConfig.boxPayments, boxKey);
+        final rawMap = raw is Map ? raw : null;
+        if (rawMap != null) {
+          for (final monthEntry in rawMap.values) {
+            if (monthEntry is Map) {
+              final donations = monthEntry['donations'] is List
+                  ? (monthEntry['donations'] as List)
+                  : [];
+              if (donations.isNotEmpty) {
+                inKindCount += donations
+                    .where((d) =>
+                        d is Map &&
+                        (d['kind'] == 'food' || d['kind'] == 'construction'))
+                    .length;
+              } else {
+                final food = monthEntry['food_desc']?.toString() ?? '';
+                final constr =
+                    monthEntry['construction_desc']?.toString() ?? '';
+                if (food.trim().isNotEmpty) inKindCount++;
+                if (constr.trim().isNotEmpty) inKindCount++;
+              }
+            }
+          }
+        }
+      }
+      if (inKindCount == 0 && c.lastPaymentAt != null) {
+        inKindCount = 1;
+      }
+    }
+
     final isRank1 = rank == 1;
     final isRank2 = rank == 2;
     final isRank3 = rank == 3;
@@ -71,7 +108,9 @@ class ContributorTile extends ConsumerWidget {
             ? AppColors.silverMedal.withValues(alpha: 0.6)
             : isRank3
                 ? AppColors.bronzeMedal.withValues(alpha: 0.6)
-                : (isDark ? Colors.white.withValues(alpha: 0.1) : AppColors.gold.withValues(alpha: 0.15));
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : AppColors.gold.withValues(alpha: 0.15));
 
     final cardGradient = isRank1 && isDark
         ? LinearGradient(
@@ -134,10 +173,15 @@ class ContributorTile extends ConsumerWidget {
                           style: TextStyle(
                             fontFamily: AppTheme.displayFamily,
                             fontSize: 14.5,
-                            fontWeight: _hasMedal ? FontWeight.w700 : FontWeight.w600,
+                            fontWeight:
+                                _hasMedal ? FontWeight.w700 : FontWeight.w600,
                             color: isRank1
-                                ? (isDark ? AppColors.goldBright : AppColors.goldDark)
-                                : (isDark ? AppColors.textOnDark : AppColors.textOnLight),
+                                ? (isDark
+                                    ? AppColors.goldBright
+                                    : AppColors.goldDark)
+                                : (isDark
+                                    ? AppColors.textOnDark
+                                    : AppColors.textOnLight),
                           ),
                         ),
                       ),
@@ -155,15 +199,23 @@ class ContributorTile extends ConsumerWidget {
                         fit: BoxFit.scaleDown,
                         alignment: AlignmentDirectional.centerStart,
                         child: Text(
-                          Fmt.moneyShort(amount),
+                          c.type == ContributorType.inKind
+                              ? (inKindCount > 0
+                                  ? '$inKindCount مساهمة'
+                                  : 'لا توجد مساهمات')
+                              : Fmt.moneyShort(amount),
                           maxLines: 1,
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: isRank1
-                                ? (isDark ? AppColors.goldBright : AppColors.goldDark)
-                                : (isDark ? AppColors.gold : AppColors.goldDark),
+                                ? (isDark
+                                    ? AppColors.goldBright
+                                    : AppColors.goldDark)
+                                : (isDark
+                                    ? AppColors.gold
+                                    : AppColors.goldDark),
                           ),
                         ),
                       ),
