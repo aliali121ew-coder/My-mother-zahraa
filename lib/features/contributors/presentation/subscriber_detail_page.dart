@@ -602,35 +602,116 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                       if (m < 12) const Divider(height: 1, thickness: 0.5),
                     ],
 
-                    // تذييل المجموع السنوي
+                    // تذييل المجموع السنوي الفخم والاحترافي
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      color: isDark
-                          ? AppColors.green.withValues(alpha: 0.3)
-                          : AppColors.gold.withValues(alpha: 0.15),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [
+                                  AppColors.greenDeep.withValues(alpha: 0.95),
+                                  AppColors.greenAbyss.withValues(alpha: 0.98),
+                                ]
+                              : [
+                                  AppColors.lightGreenTint,
+                                  AppColors.gold.withValues(alpha: 0.12),
+                                ],
+                          begin: Alignment.centerRight,
+                          end: Alignment.centerLeft,
+                        ),
+                        border: Border(
+                          top: BorderSide(
+                            color: AppColors.gold.withValues(alpha: 0.35),
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            isSubscriberType
-                                ? 'إجمالي المبالغ المسددة لسنة $_selectedYear:'
-                                : (isDonorType
-                                    ? 'إجمالي التبرعات لسنة $_selectedYear:'
-                                    : 'المجموع الإجمالي لسنة $_selectedYear:'),
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
+                          // أيقونة المحفظة الفخمة
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.gold.withValues(alpha: 0.18),
+                              border: Border.all(
+                                color: AppColors.gold.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.account_balance_wallet_rounded,
+                              size: 18,
+                              color: isDark ? AppColors.goldBright : AppColors.goldDark,
                             ),
                           ),
-                          Text(
-                            Fmt.amount(yearTotal),
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.gold,
+                          const SizedBox(width: 10),
+
+                          // عنوان المجموع حسب نوع المساهم
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  isSubscriberType
+                                      ? 'إجمالي اشتراكات عام $_selectedYear'
+                                      : (isDonorType
+                                          ? 'إجمالي تبرعات عام $_selectedYear'
+                                          : 'إجمالي المساهمات المالية لعام $_selectedYear'),
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.displayFamily,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  isSubscriberType
+                                      ? 'مجموع التسديدات المسجلة'
+                                      : (isDonorType
+                                          ? 'صافي التبرعات المدفوعة'
+                                          : 'إجمالي المبالغ النقدية'),
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 10.5,
+                                    color: isDark
+                                        ? AppColors.textOnDarkMuted
+                                        : AppColors.textOnLightMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // شارة المبلغ الرقمي البارزة الفخمة
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.35)
+                                  : Colors.white.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.gold.withValues(alpha: 0.4),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.gold.withValues(alpha: 0.1),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              Fmt.money(yearTotal),
+                              style: TextStyle(
+                                fontFamily: AppTheme.displayFamily,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                              ),
                             ),
                           ),
                         ],
