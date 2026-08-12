@@ -1588,29 +1588,64 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           ),
           _vDivider(isDark),
 
-          // مبلغ التبرع المسدد
+          // مبلغ التبرع المسدد + أيقونة ℹ️ للتفاصيل
           Expanded(
             flex: 38,
-            child: Text(
-              isPaid ? Fmt.money(paidAmount) : '—',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 10.5,
-                fontWeight: isPaid ? FontWeight.bold : FontWeight.w500,
-                color: isPaid
-                    ? AppColors.green
-                    : (isDark ? Colors.white54 : Colors.black45),
-              ),
-            ),
+            child: isPaid
+                ? InkWell(
+                    onTap: () => _showMonthDonationsDetailsDialog(c, monthIndex, entry),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                Fmt.money(paidAmount),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.green,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 13,
+                            color: AppColors.gold,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Text(
+                    '—',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
           ),
           _vDivider(isDark),
 
-          // تاريخ التبرع
+          // تاريخ التبرع بصيغة (سنة - شهر)
           Expanded(
             flex: 34,
             child: Text(
-              paidAt != null ? _formatDateHyphen(paidAt) : '—',
+              paidAt != null
+                  ? '${paidAt.year}-${paidAt.month.toString().padLeft(2, '0')}'
+                  : '—',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -1621,7 +1656,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           ),
           _vDivider(isDark),
 
-          // زر التعديل / تسجيل التبرع
+          // زر التعديل / تسجيل التبرع (يفتح نافذة الإضافة والتعديل متعددة الدفعات)
           SizedBox(
             width: 32,
             child: IconButton(
@@ -1630,10 +1665,10 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                 size: 19,
                 color: AppColors.gold,
               ),
-              onPressed: () => _openSubscriberPaymentDialog(c, monthIndex, entry),
+              onPressed: () => _openDonorMonthDialog(c, monthIndex, entry),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              tooltip: isPaid ? 'تعديل تبرع هذا الشهر' : 'تسجيل تبرع لهذا الشهر',
+              tooltip: isPaid ? 'تعديل / إضافة تبرع لهذا الشهر' : 'تسجيل تبرع لهذا الشهر',
             ),
           ),
         ],
@@ -1885,6 +1920,171 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
 
 
+  /// نافذة تفاصيل سجل الدفعات لشهر معين (تظهر عند الضغط على أيقونة ℹ️)
+  Future<void> _showMonthDonationsDetailsDialog(
+    ContributorModel c,
+    int monthIndex,
+    Map<String, dynamic>? entry,
+  ) async {
+    if (entry == null) return;
+    final monthName = _monthNames[monthIndex - 1];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final donations = entry['donations'] is List
+        ? List<Map<String, dynamic>>.from(entry['donations'] as List)
+        : <Map<String, dynamic>>[];
+    final totalAmt = (entry['amount'] as num?) ?? 0;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.50),
+      builder: (ctx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded,
+                    color: AppColors.gold, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'تفاصيل تبرعات شهر $monthName ($_selectedYear)',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.displayFamily,
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (donations.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('المبلغ المسدد:',
+                              style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 13,
+                                  color:
+                                      isDark ? Colors.white70 : Colors.black87)),
+                          Text(Fmt.money(totalAmt),
+                              style: const TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.green)),
+                        ],
+                      ),
+                    )
+                  else
+                    Column(
+                      children: donations.map((d) {
+                        final amt = (d['amount'] as num?) ?? 0;
+                        final dateStr = d['date']?.toString();
+                        final dDate =
+                            dateStr != null ? DateTime.tryParse(dateStr) : null;
+                        final kind = d['kind']?.toString() ?? 'cash';
+                        final textVal = d['text_value']?.toString() ?? '';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.black.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.gold.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.payments_rounded,
+                                  size: 16, color: AppColors.gold),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      kind == 'cash'
+                                          ? Fmt.money(amt)
+                                          : '$textVal (${kind == "food" ? "غذائي" : "إنشائي"})',
+                                      style: const TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (dDate != null)
+                                      Text(
+                                        Fmt.date(dDate),
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 11,
+                                          color: isDark
+                                              ? AppColors.textOnDarkMuted
+                                              : AppColors.textOnLightMuted,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  const Divider(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'إجمالي التبرعات المسددة:',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        Fmt.money(totalAmt),
+                        style: const TextStyle(
+                          fontFamily: AppTheme.displayFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.gold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إغلاق',
+                    style: TextStyle(fontFamily: AppTheme.fontFamily)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 4️⃣ نافذة تبرعات المتبرعين المخصصة للشهر المالي
   Future<void> _openDonorMonthDialog(
     ContributorModel c,
@@ -1893,7 +2093,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
   ) async {
     final monthName = _monthNames[monthIndex - 1];
     String currentMode = 'add'; // 'add' (🟢 إضافة / ✏️ تعديل) أو 'edit' (📋 القائمة)
-    String selectedKind = 'construction'; // 'construction', 'food'
+    String selectedKind = c.type == ContributorType.donor ? 'cash' : 'construction'; // 'cash', 'construction', 'food'
     String? editingDonationId; // معرف التبرع المختار للتعديل
 
     final amountController = TextEditingController();
@@ -2083,6 +2283,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                           child: currentMode == 'add'
                               ? _buildAddDonorDonationView(
                                   ctx: ctx,
+                                  contributorType: c.type,
                                   setModalState: setModalState,
                                   selectedKind: selectedKind,
                                   editingDonationId: editingDonationId,
@@ -2211,6 +2412,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
   /// محتوى تبويب إضافة / تعديل تبرع
   Widget _buildAddDonorDonationView({
     required BuildContext ctx,
+    required ContributorType contributorType,
     required void Function(void Function()) setModalState,
     required String selectedKind,
     required String? editingDonationId,
@@ -2256,72 +2458,100 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
             ),
           ),
 
-        // نوع التبرع (ثلاث شرائح اختيار)
-        Text(
-          'نوع التبرع:',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+        if (contributorType == ContributorType.inKind) ...[
+          Text(
+            'نوع التبرع:',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _buildKindChip(
-                label: 'مواد أنشائية',
-                icon: Icons.construction_rounded,
-                selected: selectedKind == 'construction',
-                onTap: () => onKindChanged('construction'),
-                isDark: isDark,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildKindChip(
+                  label: 'مواد أنشائية',
+                  icon: Icons.construction_rounded,
+                  selected: selectedKind == 'construction',
+                  onTap: () => onKindChanged('construction'),
+                  isDark: isDark,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildKindChip(
-                label: 'مواد غذائية',
-                icon: Icons.rice_bowl_rounded,
-                selected: selectedKind == 'food',
-                onTap: () => onKindChanged('food'),
-                isDark: isDark,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildKindChip(
+                  label: 'مواد غذائية',
+                  icon: Icons.rice_bowl_rounded,
+                  selected: selectedKind == 'food',
+                  onTap: () => onKindChanged('food'),
+                  isDark: isDark,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // الخلية المتزحلقة بحسب نوع التبرع
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          child: TextField(
-            key: ValueKey('${selectedKind}_field'),
-            controller: textValueController,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 14,
-              color: isDark ? AppColors.goldBright : AppColors.goldDark,
-            ),
-            decoration: InputDecoration(
-              labelText: selectedKind == 'food'
-                  ? 'وصف المواد الغذائية (مثال: 5 سلات غذائية)'
-                  : 'وصف المواد الإنشائية (مثال: 10 أكياس سمنت)',
-              hintText: selectedKind == 'food'
-                  ? 'أدخل نوع وكمية التبرع الغذائي'
-                  : 'أدخل نوع وكمية التبرع الإنشائي',
-              prefixIcon: Icon(
-                selectedKind == 'food'
-                    ? Icons.rice_bowl_outlined
-                    : Icons.construction_outlined,
-                color: AppColors.gold,
-              ),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 12),
-            ),
-          ),
+          child: contributorType == ContributorType.donor
+              ? TextField(
+                  key: const ValueKey('cash_field'),
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    ThousandsFormatter(),
+                  ],
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'مبلغ التبرع المالي (د.ع)',
+                    hintText: '25,000',
+                    prefixIcon:
+                        const Icon(Icons.payments_outlined, color: AppColors.gold),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                  ),
+                )
+              : TextField(
+                  key: ValueKey('${selectedKind}_field'),
+                  controller: textValueController,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14,
+                    color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: selectedKind == 'food'
+                        ? 'وصف المواد الغذائية (مثال: 5 سلات غذائية)'
+                        : 'وصف المواد الإنشائية (مثال: 10 أكياس سمنت)',
+                    hintText: selectedKind == 'food'
+                        ? 'أدخل نوع وكمية التبرع الغذائي'
+                        : 'أدخل نوع وكمية التبرع الإنشائي',
+                    prefixIcon: Icon(
+                      selectedKind == 'food'
+                          ? Icons.rice_bowl_outlined
+                          : Icons.construction_outlined,
+                      color: AppColors.gold,
+                    ),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                  ),
+                ),
         ),
         const SizedBox(height: 16),
 

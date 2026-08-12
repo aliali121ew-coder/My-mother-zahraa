@@ -479,7 +479,8 @@ class ContributorsRepository extends SupabaseRepository {
   }) async {
     try {
       final boxKey = 'ledger_${contributorId}_$year';
-      final existing = cache.readOne(AppConfig.boxContributors, boxKey);
+      var existing = cache.readOne(AppConfig.boxPayments, boxKey);
+      existing ??= cache.readOne(AppConfig.boxContributors, boxKey);
       if (existing == null) return;
 
       final map = Map<String, dynamic>.from(existing);
@@ -531,7 +532,7 @@ class ContributorsRepository extends SupabaseRepository {
         map[monthStr] = monthData;
       }
 
-      await cache.put(AppConfig.boxContributors, boxKey, map);
+      await cache.put(AppConfig.boxPayments, boxKey, map);
     } catch (_) {}
   }
 
@@ -548,7 +549,8 @@ class ContributorsRepository extends SupabaseRepository {
   }) async {
     try {
       final boxKey = 'ledger_${contributorId}_$year';
-      final existing = cache.readOne(AppConfig.boxContributors, boxKey);
+      var existing = cache.readOne(AppConfig.boxPayments, boxKey);
+      existing ??= cache.readOne(AppConfig.boxContributors, boxKey);
       if (existing == null) return;
 
       final map = Map<String, dynamic>.from(existing);
@@ -604,9 +606,9 @@ class ContributorsRepository extends SupabaseRepository {
       monthData['construction_desc'] = constrTexts.join(' ، ');
       monthData['paid_at'] = latestDate.toUtc().toIso8601String();
       monthData['donations'] = donationsList;
-
       map[monthStr] = monthData;
-      await cache.put(AppConfig.boxContributors, boxKey, map);
+
+      await cache.put(AppConfig.boxPayments, boxKey, map);
     } catch (_) {}
   }
 }
