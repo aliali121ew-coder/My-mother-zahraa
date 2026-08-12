@@ -21,6 +21,9 @@ class ContributorTile extends ConsumerWidget {
     this.showStatus = false,
     this.hideName = false,
     this.showTypeBadge = false,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectChanged,
   });
 
   final ContributorModel contributor;
@@ -37,6 +40,15 @@ class ContributorTile extends ConsumerWidget {
 
   /// يعرض وسام نوع المساهم (مشترك / متبرع / داعم) — يُعرَض فقط في الرئيسية وعرض كافة البيانات
   final bool showTypeBadge;
+
+  /// وضع التحديد المتعدد للحذف
+  final bool isSelectionMode;
+
+  /// هل السجل محدد حالياً
+  final bool isSelected;
+
+  /// دالة التغيير عند ضغط مربع الاختيار
+  final ValueChanged<bool?>? onSelectChanged;
 
   bool get _hasMedal => rank != null && rank! <= 3;
 
@@ -73,15 +85,36 @@ class ContributorTile extends ConsumerWidget {
         : null;
 
     return GlassCard(
-      onTap: onTap ??
-          () {
-            context.push('/subscriber_detail/${c.id}');
-          },
+      onTap: isSelectionMode
+          ? () => onSelectChanged?.call(!isSelected)
+          : (onTap ??
+              () {
+                context.push('/subscriber_detail/${c.id}');
+              }),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      borderColor: borderColor,
+      borderColor: isSelected ? AppColors.gold : borderColor,
       gradient: cardGradient,
       child: Row(
         children: [
+          if (isSelectionMode) ...[
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: Checkbox(
+                value: isSelected,
+                activeColor: AppColors.gold,
+                checkColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
+                side: BorderSide(
+                  color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                  width: 1.8,
+                ),
+                onChanged: onSelectChanged,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
           _Avatar(contributor: c, rank: rank, hideName: hideName),
           const SizedBox(width: 14),
           Expanded(

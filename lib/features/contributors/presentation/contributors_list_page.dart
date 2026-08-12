@@ -49,6 +49,9 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
   _StatusFilter _statusFilter = _StatusFilter.all;
   _CategoryFilter _categoryFilter = _CategoryFilter.all;
 
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -78,14 +81,6 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
             ? 'قائمة الداعمين والمساهمين'
             : (widget.showDonors == true ? 'قائمة المتبرعين' : 'قائمة المشتركين'));
 
-    final ContributorType? currentSectionType = widget.showAll
-        ? null
-        : (widget.showSupporters
-            ? ContributorType.inKind
-            : (widget.showDonors == true
-                ? ContributorType.donor
-                : ContributorType.subscriber));
-
     final sectionName = widget.showAll
         ? 'جميع السجلات'
         : (widget.showSupporters
@@ -98,31 +93,82 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         centerTitle: true,
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'إلغاء التحديد',
+                onPressed: () => setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                }),
+              )
+            : null,
         title: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            title,
-            style: const TextStyle(
+            _isSelectionMode
+                ? (_selectedIds.isEmpty
+                    ? 'حدد العناصر للحذف'
+                    : 'تم تحديد (${_selectedIds.length})')
+                : title,
+            style: TextStyle(
               fontSize: 16.0,
               fontWeight: FontWeight.bold,
+              color: _isSelectionMode ? AppColors.goldBright : null,
             ),
           ),
         ),
         actions: [
-          if (session.role.canManageContributors)
+          if (_isSelectionMode) ...[
+            async.maybeWhen(
+              data: (all) {
+                final list = _apply(all);
+                final allSelected =
+                    list.isNotEmpty && _selectedIds.length == list.length;
+                return IconButton(
+                  icon: Icon(
+                    allSelected
+                        ? Icons.deselect_rounded
+                        : Icons.select_all_rounded,
+                  ),
+                  tooltip: allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل',
+                  onPressed: () {
+                    setState(() {
+                      if (allSelected) {
+                        _selectedIds.clear();
+                      } else {
+                        _selectedIds.addAll(list.map((c) => c.id));
+                      }
+                    });
+                  },
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
             IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
-              tooltip: 'حذف $sectionName فقط',
+              icon: const Icon(Icons.delete_forever_rounded,
+                  color: Colors.redAccent),
+              tooltip: 'حذف المحدّد (${_selectedIds.length})',
               onPressed: () async {
+                if (_selectedIds.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('يرجى تحديد عنصر واحد على الأقل للحذف'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                final count = _selectedIds.length;
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: Text('حذف $sectionName؟',
-                        style: const TextStyle(
+                    title: const Text('حذف العناصر المحددة؟',
+                        style: TextStyle(
                             fontFamily: AppTheme.displayFamily,
                             fontWeight: FontWeight.bold)),
                     content: Text(
-                        'هل أنت تأكيد من مسح وحذف $sectionName فقط نهائياً؟'),
+                        'هل أنت تأكيد من حذف الـ ($count) مساهمين المحددين نهائياً؟'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -130,17 +176,20 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                       ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.overdue),
+                            backgroundColor: Colors.redAccent),
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: Text('حذف $sectionName',
-                            style: const TextStyle(color: Colors.white)),
+                        child: const Text('حذف المحدّد',
+                            style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
                 );
                 if (confirm == true && context.mounted) {
                   final repo = ref.read(contributorsRepositoryProvider);
-                  await repo.clearDemoDataByType(currentSectionType);
+                  final idsToDelete = List<String>.from(_selectedIds);
+                  for (final id in idsToDelete) {
+                    await repo.softDelete(id);
+                  }
                   await Future.wait([
                     ref.refresh(donorsRawProvider.future),
                     ref.refresh(subscribersRawProvider.future),
@@ -148,9 +197,13 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                     ref.refresh(statsRawProvider.future),
                   ]);
                   if (context.mounted) {
+                    setState(() {
+                      _selectedIds.clear();
+                      _isSelectionMode = false;
+                    });
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('تم حذف $sectionName بنجاح!'),
+                        content: Text('تم حذف $count مساهمين بنجاح!'),
                         backgroundColor: AppColors.greenDeep,
                       ),
                     );
@@ -158,6 +211,13 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                 }
               },
             ),
+          ] else if (session.role.canManageContributors) ...[
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+              tooltip: 'تحديد $sectionName للحذف',
+              onPressed: () => setState(() => _isSelectionMode = true),
+            ),
+          ],
         ],
       ),
       body: async.when(
@@ -187,80 +247,24 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                         separatorBuilder: (_, _) => const SizedBox(height: 10),
                         itemBuilder: (context, i) {
                           final item = list[i];
-                          return Dismissible(
-                            key: Key('contrib_${item.id}'),
-                            direction: session.role.canManageContributors
-                                ? DismissDirection.endToStart
-                                : DismissDirection.none,
-                            background: Container(
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.only(left: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'حذف السجل',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.delete_forever_rounded,
-                                      color: Colors.white, size: 24),
-                                  SizedBox(width: 16),
-                                ],
-                              ),
-                            ),
-                            confirmDismiss: (_) async {
-                              return await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('حذف المساهم؟',
-                                      style: TextStyle(
-                                          fontFamily: AppTheme.displayFamily,
-                                          fontWeight: FontWeight.bold)),
-                                  content: Text(
-                                      'هل أنت تأكيد من حذف السجل "${item.fullName}" نهائياً؟'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
-                                      child: const Text('إلغاء'),
-                                    ),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent),
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('حذف',
-                                          style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
+                          return ContributorTile(
+                            contributor: item,
+                            showStatus: widget.showDonors != true &&
+                                !widget.showSupporters,
+                            showTypeBadge: widget.showAll,
+                            hideName: !session.role.canSeeNames,
+                            rank: _sort == _SortBy.amountDesc ? i + 1 : null,
+                            isSelectionMode: _isSelectionMode,
+                            isSelected: _selectedIds.contains(item.id),
+                            onSelectChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedIds.add(item.id);
+                                } else {
+                                  _selectedIds.remove(item.id);
+                                }
+                              });
                             },
-                            onDismissed: (_) async {
-                              final repo = ref.read(contributorsRepositoryProvider);
-                              await repo.softDelete(item.id);
-                              await Future.wait([
-                                ref.refresh(donorsRawProvider.future),
-                                ref.refresh(subscribersRawProvider.future),
-                                ref.refresh(allContributorsRawProvider.future),
-                                ref.refresh(statsRawProvider.future),
-                              ]);
-                            },
-                            child: ContributorTile(
-                              contributor: item,
-                              showStatus: widget.showDonors != true &&
-                                  !widget.showSupporters,
-                              showTypeBadge: widget.showAll,
-                              hideName: !session.role.canSeeNames,
-                              rank: _sort == _SortBy.amountDesc ? i + 1 : null,
-                            ),
                           );
                         },
                       ),
