@@ -133,9 +133,9 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── الترويسة والعنوان ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // ── الترويسة والعنوان ودليل الألوان ──
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
@@ -155,38 +155,41 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'المقارنة التحليلية الشهرية (2026)',
-                            style: TextStyle(
-                              fontFamily: AppTheme.displayFamily,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'المقارنة التحليلية الشهرية (2026)',
+                              style: TextStyle(
+                                fontFamily: AppTheme.displayFamily,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          Text(
-                            'اضغط على العمود لرؤية كشف الشهر',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 11,
-                              color: isDark
-                                  ? AppColors.textOnDarkMuted
-                                  : AppColors.textOnLightMuted,
+                            Text(
+                              'اضغط على العمود لرؤية كشف الشهر',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 10.5,
+                                color: isDark
+                                    ? AppColors.textOnDarkMuted
+                                    : AppColors.textOnLightMuted,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
                   // دليل الألوان
                   Row(
                     children: [
                       _legendDot(AppColors.green, 'تسديدات'),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       _legendDot(AppColors.gold, 'تبرعات'),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       _legendDot(Colors.lightBlueAccent, 'دعم عيني'),
                     ],
                   ),
@@ -300,8 +303,9 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
 
               // ── ملخص الشهر المختار ──
               Container(
+                width: double.infinity,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDark
                       ? Colors.black.withValues(alpha: 0.25)
@@ -311,35 +315,36 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
                     color: AppColors.gold.withValues(alpha: 0.3),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          'تفاصيل شهر $selMonthName:',
-                          style: TextStyle(
-                            fontFamily: AppTheme.displayFamily,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? AppColors.goldBright
-                                : AppColors.goldDark,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'كشف تفاصيل شهر $selMonthName:',
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppColors.goldBright
+                            : AppColors.goldDark,
+                      ),
                     ),
-                    Row(
-                      children: [
-                        _metricBadge(
-                            'التسديد:', Fmt.moneyShort(selPayments), AppColors.green),
-                        const SizedBox(width: 8),
-                        _metricBadge('التبرع:', Fmt.moneyShort(selDonations),
-                            AppColors.goldBright),
-                        const SizedBox(width: 8),
-                        _metricBadge('الدعم:', '$selSupport مواد',
-                            Colors.lightBlueAccent),
-                      ],
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _metricBadge(
+                              'التسديد:', Fmt.moneyShort(selPayments), AppColors.green),
+                          const SizedBox(width: 6),
+                          _metricBadge('التبرع:', Fmt.moneyShort(selDonations),
+                              AppColors.goldBright),
+                          const SizedBox(width: 6),
+                          _metricBadge('الدعم:', '$selSupport مواد',
+                              Colors.lightBlueAccent),
+                        ],
+                      ),
                     ),
                   ],
                 ),

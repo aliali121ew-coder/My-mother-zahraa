@@ -123,34 +123,41 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'إجمالي الخزنة والمقبوضات',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 12,
-                                color: Colors.grey,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'إجمالي الخزنة والمقبوضات',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11.5,
+                                  color: Colors.grey,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              Fmt.money(stats.totalAmount),
-                              style: TextStyle(
-                                fontFamily: AppTheme.displayFamily,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: isDark
-                                    ? AppColors.goldBright
-                                    : AppColors.goldDark,
+                              const SizedBox(height: 2),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  Fmt.money(stats.totalAmount),
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.displayFamily,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w900,
+                                    color: isDark
+                                        ? AppColors.goldBright
+                                        : AppColors.goldDark,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: AppColors.gold.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
@@ -159,15 +166,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                             ),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.verified_user_rounded,
-                                  size: 15, color: AppColors.goldBright),
-                              const SizedBox(width: 5),
+                                  size: 14, color: AppColors.goldBright),
+                              const SizedBox(width: 4),
                               Text(
-                                '$totalContribsCount مساهم مسموح',
+                                '$totalContribsCount مساهم',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: isDark
                                       ? AppColors.goldBright
@@ -190,7 +198,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                             icon: Icons.groups_rounded,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _miniStatBadge(
                             title: 'المتبرعون',
@@ -199,7 +207,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                             icon: Icons.volunteer_activism_rounded,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _miniStatBadge(
                             title: 'الداعمون',
@@ -341,26 +349,29 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$title: $count',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 3),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Text(
+                '$title: $count',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
             ),
           ),
