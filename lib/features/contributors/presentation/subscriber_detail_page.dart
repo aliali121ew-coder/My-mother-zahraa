@@ -88,8 +88,8 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
         fullName: 'الداعم',
       ),
     );
-    final isDonor = currentContrib.type == ContributorType.donor;
     final isSubscriber = currentContrib.type == ContributorType.subscriber;
+    final isDonor = currentContrib.type == ContributorType.donor;
     final pageTitle = isSubscriber
         ? 'ملف المشترك التفصيلي'
         : (isDonor ? 'ملف المتبرع التفصيلي' : 'ملف الداعم التفصيلي');
@@ -434,6 +434,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
   Widget _build12MonthTableSection(
       BuildContext context, ContributorModel c, bool isDark) {
     final isSubscriberType = c.type == ContributorType.subscriber;
+    final isDonorType = c.type == ContributorType.donor;
 
     num yearTotal = 0;
     for (final e in _ledger.values) {
@@ -463,7 +464,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                   child: Text(
                     isSubscriberType
                         ? 'جدول التسديدات الشهري (12 شهراً)'
-                        : 'جدول مساهمات الشهور (12 شهراً)',
+                        : (isDonorType
+                            ? 'جدول تبرعات الشهور (12 شهراً)'
+                            : 'جدول مساهمات الشهور (12 شهراً)'),
                     style: const TextStyle(
                       fontFamily: AppTheme.displayFamily,
                       fontSize: 16.5,
@@ -517,8 +520,8 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
             ],
           ),
 
-          // ملخص سريع للمشتركين: عدد الأشهر المسددة
-          if (isSubscriberType) ...[
+          // ملخص سريع للمشتركين والمتبرعين: عدد الأشهر المسددة
+          if (isSubscriberType || isDonorType) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -535,7 +538,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildSummaryChip(
-                    label: 'المسددة',
+                    label: isSubscriberType ? 'المسددة' : 'أشهر التبرع',
                     value: '$paidMonths',
                     color: AppColors.green,
                     icon: Icons.check_circle_rounded,
@@ -583,15 +586,19 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                     // الترويسة تختلف حسب نوع المساهم
                     if (isSubscriberType)
                       _buildSubscriberTableHeader(isDark)
+                    else if (isDonorType)
+                      _buildDonorTableHeader(isDark)
                     else
-                      _buildDonorTableHeader(isDark),
+                      _buildSupporterTableHeader(isDark),
 
                     // صفوف الأشهر الـ 12
                     for (int m = 1; m <= 12; m++) ...[
                       if (isSubscriberType)
                         _buildSubscriberMonthRow(c, m, isDark)
+                      else if (isDonorType)
+                        _buildDonorMonthRow(c, m, isDark)
                       else
-                        _buildDonorMonthRow(c, m, isDark),
+                        _buildSupporterMonthRow(c, m, isDark),
                       if (m < 12) const Divider(height: 1, thickness: 0.5),
                     ],
 
@@ -608,7 +615,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                           Text(
                             isSubscriberType
                                 ? 'إجمالي المبالغ المسددة لسنة $_selectedYear:'
-                                : 'المجموع الإجمالي لسنة $_selectedYear:',
+                                : (isDonorType
+                                    ? 'إجمالي التبرعات لسنة $_selectedYear:'
+                                    : 'المجموع الإجمالي لسنة $_selectedYear:'),
                             style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 13,
@@ -854,13 +863,14 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     );
   }
 
-  /// نافذة تسديد الاشتراك الشهري للمشترك
+  /// نافذة تسديد الاشتراك الشهري للمشترك أو تسجيل تبرع للمتبرع
   Future<void> _openSubscriberPaymentDialog(
     ContributorModel c,
     int monthIndex,
     Map<String, dynamic>? existingEntry,
   ) async {
     final monthName = _monthNames[monthIndex - 1];
+    final isDonor = c.type == ContributorType.donor;
     final isPaid = existingEntry != null && existingEntry['is_paid'] == true;
     final currentAmount = isPaid
         ? (existingEntry['amount'] as num? ?? c.subscriptionAmount ?? 0)
@@ -911,7 +921,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                         child: Column(
                           children: [
                             Text(
-                              '${isPaid ? "تعديل تسديد" : "تسجيل تسديد"} شهر $monthName',
+                              isDonor
+                                  ? '${isPaid ? "تعديل تبرع" : "تسجيل تبرع"} شهر $monthName'
+                                  : '${isPaid ? "تعديل تسديد" : "تسجيل تسديد"} شهر $monthName',
                               style: const TextStyle(
                                 fontFamily: AppTheme.displayFamily,
                                 fontSize: 16,
@@ -941,7 +953,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                           children: [
                             // حقل المبلغ
                             Text(
-                              'مبلغ الاشتراك المسدد (د.ع)',
+                              isDonor ? 'مبلغ التبرع (د.ع)' : 'مبلغ الاشتراك المسدد (د.ع)',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 13,
@@ -971,7 +983,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
                             // تاريخ الدفع
                             Text(
-                              'تاريخ التسديد',
+                              isDonor ? 'تاريخ التبرع' : 'تاريخ التسديد',
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 13,
@@ -1182,9 +1194,149 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
   }
 
 
-  /// ترويسة جدول المساهمات المخصصة
-
+  /// ترويسة جدول التبرعات المخصصة للمتبرع (مطابق للمشترك بدون عمود الحالة)
   Widget _buildDonorTableHeader(bool isDark) {
+    return Container(
+      height: 42,
+      color: isDark ? AppColors.greenDeep : AppColors.lightGreenTint,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          const Expanded(
+            flex: 28,
+            child: Text('الشهر',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.0)),
+          ),
+          _vDivider(isDark),
+          const Expanded(
+            flex: 38,
+            child: Text('مبلغ التبرع',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.5)),
+          ),
+          _vDivider(isDark),
+          const Expanded(
+            flex: 34,
+            child: Text('تاريخ التبرع',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.0)),
+          ),
+          _vDivider(isDark),
+          const SizedBox(
+            width: 32,
+            child: Text('تعديل',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.0)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// صف شهر مخصص للمتبرع (مبلغ مالي بدون عمود الحالة)
+  Widget _buildDonorMonthRow(ContributorModel c, int monthIndex, bool isDark) {
+    final entry = _ledger[monthIndex];
+    final isPaid = entry != null && entry['is_paid'] == true;
+    final paidAmount = isPaid ? (entry['amount'] as num? ?? 0) : 0;
+    final paidAtStr = isPaid ? (entry['paid_at'] as String?) : null;
+    final paidAt = paidAtStr != null ? DateTime.tryParse(paidAtStr) : null;
+
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      color: monthIndex.isEven
+          ? (isDark
+              ? Colors.white.withValues(alpha: 0.02)
+              : Colors.black.withValues(alpha: 0.02))
+          : Colors.transparent,
+      child: Row(
+        children: [
+          // اسم الشهر
+          Expanded(
+            flex: 28,
+            child: Text(
+              monthIndex >= 11
+                  ? _monthNames[monthIndex - 1].replaceAll(' ', '\n')
+                  : _monthNames[monthIndex - 1],
+              textAlign: TextAlign.center,
+              maxLines: monthIndex >= 11 ? 2 : 1,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: monthIndex >= 11 ? 9.5 : 11.0,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          _vDivider(isDark),
+
+          // مبلغ التبرع المسدد
+          Expanded(
+            flex: 38,
+            child: Text(
+              isPaid ? Fmt.money(paidAmount) : '—',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 10.5,
+                fontWeight: isPaid ? FontWeight.bold : FontWeight.w500,
+                color: isPaid
+                    ? AppColors.green
+                    : (isDark ? Colors.white54 : Colors.black45),
+              ),
+            ),
+          ),
+          _vDivider(isDark),
+
+          // تاريخ التبرع
+          Expanded(
+            flex: 34,
+            child: Text(
+              paidAt != null ? _formatDateHyphen(paidAt) : '—',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 10.0,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+          ),
+          _vDivider(isDark),
+
+          // زر التعديل / تسجيل التبرع
+          SizedBox(
+            width: 32,
+            child: IconButton(
+              icon: Icon(
+                isPaid ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                size: 19,
+                color: AppColors.gold,
+              ),
+              onPressed: () => _openSubscriberPaymentDialog(c, monthIndex, entry),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: isPaid ? 'تعديل تبرع هذا الشهر' : 'تسجيل تبرع لهذا الشهر',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ترويسة جدول التبرعات العينية الخاصة بالداعمين
+  Widget _buildSupporterTableHeader(bool isDark) {
     return Container(
       height: 42,
       color: isDark ? AppColors.greenDeep : AppColors.lightGreenTint,
@@ -1240,8 +1392,8 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     );
   }
 
-  /// صف شهر مخصص للمساهمين والداعمين
-  Widget _buildDonorMonthRow(ContributorModel c, int monthIndex, bool isDark) {
+  /// صف شهر مخصص للداعمين (المواد العينية)
+  Widget _buildSupporterMonthRow(ContributorModel c, int monthIndex, bool isDark) {
     final entry = _ledger[monthIndex];
     final hasEntry = entry != null;
     final foodDesc = hasEntry ? (entry['food_desc'] as String?) : null;
