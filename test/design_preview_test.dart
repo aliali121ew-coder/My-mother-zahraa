@@ -10,7 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:mawkib_zahra/core/theme/app_theme.dart';
 import 'package:mawkib_zahra/core/widgets/glass.dart';
-import 'package:mawkib_zahra/features/home/data/demo_data.dart';
+import 'package:mawkib_zahra/shared/models/contributor_model.dart';
+import 'package:mawkib_zahra/shared/models/enums.dart';
+import 'package:mawkib_zahra/shared/models/stats_snapshot.dart';
 import 'package:mawkib_zahra/shared/widgets/contributor_tile.dart';
 import 'package:mawkib_zahra/shared/widgets/mawkib_logo.dart';
 import 'package:mawkib_zahra/shared/widgets/stat_cards.dart';
@@ -97,9 +99,46 @@ class _HomePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stats = DemoData.stats;
-    final donors = [...DemoData.donors]
-      ..sort((a, b) => b.totalPaid.compareTo(a.totalPaid));
+    final stats = const StatsSnapshot(
+      subscriptionsTotal: 15400000,
+      donationsTotal: 10370000,
+      subscribersCount: 14,
+      donorsCount: 13,
+      inKindCount: 3,
+      overdueCount: 6,
+    );
+    final donors = [
+      ContributorModel(
+        id: 'test-1',
+        fullName: 'سيد حيدر الموسوي',
+        totalPaid: 8400000,
+        type: ContributorType.subscriber,
+      ),
+      ContributorModel(
+        id: 'test-2',
+        fullName: 'حاج رضا التميمي',
+        totalPaid: 6000000,
+        type: ContributorType.subscriber,
+      ),
+      ContributorModel(
+        id: 'test-3',
+        fullName: 'حاج عبد الكريم الموسوي',
+        totalPaid: 2500000,
+        type: ContributorType.donor,
+      ),
+      ContributorModel(
+        id: 'test-4',
+        fullName: 'الحاجة أم حسين الربيعي',
+        totalPaid: 1800000,
+        type: ContributorType.donor,
+      ),
+      ContributorModel(
+        id: 'test-5',
+        fullName: 'شركة النور للمقاولات',
+        totalPaid: 1500000,
+        type: ContributorType.donor,
+      ),
+    ];
     final theme = Theme.of(context);
 
     return AppBackground(
@@ -171,7 +210,7 @@ class _HomePreview extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 26, 16, 12),
                 child: SectionHeader(
                   title: 'أعلى المتبرعين',
-                  icon: Icons.emoji_events_outlined,
+                  icon: Icons.military_tech_outlined,
                   action: TextButton(
                     onPressed: () {},
                     child: const Text('عرض الكل'),

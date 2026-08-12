@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/app_providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'glass.dart';
@@ -9,7 +11,7 @@ import 'glass.dart';
 ///
 /// يستخدم [StatefulNavigationShell] من go_router فيحفظ حالة كل تبويب
 /// (موضع التمرير، النصوص المكتوبة) عند التبديل بينها.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
@@ -23,19 +25,52 @@ class AppShell extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final progress = ref.watch(scrollProgressProvider);
+    final opacity = (1.0 - progress * 0.9).clamp(0.1, 1.0);
+    final translateY = progress * 85.0;
 
     return AppBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        body: shell,
-        bottomNavigationBar: _GlassNavBar(
-          isDark: isDark,
-          currentIndex: shell.currentIndex,
-          items: _items,
-          onTap: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        body: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.metrics.axis == Axis.vertical) {
+              if (notification.metrics.pixels <= 10) {
+                if (ref.read(scrollProgressProvider) != 0.0) {
+                  ref.read(scrollProgressProvider.notifier).state = 0.0;
+                }
+              } else if (notification is ScrollUpdateNotification &&
+                  notification.scrollDelta != null) {
+                final delta = notification.scrollDelta!;
+                const maxRange = 75.0; // مسافة التمرير بالبكسل للانتقال الكامل من 10% إلى 100%
+                final current = ref.read(scrollProgressProvider);
+                final updated = (current + delta / maxRange).clamp(0.0, 1.0);
+                if (updated != current) {
+                  ref.read(scrollProgressProvider.notifier).state = updated;
+                }
+              }
+            }
+            return false;
+          },
+          child: shell,
+        ),
+        bottomNavigationBar: Transform.translate(
+          offset: Offset(0, translateY),
+          child: Opacity(
+            opacity: opacity,
+            child: _GlassNavBar(
+              isDark: isDark,
+              currentIndex: shell.currentIndex,
+              items: _items,
+              onTap: (i) {
+                ref.read(scrollProgressProvider.notifier).state = 0.0;
+                shell.goBranch(i, initialLocation: i == shell.currentIndex);
+              },
+            ),
+          ),
         ),
       ),
     );

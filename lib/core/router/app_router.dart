@@ -6,6 +6,8 @@ import '../../features/auth/presentation/pending_page.dart';
 import '../../features/contributors/presentation/all_contributors_categories_page.dart';
 import '../../features/contributors/presentation/contributors_page.dart';
 import '../../features/contributors/presentation/contributors_list_page.dart';
+import '../../features/contributors/presentation/subscriber_detail_page.dart';
+import '../../features/contributors/presentation/subscriber_profile_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/posts/presentation/posts_page.dart';
 import '../../features/reports/presentation/report_details_page.dart';
@@ -32,6 +34,18 @@ final appRouter = GoRouter(
       builder: (_, _) => const AuthPage(),
     ),
     GoRoute(path: '/pending', builder: (_, _) => const PendingPage()),
+    GoRoute(
+      path: '/subscriber_detail/:id',
+      builder: (context, state) => SubscriberDetailPage(
+        contributorId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      path: '/subscriber_profile/:id',
+      builder: (context, state) => SubscriberProfilePage(
+        contributorId: state.pathParameters['id']!,
+      ),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
@@ -57,9 +71,26 @@ final appRouter = GoRouter(
                       const ContributorsListPage(showDonors: false),
                 ),
                 GoRoute(
+                  path: 'subscriber_detail/:id',
+                  builder: (context, state) => SubscriberDetailPage(
+                    contributorId: state.pathParameters['id']!,
+                  ),
+                ),
+                GoRoute(
+                  path: 'subscriber_profile/:id',
+                  builder: (context, state) => SubscriberProfilePage(
+                    contributorId: state.pathParameters['id']!,
+                  ),
+                ),
+                GoRoute(
                   path: 'all',
                   builder: (_, _) =>
                       const AllContributorsCategoriesPage(),
+                ),
+                GoRoute(
+                  path: 'supporters',
+                  builder: (_, _) =>
+                      const ContributorsListPage(showSupporters: true),
                 ),
                 GoRoute(
                   path: 'list_all',

@@ -362,15 +362,18 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                                   ),
                                 ),
                                 Expanded(
-                                  child: Text(
-                                    c.fullName.isEmpty ? 'مساهم' : c.fullName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: Text(
+                                      c.fullName.isEmpty ? 'مساهم' : c.fullName,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -500,8 +503,11 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
   }
 
   Widget _statusCell(PaymentStatus status, double width) {
-    final paid = status == PaymentStatus.paid;
-    final color = paid ? AppColors.paid : AppColors.overdue;
+    final color = switch (status) {
+      PaymentStatus.paid => AppColors.paid,
+      PaymentStatus.grace => AppColors.pending,
+      PaymentStatus.overdue => AppColors.overdue,
+    };
     return SizedBox(
       width: width,
       child: Align(

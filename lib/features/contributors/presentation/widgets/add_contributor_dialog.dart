@@ -188,44 +188,61 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
 
       await ref.read(contributorsRepositoryProvider).create(newContributor);
 
-      // إبطال المزوّدات الخام لإجبار إعادة الجلب الفعلي
-      ref.invalidate(statsRawProvider);
-      ref.invalidate(donorsRawProvider);
-      ref.invalidate(subscribersRawProvider);
-      ref.invalidate(allContributorsRawProvider);
+      // تسجيل تسديد الشهر المختار تلقائياً في جدول التسديدات الشهري للمشترك الجديد
+      if (widget.mode == ContributorType.subscriber && totalPaidAmount > 0) {
+        await ref.read(contributorsRepositoryProvider).saveMonthPayment(
+              contributorId: newContributor.id,
+              year: _paymentDate.year,
+              month: _paymentDate.month,
+              amount: totalPaidAmount,
+              paidAt: _paymentDate,
+              isPaid: true,
+            );
+      }
+
+      // تحديث المزوّدات وانتظار اكتمال الجلب قبل الانتقال
+      // ref.refresh().future ينتظر حتى تعود البيانات الجديدة فعلاً
+      await Future.wait([
+        ref.refresh(subscribersRawProvider.future),
+        ref.refresh(donorsRawProvider.future),
+        ref.refresh(allContributorsRawProvider.future),
+        ref.refresh(statsRawProvider.future),
+      ]);
 
       if (mounted) {
-        // الترحيل المباشر لصفحة القسم المناسب بعد الحفظ
+        // الترحيل المباشر لصفحة القسم المناسب بعد اكتمال الجلب
         Navigator.of(context).pop();
         final destination = switch (widget.mode) {
           ContributorType.subscriber => '/contributors/subscribers',
-          ContributorType.donor => '/contributors/donors',
-          ContributorType.inKind => '/contributors/all',
+          ContributorType.donor      => '/contributors/donors',
+          ContributorType.inKind     => '/contributors/all',
         };
         if (mounted) context.go(destination);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'تمت إضافة ${_titleText()} بنجاح: $name',
-                    style: const TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.w600,
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'تمت إضافة ${_titleText()} بنجاح: $name',
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              backgroundColor: AppColors.greenDeep,
+              behavior: SnackBarBehavior.floating,
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            backgroundColor: AppColors.greenDeep,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -269,7 +286,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       case ContributorType.donor:
         return Icons.volunteer_activism_rounded;
       case ContributorType.inKind:
-        return Icons.handshake_rounded;
+        return Icons.shopping_basket_rounded;
     }
   }
 
@@ -472,8 +489,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
                             runSpacing: 8,
                             children: [
                               'نقدي دفعة واحدة',
-                              'كفالة',
-                              'تبرع دوري',
+                              'تبرع مستمر',
                             ]
                                 .map((t) => _buildChoiceChip(
                                       label: t,
@@ -493,7 +509,11 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
                             (widget.mode == ContributorType.donor &&
                                 _selectedDonationType != null)) ...[
                           _buildLabel(
-                              'المبلغ (د.ع) — يُكتب بفوارز تلقائياً', textColor),
+                            widget.mode == ContributorType.donor
+                                ? 'مبلغ التبرع'
+                                : 'مبلغ الاشتراك',
+                            textColor,
+                          ),
                           TextFormField(
                             controller: _amountController,
                             keyboardType: TextInputType.number,
@@ -524,7 +544,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
                               }
                             },
                             decoration: _inputDecoration(
-                              hint: 'مثال: 25,000',
+                              hint: '25,000 د.ع',
                               icon: Icons.payments_outlined,
                               isDark: isDark,
                             ),

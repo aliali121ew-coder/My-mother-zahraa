@@ -12,6 +12,7 @@ class ContributorModel {
     this.phone,
     this.photoUrl,
     this.notes,
+    this.address,
     this.subscriptionAmount,
     this.subscriptionType,
     this.lastPaymentAt,
@@ -28,6 +29,9 @@ class ContributorModel {
   final String? phone;
   final String? photoUrl;
   final String? notes;
+
+  /// عنوان السكن أو المنطقة
+  final String? address;
 
   /// مبلغ الاشتراك الدوري — للمشتركين
   final num? subscriptionAmount;
@@ -53,26 +57,65 @@ class ContributorModel {
 
   bool get isSubscriber => type == ContributorType.subscriber;
 
-  /// حالة السداد: تلقائية من آخر دفعة ونوع الاشتراك، ويتجاوزها المدير يدوياً.
+  /// تاريخ نهاية فترة الاشتراك المدفوعة
+  DateTime? get paidPeriodEndDate {
+    if (lastPaymentAt == null) return null;
+    final lp = lastPaymentAt!;
+    final t = subscriptionType ?? SubscriptionType.monthly;
+    if (t == SubscriptionType.monthly) {
+      return DateTime(lp.year, lp.month + 1, lp.day, 23, 59, 59);
+    } else {
+      return DateTime(lp.year + 1, lp.month, lp.day, 23, 59, 59);
+    }
+  }
+
+  /// تاريخ نهاية فترة السماح (يوم 10 من الشهر الجديد للشهري، و30 يوماً للسنوي)
+  DateTime? get graceCutoffDate {
+    if (lastPaymentAt == null) return null;
+    final lp = lastPaymentAt!;
+    final t = subscriptionType ?? SubscriptionType.monthly;
+    if (t == SubscriptionType.monthly) {
+      final paidEnd = DateTime(lp.year, lp.month + 1, lp.day, 23, 59, 59);
+      return DateTime(paidEnd.year, paidEnd.month + 1, 10, 23, 59, 59);
+    } else {
+      final paidEnd = DateTime(lp.year + 1, lp.month, lp.day, 23, 59, 59);
+      return paidEnd.add(const Duration(days: 30));
+    }
+  }
+
+  /// حالة السداد الثلاثية: (🟢 مسدّد - 🟡 في المهلة - 🔴 متأخر)
   PaymentStatus get paymentStatus {
     if (isLateOverride != null) {
       return isLateOverride! ? PaymentStatus.overdue : PaymentStatus.paid;
     }
     if (!isSubscriber) return PaymentStatus.paid;
-    final t = subscriptionType ?? SubscriptionType.monthly;
     if (lastPaymentAt == null) return PaymentStatus.overdue;
-    final elapsed = DateTime.now().difference(lastPaymentAt!).inDays;
-    return elapsed > t.days ? PaymentStatus.overdue : PaymentStatus.paid;
+
+    final now = DateTime.now();
+    final paidEnd = paidPeriodEndDate!;
+    if (now.isBefore(paidEnd) || now.isAtSameMomentAs(paidEnd)) {
+      return PaymentStatus.paid;
+    }
+
+    final graceCutoff = graceCutoffDate!;
+    if (now.isBefore(graceCutoff) || now.isAtSameMomentAs(graceCutoff)) {
+      return PaymentStatus.grace;
+    }
+
+    return PaymentStatus.overdue;
   }
 
+  bool get isPaid => paymentStatus == PaymentStatus.paid;
+  bool get isGrace => paymentStatus == PaymentStatus.grace;
   bool get isOverdue => paymentStatus == PaymentStatus.overdue;
 
-  /// كم يوماً تأخّر عن موعد استحقاقه (صفر إن كان مسدداً)
+  /// كم يوماً تأخّر عن موعد استحقاقه (صفر إن كان مسدّداً أو في المهلة)
   int get daysOverdue {
     if (!isOverdue || lastPaymentAt == null) return 0;
-    final t = subscriptionType ?? SubscriptionType.monthly;
-    final elapsed = DateTime.now().difference(lastPaymentAt!).inDays;
-    return elapsed - t.days;
+    final graceCutoff = graceCutoffDate;
+    if (graceCutoff == null) return 0;
+    final diff = DateTime.now().difference(graceCutoff).inDays;
+    return diff > 0 ? diff : 1;
   }
 
   factory ContributorModel.fromJson(Map<String, dynamic> j) => ContributorModel(
@@ -82,6 +125,7 @@ class ContributorModel {
         phone: j['phone'] as String?,
         photoUrl: j['photo_url'] as String?,
         notes: j['notes'] as String?,
+        address: j['address'] as String?,
         subscriptionAmount: j['subscription_amount'] as num?,
         subscriptionType: j['subscription_type'] == null
             ? null
@@ -101,6 +145,7 @@ class ContributorModel {
         'phone': phone,
         'photo_url': photoUrl,
         'notes': notes,
+        'address': address,
         'subscription_amount': subscriptionAmount,
         'subscription_type': subscriptionType?.value,
         'last_payment_at': lastPaymentAt?.toIso8601String(),
@@ -118,6 +163,7 @@ class ContributorModel {
         'phone': phone,
         'photo_url': photoUrl,
         'notes': notes,
+        'address': address,
         'subscription_amount': subscriptionAmount,
         'subscription_type': subscriptionType?.value,
         'is_late_override': isLateOverride,
@@ -130,9 +176,12 @@ class ContributorModel {
     String? phone,
     String? photoUrl,
     String? notes,
+    String? address,
+    bool clearAddress = false,
     num? subscriptionAmount,
     SubscriptionType? subscriptionType,
     DateTime? lastPaymentAt,
+    DateTime? createdAt,
     bool? isLateOverride,
     bool clearOverride = false,
     num? totalPaid,
@@ -145,12 +194,13 @@ class ContributorModel {
         phone: phone ?? this.phone,
         photoUrl: photoUrl ?? this.photoUrl,
         notes: notes ?? this.notes,
+        address: clearAddress ? null : (address ?? this.address),
         subscriptionAmount: subscriptionAmount ?? this.subscriptionAmount,
         subscriptionType: subscriptionType ?? this.subscriptionType,
         lastPaymentAt: lastPaymentAt ?? this.lastPaymentAt,
         isLateOverride: clearOverride ? null : (isLateOverride ?? this.isLateOverride),
         totalPaid: totalPaid ?? this.totalPaid,
-        createdAt: createdAt,
+        createdAt: createdAt ?? this.createdAt,
         updatedAt: DateTime.now(),
         pendingSync: pendingSync ?? this.pendingSync,
       );

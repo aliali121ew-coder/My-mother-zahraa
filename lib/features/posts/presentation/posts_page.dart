@@ -2,104 +2,246 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/glass.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/auto_hiding_app_bar.dart';
+import '../data/mock_posts_data.dart';
+import 'create_post_flow_page.dart';
+import 'interactions_activity_page.dart';
+import 'widgets/instagram_post_card.dart';
+import 'widgets/instagram_story_bar.dart';
+import 'yearly_archive_page.dart';
 
-/// صفحة المنشورات بنمط إنستغرام — قيد البناء في هذه المرحلة.
-///
-/// المتطلبات المسجّلة لهذه الشاشة:
-///  • شريط ستوريز في الأعلى مقسّم إلى أقسام يديرها المدير
-///  • منشورات بعدة صور بتمرير أفقي (carousel)
-///  • إعجاب متاح **للزائر بلا تسجيل**، وتعليق **يتطلب حساباً**
-///  • مشاركة وحفظ المنشور، ملفات شخصية ومتابعة
-///  • قسم السنوات: أرشيف بألبوم مستقل لكل سنة
-class PostsPage extends ConsumerWidget {
+enum _PostCategory { all, weeklyMajalis, muharram, projects, archive }
+
+class PostsPage extends ConsumerStatefulWidget {
   const PostsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('المنشورات')),
-      body: const _UnderConstruction(
-        icon: Icons.dynamic_feed_rounded,
-        title: 'المنشورات قيد البناء',
-        points: [
-          'شريط ستوريز بأقسام يديرها المدير',
-          'منشورات بعدة صور بتمرير أفقي',
-          'إعجاب للزائر وتعليق للمسجلين',
-          'مشاركة وحفظ ومتابعة',
-          'أرشيف السنوات بألبوم لكل سنة',
-        ],
-      ),
-    );
-  }
+  ConsumerState<PostsPage> createState() => _PostsPageState();
 }
 
-/// شاشة مؤقتة تُبيّن ما سيُبنى في هذه الصفحة بدقة — أوضح من صفحة فارغة.
-class _UnderConstruction extends StatelessWidget {
-  const _UnderConstruction({
-    required this.icon,
-    required this.title,
-    required this.points,
-  });
-
-  final IconData icon;
-  final String title;
-  final List<String> points;
+class _PostsPageState extends ConsumerState<PostsPage> {
+  _PostCategory _selectedCategory = _PostCategory.all;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-      children: [
-        GlassCard(
-          blur: true,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    final isDark = theme.brightness == Brightness.dark;
+    final posts = ref.watch(postsProvider);
+
+    // تصفية المنشورات
+    final filteredPosts = posts.where((p) {
+      switch (_selectedCategory) {
+        case _PostCategory.all:
+          return true;
+        case _PostCategory.weeklyMajalis:
+          return p.caption.contains('مجلس') || p.caption.contains('ذكرى') || p.caption.contains('عزاء');
+        case _PostCategory.muharram:
+          return p.caption.contains('الأربعينية') || p.caption.contains('محرم') || p.yearTag == '2025';
+        case _PostCategory.projects:
+          return p.caption.contains('بناية') || p.caption.contains('مشروع') || p.caption.contains('بناء');
+        case _PostCategory.archive:
+          return p.yearTag != '2026';
+      }
+    }).toList();
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AutoHidingAppBar(
+        leading: IconButton(
+          icon: const Icon(
+            Icons.favorite_border_rounded,
+            color: AppColors.gold,
+            size: 24,
+          ),
+          tooltip: 'سجل التفاعلات والإعجابات',
+          onPressed: () => InteractionsActivityPage.navigate(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: AppColors.gold,
+              size: 24,
+            ),
+            tooltip: 'إضافة تغطية جديدة',
+            onPressed: () => CreatePostFlowPage.navigate(context),
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.collections_bookmark_rounded,
+              color: AppColors.gold,
+              size: 24,
+            ),
+            tooltip: 'معرض السنوات والأرشيف',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const YearlyArchivePage(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: CustomScrollView(
+        slivers: [
+          // 1. Instagram Story Bar Header
+          const SliverToBoxAdapter(
+            child: InstagramStoryBar(),
+          ),
+
+          // Divider
+          SliverToBoxAdapter(
+            child: Divider(
+              height: 1,
+              color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+
+
+
+          // 3. Category Filters Bar (شرائح تصفية المنشورات)
+          SliverToBoxAdapter(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: AppColors.gold.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(icon, color: AppColors.gold, size: 24),
+                  _buildCategoryChip(
+                    label: 'الكل',
+                    category: _PostCategory.all,
+                    icon: Icons.dynamic_feed_rounded,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(title, style: theme.textTheme.titleLarge),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip(
+                    label: 'مجالس أسبوعية',
+                    category: _PostCategory.weeklyMajalis,
+                    icon: Icons.mosque_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip(
+                    label: 'محرم والأربعينية',
+                    category: _PostCategory.muharram,
+                    icon: Icons.flag_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip(
+                    label: 'مشاريع وإعمار',
+                    category: _PostCategory.projects,
+                    icon: Icons.construction_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildCategoryChip(
+                    label: 'أرشيف السنوات',
+                    category: _PostCategory.archive,
+                    icon: Icons.history_rounded,
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text('ما سيحتويه هذا القسم:', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
-              for (final p in points)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Icon(Icons.circle,
-                            size: 5, color: AppColors.gold),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(p, style: theme.textTheme.bodyLarge),
-                      ),
-                    ],
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
+          // 4. Posts Feed List
+          filteredPosts.isEmpty
+              ? SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.photo_album_outlined,
+                          size: 56,
+                          color: AppColors.gold,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'لا توجد منشورات في هذه الفئة حالياً',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 14,
+                            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final post = filteredPosts[index];
+                        return InstagramPostCard(
+                          key: ValueKey(post.id),
+                          post: post,
+                        );
+                      },
+                      childCount: filteredPosts.length,
+                    ),
                   ),
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip({
+    required String label,
+    required _PostCategory category,
+    required IconData icon,
+  }) {
+    final selected = _selectedCategory == category;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: selected
+            ? AppColors.gold.withValues(alpha: 0.22)
+            : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: selected
+              ? AppColors.gold
+              : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08)),
+          width: selected ? 1.2 : 0.8,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => setState(() => _selectedCategory = category),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: selected
+                    ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                    : (isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                  color: selected
+                      ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                      : (isDark ? AppColors.textOnDark : AppColors.textOnLight),
+                ),
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

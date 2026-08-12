@@ -6,6 +6,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/permissions.dart';
 
 /// صفحة التقارير: كارتان **مربعان بحواف ناعمة** كما طُلب — المشتركون
@@ -23,7 +24,7 @@ class ReportsPage extends ConsumerWidget {
     if (!session.role.canViewReports) {
       return Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: const Text('التقارير')),
+        appBar: const AutoHidingAppBar(title: Text('التقارير')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
@@ -55,7 +56,7 @@ class ReportsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('التقارير')),
+      appBar: const AutoHidingAppBar(title: Text('التقارير')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [

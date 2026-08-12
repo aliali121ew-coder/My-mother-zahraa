@@ -101,7 +101,7 @@ class ContributorsPage extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
-            childAspectRatio: 1.02,
+            childAspectRatio: 0.95,
             children: [
               _GridActionCard(
                 title: 'إضافة مشترك',
@@ -122,26 +122,26 @@ class ContributorsPage extends ConsumerWidget {
                 subtitle: 'سجل المشتركين وحالة سدادهم',
                 icon: Icons.people_alt_rounded,
                 iconColor: const Color(0xFF14512F),
-                onTap: () => context.go('/contributors/subscribers'),
+                onTap: () => context.push('/contributors/subscribers'),
               ),
               _GridActionCard(
                 title: 'عرض المتبرعين',
                 subtitle: 'سجل الداعمين والتبرعات',
                 icon: Icons.handshake_rounded,
                 iconColor: const Color(0xFF3D6D78),
-                onTap: () => context.go('/contributors/donors'),
+                onTap: () => context.push('/contributors/donors'),
               ),
               _GridActionCard(
                 title: 'عرض الكل',
                 subtitle: 'كافة المساهمين والداعمين',
                 icon: Icons.groups_rounded,
                 iconColor: const Color(0xFF7B2CBF),
-                onTap: () => context.go('/contributors/all'),
+                onTap: () => context.push('/contributors/all'),
               ),
               _GridActionCard(
                 title: 'الدعم',
                 subtitle: 'تسجيل مساهمة داعم عينية',
-                icon: Icons.support_agent_rounded,
+                icon: Icons.shopping_basket_rounded,
                 iconColor: const Color(0xFF0077B6),
                 onTap: () => AddContributorDialog.show(context, ContributorType.inKind),
               ),
@@ -177,16 +177,17 @@ class _GridActionCard extends StatelessWidget {
       blur: true,
       onTap: onTap,
       radius: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 50,
-            height: 50,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: isDark ? 0.22 : 0.14),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: iconColor.withValues(alpha: 0.35),
                 width: 1,
@@ -195,30 +196,34 @@ class _GridActionCard extends StatelessWidget {
             child: Icon(
               icon,
               color: isDark ? iconColor.withValues(alpha: 0.95) : iconColor,
-              size: 26,
+              size: 24,
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+              ),
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 11,
-              color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 10.5,
+                color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+              ),
             ),
           ),
         ],

@@ -243,3 +243,11 @@ final dataIsStaleProvider = Provider<bool>((ref) {
   final b = ref.watch(subscribersRawProvider).valueOrNull?.isStale ?? false;
   return s || d || b;
 });
+
+/// تقدم إخفاء/إظهار أشرطة التنقل بنسبة متصلة من 0.0 (ظاهر 100%) إلى 1.0 (مخفي 10% شفافية) حسب حركة اللمس
+final scrollProgressProvider = StateProvider<double>((ref) => 0.0);
+
+/// التوافقية مع الحالة البولينية
+final scrollBarsVisibleProvider = StateProvider<bool>((ref) => true);
+
+

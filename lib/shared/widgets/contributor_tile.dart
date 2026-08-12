@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -9,11 +12,7 @@ import '../models/contributor_model.dart';
 import '../models/enums.dart';
 
 /// كارت مساهم (متبرع أو مشترك) داخل قائمة عمودية.
-///
-/// **قرار أداء:** يستخدم `GlassCard(blur: false)` — نفس المظهر الزجاجي
-/// بتدرّج مطلي مسبقاً بلا [BackdropFilter]. لو استخدمنا التمويه هنا لانهار
-/// معدّل الإطارات، لأن كل عنصر في القائمة سيعيد حساب التمويه في كل إطار.
-class ContributorTile extends StatelessWidget {
+class ContributorTile extends ConsumerWidget {
   const ContributorTile({
     super.key,
     required this.contributor,
@@ -21,6 +20,7 @@ class ContributorTile extends StatelessWidget {
     this.onTap,
     this.showStatus = false,
     this.hideName = false,
+    this.showTypeBadge = false,
   });
 
   final ContributorModel contributor;
@@ -35,14 +35,19 @@ class ContributorTile extends StatelessWidget {
   /// يخفي الاسم لدور العضو الذي لا يُصرَّح له برؤية الأسماء
   final bool hideName;
 
+  /// يعرض وسام نوع المساهم (مشترك / متبرع / داعم) — يُعرَض فقط في الرئيسية وعرض كافة البيانات
+  final bool showTypeBadge;
+
   bool get _hasMedal => rank != null && rank! <= 3;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final c = contributor;
-    final amount = c.isSubscriber ? c.subscriptionAmount : c.totalPaid;
+    final amount = rank != null
+        ? c.totalPaid
+        : (c.isSubscriber ? (c.subscriptionAmount ?? c.totalPaid) : c.totalPaid);
 
     final isRank1 = rank == 1;
     final isRank2 = rank == 2;
@@ -68,7 +73,10 @@ class ContributorTile extends StatelessWidget {
         : null;
 
     return GlassCard(
-      onTap: onTap,
+      onTap: onTap ??
+          () {
+            context.push('/subscriber_detail/${c.id}');
+          },
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       borderColor: borderColor,
       gradient: cardGradient,
@@ -84,53 +92,25 @@ class ContributorTile extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        hideName ? 'مساهم مُخفى الاسم' : c.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.displayFamily,
-                          fontSize: 17.5,
-                          fontWeight: _hasMedal ? FontWeight.w700 : FontWeight.w600,
-                          color: isRank1
-                              ? (isDark ? AppColors.goldBright : AppColors.goldDark)
-                              : (isDark ? AppColors.textOnDark : AppColors.textOnLight),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          hideName ? 'مساهم مُخفى الاسم' : c.fullName,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 14.5,
+                            fontWeight: _hasMedal ? FontWeight.w700 : FontWeight.w600,
+                            color: isRank1
+                                ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                                : (isDark ? AppColors.textOnDark : AppColors.textOnLight),
+                          ),
                         ),
                       ),
                     ),
                     if (_hasMedal) ...[
                       const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: switch (rank!) {
-                            1 => AppColors.rank1Gradient,
-                            2 => AppColors.rank2Gradient,
-                            _ => AppColors.rank3Gradient,
-                          },
-                          boxShadow: [
-                            BoxShadow(
-                              color: (switch (rank!) {
-                                1 => AppColors.gold,
-                                2 => AppColors.silverMedal,
-                                _ => AppColors.bronzeMedal,
-                              })
-                                  .withValues(alpha: 0.4),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          switch (rank!) {
-                            1 => Icons.emoji_events_rounded,
-                            2 => Icons.workspace_premium_rounded,
-                            _ => Icons.military_tech_rounded,
-                          },
-                          size: 14,
-                          color: AppColors.greenAbyss,
-                        ),
-                      ),
                     ],
                   ],
                 ),
@@ -162,25 +142,104 @@ class ContributorTile extends StatelessWidget {
                         style: theme.textTheme.bodySmall,
                       ),
                     ],
-                    if (!c.isSubscriber && c.lastPaymentAt != null) ...[
-                      _dot(context),
-                      Flexible(
-                        child: Text(
-                          Fmt.dateShort(c.lastPaymentAt),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],
             ),
           ),
-          if (showStatus) ...[
+          if (_hasMedal || showTypeBadge || (showStatus && c.isSubscriber)) ...[
             const SizedBox(width: 8),
-            _StatusChip(status: c.paymentStatus),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_hasMedal) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      gradient: switch (rank!) {
+                        1 => AppColors.rank1Gradient,
+                        2 => AppColors.rank2Gradient,
+                        _ => AppColors.rank3Gradient,
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (switch (rank!) {
+                            1 => AppColors.gold,
+                            2 => AppColors.silverMedal,
+                            _ => AppColors.bronzeMedal,
+                          }).withValues(alpha: 0.4),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.military_tech_rounded,
+                          size: 13,
+                          color: AppColors.greenAbyss,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '#$rank',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.greenAbyss,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (_hasMedal && (showTypeBadge || (showStatus && c.isSubscriber)))
+                  const SizedBox(height: 4),
+                if (showTypeBadge) ...[
+                  // وسام نوع المساهم (مشترك / متبرع / داعم)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: c.isSubscriber
+                          ? AppColors.greenDeep.withValues(alpha: isDark ? 0.28 : 0.12)
+                          : (c.type == ContributorType.donor
+                              ? AppColors.gold.withValues(alpha: isDark ? 0.25 : 0.14)
+                              : Colors.blue.withValues(alpha: isDark ? 0.25 : 0.12)),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: c.isSubscriber
+                            ? AppColors.greenDeep.withValues(alpha: 0.5)
+                            : (c.type == ContributorType.donor
+                                ? AppColors.gold.withValues(alpha: 0.6)
+                                : Colors.blue.withValues(alpha: 0.5)),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      c.type.label,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: c.isSubscriber
+                            ? (isDark ? const Color(0xFF6FE0A5) : AppColors.greenDeep)
+                            : (c.type == ContributorType.donor
+                                ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                                : (isDark ? Colors.lightBlueAccent : Colors.blue.shade800)),
+                      ),
+                    ),
+                  ),
+                ],
+                if (showTypeBadge && (showStatus && c.isSubscriber))
+                  const SizedBox(height: 4),
+                if (showStatus && c.isSubscriber) ...[
+                  _StatusChip(status: c.paymentStatus),
+                ],
+              ],
+            ),
           ],
           if (c.pendingSync) ...[
             const SizedBox(width: 6),
@@ -229,15 +288,25 @@ class _Avatar extends StatelessWidget {
 
     Widget inner;
     if (url != null && url.isNotEmpty && !hideName) {
-      inner = CachedNetworkImage(
-        imageUrl: url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        memCacheWidth: 132,
-        placeholder: (_, _) => _letterBox(context, letter),
-        errorWidget: (_, _, _) => _letterBox(context, letter),
-      );
+      if (url.startsWith('http')) {
+        inner = CachedNetworkImage(
+          imageUrl: url,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          memCacheWidth: 132,
+          placeholder: (_, _) => _letterBox(context, letter),
+          errorWidget: (_, _, _) => _letterBox(context, letter),
+        );
+      } else {
+        inner = Image.file(
+          File(url),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _letterBox(context, letter),
+        );
+      }
     } else {
       inner = _letterBox(context, letter);
     }
@@ -268,7 +337,7 @@ class _Avatar extends StatelessWidget {
           bottom: -2,
           right: -2,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
             decoration: BoxDecoration(
               gradient: rank == 1
                   ? AppColors.rank1Gradient
@@ -283,15 +352,41 @@ class _Avatar extends StatelessWidget {
                 color: Theme.of(context).scaffoldBackgroundColor,
                 width: 1.6,
               ),
+              boxShadow: rank! <= 3
+                  ? [
+                      BoxShadow(
+                        color: (rank == 1
+                                ? AppColors.gold
+                                : rank == 2
+                                    ? AppColors.silverMedal
+                                    : AppColors.bronzeMedal)
+                            .withValues(alpha: 0.45),
+                        blurRadius: 5,
+                      )
+                    ]
+                  : null,
             ),
-            child: Text(
-              Fmt.count(rank),
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: rank! <= 3 ? AppColors.greenAbyss : AppColors.textOnDark,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (rank! <= 3) ...[
+                  const Icon(
+                    Icons.workspace_premium_rounded,
+                    size: 11,
+                    color: AppColors.greenAbyss,
+                  ),
+                  const SizedBox(width: 1.5),
+                ],
+                Text(
+                  Fmt.count(rank),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: rank! <= 3 ? AppColors.greenAbyss : AppColors.textOnDark,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -331,8 +426,11 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paid = status == PaymentStatus.paid;
-    final color = paid ? AppColors.paid : AppColors.overdue;
+    final color = switch (status) {
+      PaymentStatus.paid => AppColors.paid,
+      PaymentStatus.grace => AppColors.pending,
+      PaymentStatus.overdue => AppColors.overdue,
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

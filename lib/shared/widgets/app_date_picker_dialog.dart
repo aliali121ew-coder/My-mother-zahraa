@@ -96,7 +96,7 @@ class _AppDatePickerDialogState extends State<AppDatePickerDialog> {
         isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted;
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = (screenWidth * 0.48).clamp(320.0, 400.0);
+    final dialogWidth = (screenWidth * 0.88).clamp(300.0, 400.0);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -132,7 +132,7 @@ class _AppDatePickerDialogState extends State<AppDatePickerDialog> {
               // 1. الترويسة العلوية الفاخرة لعرض التاريخ المختار وتسهيل التنقل
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -158,14 +158,18 @@ class _AppDatePickerDialogState extends State<AppDatePickerDialog> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            DateFormat('EEEE، d MMMM yyyy', 'ar')
-                                .format(_selectedDate),
-                            style: const TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              DateFormat('EEEE، d MMMM yyyy', 'ar')
+                                  .format(_selectedDate),
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -176,18 +180,22 @@ class _AppDatePickerDialogState extends State<AppDatePickerDialog> {
                     // شريط أزرار التنقل السريع بين (السنة / الشهر / الأيام)
                     Row(
                       children: [
-                        _buildHeaderModeTab(
-                          label: 'السنة: $_viewYear',
-                          selected: _viewMode == 2,
-                          onTap: () => setState(
-                              () => _viewMode = _viewMode == 2 ? 0 : 2),
+                        Flexible(
+                          child: _buildHeaderModeTab(
+                            label: 'السنة: $_viewYear',
+                            selected: _viewMode == 2,
+                            onTap: () => setState(
+                                () => _viewMode = _viewMode == 2 ? 0 : 2),
+                          ),
                         ),
                         const SizedBox(width: 8),
-                        _buildHeaderModeTab(
-                          label: 'الشهر: ${_arabicMonths[_viewMonth - 1]}',
-                          selected: _viewMode == 1,
-                          onTap: () => setState(
-                              () => _viewMode = _viewMode == 1 ? 0 : 1),
+                        Flexible(
+                          child: _buildHeaderModeTab(
+                            label: 'الشهر: ${_arabicMonths[_viewMonth - 1]}',
+                            selected: _viewMode == 1,
+                            onTap: () => setState(
+                                () => _viewMode = _viewMode == 1 ? 0 : 1),
+                          ),
                         ),
                       ],
                     ),
@@ -283,13 +291,18 @@ class _AppDatePickerDialogState extends State<AppDatePickerDialog> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: selected ? _accent : Colors.white,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: selected ? _accent : Colors.white,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 4),

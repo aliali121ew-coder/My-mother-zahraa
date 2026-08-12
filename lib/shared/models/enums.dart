@@ -78,9 +78,13 @@ enum DonationKind {
 /// حالة السداد — تُحسب تلقائياً ويمكن للمدير تجاوزها يدوياً.
 enum PaymentStatus {
   paid('paid', 'مسدد'),
+  grace('grace', 'في المهلة'),
   overdue('overdue', 'متأخر');
 
   const PaymentStatus(this.value, this.label);
   final String value;
   final String label;
+
+  static PaymentStatus fromValue(String? v) =>
+      values.firstWhere((e) => e.value == v, orElse: () => overdue);
 }

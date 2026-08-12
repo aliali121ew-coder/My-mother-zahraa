@@ -6,73 +6,66 @@ import 'package:mawkib_zahra/shared/models/permissions.dart';
 import 'package:mawkib_zahra/shared/models/stats_snapshot.dart';
 
 void main() {
-  group('حساب حالة السداد', () {
-    ContributorModel sub({
-      required SubscriptionType type,
-      required int daysSinceLastPayment,
-      bool? override,
-    }) =>
-        ContributorModel(
-          id: 't',
-          type: ContributorType.subscriber,
-          fullName: 'مشترك',
-          subscriptionAmount: 100000,
-          subscriptionType: type,
-          lastPaymentAt:
-              DateTime.now().subtract(Duration(days: daysSinceLastPayment)),
-          isLateOverride: override,
-        );
-
-    test('الشهري مسدد إذا دفع قبل أقل من ٣٠ يوماً', () {
-      expect(
-        sub(type: SubscriptionType.monthly, daysSinceLastPayment: 20)
-            .paymentStatus,
-        PaymentStatus.paid,
+  group('حساب حالة السداد الثلاثية (مسدد - في المهلة - متأخر)', () {
+    test('الشهري مسدد طالما أنه ضمن شهر الاشتراك المدفوع', () {
+      final c = ContributorModel(
+        id: '1',
+        type: ContributorType.subscriber,
+        fullName: 'مشترك',
+        subscriptionType: SubscriptionType.monthly,
+        lastPaymentAt: DateTime.now().subtract(const Duration(days: 10)),
       );
+      expect(c.paymentStatus, PaymentStatus.paid);
+      expect(c.isPaid, isTrue);
     });
 
-    test('الشهري متأخر إذا مضى أكثر من ٣٠ يوماً', () {
-      final c = sub(type: SubscriptionType.monthly, daysSinceLastPayment: 45);
-      expect(c.paymentStatus, PaymentStatus.overdue);
-      expect(c.daysOverdue, 15);
+    test('حساب مواعيد انتهاء شهر الاشتراك ومهلة يوم 10 من الشهر الجديد دقيقاً', () {
+      final lastPayment = DateTime(2026, 6, 15);
+      final c = ContributorModel(
+        id: '2',
+        type: ContributorType.subscriber,
+        fullName: 'مشترك شهري',
+        subscriptionType: SubscriptionType.monthly,
+        lastPaymentAt: lastPayment,
+      );
+      expect(c.paidPeriodEndDate?.month, 7);
+      expect(c.paidPeriodEndDate?.day, 15);
+      expect(c.graceCutoffDate?.month, 8);
+      expect(c.graceCutoffDate?.day, 10);
     });
 
-    test('السنوي مسدد بعد ٤٥ يوماً — لا يُقاس بمقياس الشهري', () {
-      expect(
-        sub(type: SubscriptionType.yearly, daysSinceLastPayment: 45)
-            .paymentStatus,
-        PaymentStatus.paid,
+    test('السنوي مسدد خلال السنة الأولى، وفي المهلة بعد انتهاء السنة ضمن 30 يوماً', () {
+      final cPaid = ContributorModel(
+        id: '3',
+        type: ContributorType.subscriber,
+        fullName: 'مشترك سنوي',
+        subscriptionType: SubscriptionType.yearly,
+        lastPaymentAt: DateTime.now().subtract(const Duration(days: 200)),
       );
-    });
-
-    test('السنوي متأخر بعد أكثر من ٣٦٥ يوماً', () {
-      expect(
-        sub(type: SubscriptionType.yearly, daysSinceLastPayment: 400)
-            .paymentStatus,
-        PaymentStatus.overdue,
-      );
+      expect(cPaid.paymentStatus, PaymentStatus.paid);
     });
 
     test('تجاوز المدير اليدوي يتغلّب على الحساب التلقائي', () {
-      // مضى ٤٥ يوماً على اشتراك شهري = متأخر تلقائياً، لكن المدير يقول مسدد
-      expect(
-        sub(
-          type: SubscriptionType.monthly,
-          daysSinceLastPayment: 45,
-          override: false,
-        ).paymentStatus,
-        PaymentStatus.paid,
+      final c = ContributorModel(
+        id: '4',
+        type: ContributorType.subscriber,
+        fullName: 'مشترك',
+        subscriptionType: SubscriptionType.monthly,
+        lastPaymentAt: DateTime.now().subtract(const Duration(days: 90)),
+        isLateOverride: false,
       );
+      expect(c.paymentStatus, PaymentStatus.paid);
     });
 
     test('مشترك بلا أي دفعة يُعتبر متأخراً', () {
       const c = ContributorModel(
-        id: 't',
+        id: '5',
         type: ContributorType.subscriber,
-        fullName: 'مشترك',
+        fullName: 'مشترك جديد',
         subscriptionType: SubscriptionType.monthly,
       );
       expect(c.paymentStatus, PaymentStatus.overdue);
+      expect(c.isOverdue, isTrue);
     });
   });
 
@@ -123,9 +116,9 @@ void main() {
       expect(Fmt.money(null), '—');
     });
 
-    test('الاختصار يستخدم ألف ومليون', () {
-      expect(Fmt.moneyShort(2500000).contains('مليون'), isTrue);
-      expect(Fmt.moneyShort(45000).contains('ألف'), isTrue);
+    test('جميع المبالغ تُنسق بالفوارز مع اسم العملة', () {
+      expect(Fmt.moneyShort(2500000), '2,500,000 د.ع');
+      expect(Fmt.moneyShort(45000), '45,000 د.ع');
     });
   });
 }

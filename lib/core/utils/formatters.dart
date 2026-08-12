@@ -41,25 +41,8 @@ abstract final class Fmt {
   /// عدد صحيح: «1,240»
   static String count(num? v) => v == null ? '0' : _digits(_plain.format(v));
 
-  /// مبلغ مختصر للكروت الضيقة: «120 ألف» / «2.4 مليون»
-  static String moneyShort(num? v) {
-    if (v == null) return '—';
-    final n = v.abs();
-    if (n >= 1000000) {
-      final m = v / 1000000;
-      return '${_trim(m)} مليون ${AppConfig.currency}';
-    }
-    if (n >= 1000) {
-      final k = v / 1000;
-      return '${_trim(k)} ألف ${AppConfig.currency}';
-    }
-    return money(v);
-  }
-
-  static String _trim(double d) {
-    final s = d.toStringAsFixed(1);
-    return _digits(NumberFormat('#,##0.#', 'ar').format(double.parse(s)));
-  }
+  /// مبلغ بالفوارز الكاملة مع العملة: «2,500,000 د.ع»
+  static String moneyShort(num? v) => money(v);
 
   /// تاريخ: «3 آب 2026»
   static String date(DateTime? d) => d == null

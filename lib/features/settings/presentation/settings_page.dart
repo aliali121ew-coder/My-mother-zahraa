@@ -8,6 +8,7 @@ import '../../../core/storage/hive_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass.dart';
+import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/permissions.dart';
 
 /// صفحة الإعدادات: الملف الشخصي، الثيم، إدارة المستخدمين، معلومات الموكب،
@@ -23,7 +24,7 @@ class SettingsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('الإعدادات')),
+      appBar: const AutoHidingAppBar(title: Text('الإعدادات')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [

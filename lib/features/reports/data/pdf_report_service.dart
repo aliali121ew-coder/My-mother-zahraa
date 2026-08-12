@@ -338,9 +338,16 @@ class PdfReportService {
           ),
         );
       } else {
-        final paid = c.paymentStatus == PaymentStatus.paid;
-        final statusColor = paid ? PdfColor.fromHex('#2E9E6B') : PdfColor.fromHex('#E54D42');
-        final statusBg = paid ? PdfColor.fromHex('#EAF6F0') : PdfColor.fromHex('#FDF0EE');
+        final statusColor = switch (c.paymentStatus) {
+          PaymentStatus.paid => PdfColor.fromHex('#2E9E6B'),
+          PaymentStatus.grace => PdfColor.fromHex('#D79A3C'),
+          PaymentStatus.overdue => PdfColor.fromHex('#E54D42'),
+        };
+        final statusBg = switch (c.paymentStatus) {
+          PaymentStatus.paid => PdfColor.fromHex('#EAF6F0'),
+          PaymentStatus.grace => PdfColor.fromHex('#FDF8ED'),
+          PaymentStatus.overdue => PdfColor.fromHex('#FDF0EE'),
+        };
 
         rows.add(
           pw.TableRow(

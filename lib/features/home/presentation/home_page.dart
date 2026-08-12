@@ -26,16 +26,20 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final stats = ref.watch(statsProvider);
-    final donors = ref.watch(donorsProvider);
+    final contributors = ref.watch(allContributorsProvider);
     final theme = Theme.of(context);
+
+    final progress = ref.watch(scrollProgressProvider);
+    final opacity = (1.0 - progress * 0.9).clamp(0.1, 1.0);
+    final translateY = -progress * 60.0;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(statsProvider);
-          ref.invalidate(donorsProvider);
-          await ref.read(donorsProvider.future);
+          ref.invalidate(allContributorsProvider);
+          await ref.read(allContributorsProvider.future);
         },
         color: AppColors.gold,
         backgroundColor: theme.cardTheme.color,
@@ -43,41 +47,56 @@ class HomePage extends ConsumerWidget {
           slivers: [
             SliverAppBar(
               pinned: true,
-              backgroundColor: theme.scaffoldBackgroundColor.withValues(alpha: 0.86),
+              backgroundColor: theme.scaffoldBackgroundColor.withValues(
+                alpha: 0.86 * opacity,
+              ),
               surfaceTintColor: Colors.transparent,
               titleSpacing: 16,
-              title: Row(
-                children: [
-                  const MawkibLogo(
-                    height: 30,
-                    small: true,
-                    radius: 9,
-                    padding: EdgeInsets.all(3),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'موكب أمنا الزهراء',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.displayFamily,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
+              title: Transform.translate(
+                offset: Offset(0, translateY),
+                child: Opacity(
+                  opacity: opacity,
+                  child: Row(
+                    children: [
+                      const MawkibLogo(
+                        height: 30,
+                        small: true,
+                        radius: 9,
+                        padding: EdgeInsets.all(3),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'موكب أمنا الزهراء',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
               actions: [
-                IconButton(
-                  tooltip: 'تبديل الوضع الليلي',
-                  icon: Icon(
-                    theme.brightness == Brightness.dark
-                        ? Icons.light_mode_outlined
-                        : Icons.dark_mode_outlined,
+                Transform.translate(
+                  offset: Offset(0, translateY),
+                  child: Opacity(
+                    opacity: opacity,
+                    child: IconButton(
+                      tooltip: 'تبديل الوضع الليلي',
+                      icon: Icon(
+                        theme.brightness == Brightness.dark
+                            ? Icons.light_mode_outlined
+                            : Icons.dark_mode_outlined,
+                      ),
+                      onPressed: () =>
+                          ref.read(themeModeProvider.notifier).toggle(),
+                    ),
                   ),
-                  onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
                 ),
               ],
             ),
@@ -141,52 +160,54 @@ class HomePage extends ConsumerWidget {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(7),
+                      padding: const EdgeInsets.all(7.5),
                       decoration: BoxDecoration(
                         gradient: AppColors.rank1Gradient,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(11),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.gold.withValues(alpha: 0.3),
-                            blurRadius: 8,
+                            color: AppColors.gold.withValues(alpha: 0.45),
+                            blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: const Icon(
-                        Icons.emoji_events_rounded,
-                        size: 18,
+                        Icons.military_tech_rounded,
+                        size: 19,
                         color: AppColors.greenAbyss,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'أعلى المتبرعين',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        // نسخي: يتباين مع أرقام الكروت أعلاه
-                        fontFamily: AppTheme.displayFamily,
-                        fontSize: 21,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // خط ذهبي يمتدّ من العنوان حتى زر «عرض الكل»
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Container(
-                        height: 1,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.gold.withValues(alpha: 0.38),
-                              AppColors.gold.withValues(alpha: 0.0),
-                            ],
-                          ),
+                      child: Text(
+                        'أعلى المساهمين',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFamily,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: theme.brightness == Brightness.dark
+                              ? AppColors.goldBright
+                              : AppColors.goldDark,
+                          shadows: [
+                            Shadow(
+                              color: AppColors.gold.withValues(
+                                alpha: theme.brightness == Brightness.dark
+                                    ? 0.45
+                                    : 0.25,
+                              ),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (donors.hasValue && donors.value!.length > _topDonorsLimit)
+                    if (contributors.hasValue &&
+                        contributors.value!.length > _topDonorsLimit)
                       Container(
                         decoration: BoxDecoration(
                           color: AppColors.gold.withValues(alpha: 0.12),
@@ -197,10 +218,13 @@ class HomePage extends ConsumerWidget {
                           ),
                         ),
                         child: InkWell(
-                          onTap: () => context.go('/contributors/donors'),
+                          onTap: () => context.go('/contributors/all'),
                           borderRadius: BorderRadius.circular(20),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
                             child: Text(
                               'عرض الكل',
                               style: TextStyle(
@@ -220,19 +244,19 @@ class HomePage extends ConsumerWidget {
               ),
             ),
 
-            donors.when(
+            contributors.when(
               loading: () => const SliverToBoxAdapter(child: _ListSkeleton()),
               error: (e, _) => SliverToBoxAdapter(
                 child: _ErrorCard(
-                  message: 'تعذّر تحميل قائمة المتبرعين',
-                  onRetry: () => ref.invalidate(donorsProvider),
+                  message: 'تعذّر تحميل قائمة المساهمين',
+                  onRetry: () => ref.invalidate(allContributorsProvider),
                 ),
               ),
               data: (list) {
                 final top = list.take(_topDonorsLimit).toList();
                 if (top.isEmpty) {
                   return const SliverToBoxAdapter(
-                    child: _EmptyCard(message: 'لا يوجد متبرعون بعد'),
+                    child: _EmptyCard(message: 'لا يوجد مساهمون بعد'),
                   );
                 }
                 return SliverPadding(
@@ -244,6 +268,7 @@ class HomePage extends ConsumerWidget {
                       contributor: top[i],
                       rank: i + 1,
                       hideName: !session.role.canSeeNames,
+                      showTypeBadge: true,
                     ),
                   ),
                 );
@@ -257,55 +282,223 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  /// تفصيل المبلغ الكلي عند الضغط على الكارت — كما طُلب
+  /// تفصيل المبلغ الكلي عند الضغط على الكارت — تصميم UI/UX احترافي وبصري مبهر
   void _showBreakdown(BuildContext context, WidgetRef ref) {
     final s = ref.read(statsProvider).valueOrNull;
     if (s == null) return;
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: isDark
+          ? AppColors.greenDeepest
+          : theme.scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('تفصيل المبلغ الكلي',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 18),
-              _BreakdownRow(label: 'الاشتراكات', value: s.subscriptionsTotal),
-              const SizedBox(height: 12),
-              _BreakdownRow(
-                  label: 'التبرعات النقدية', value: s.donationsTotal),
-              const Divider(height: 28),
-              _BreakdownRow(
-                  label: 'المجموع', value: s.totalAmount, emphasize: true),
-              if (s.inKindCount > 0) ...[
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: AppColors.teal.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.inventory_2_outlined,
-                          size: 18, color: AppColors.teal),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'يوجد ${Fmt.count(s.inKindCount)} تبرع عيني غير محسوب '
-                          'في المبلغ الكلي',
-                          style: Theme.of(context).textTheme.bodySmall,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. ترويسة أنيقة بحلقة أيقونة وتوهج ومسمى فخم
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.gold, AppColors.goldDark],
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.gold.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'تفاصيل المبلغ الكلي',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? AppColors.textOnDark
+                                  : AppColors.textOnLight,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'سجل الإيرادات المحدثة والموقف المالي الحي',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11.5,
+                              color: isDark
+                                  ? AppColors.textOnDarkMuted
+                                  : AppColors.textOnLightMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.paid.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.paid.withValues(alpha: 0.3),
+                          width: 1,
                         ),
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 12,
+                            color: AppColors.paid,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'معتمد',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.paid,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                // 2. كروت البنود المالية بلمسات زجاجية وأيقونات متميزة
+                _BreakdownItemCard(
+                  title: 'إجمالي الاشتراكات',
+                  subtitle: 'مبالغ الاشتراكات السنوية والشهرية',
+                  value: s.subscriptionsTotal,
+                  icon: Icons.repeat_rounded,
+                  iconColor: const Color(0xFF2E9E6B),
+                  isDark: isDark,
+                ),
+
+                const SizedBox(height: 12),
+
+                _BreakdownItemCard(
+                  title: 'إجمالي التبرعات النقدية',
+                  subtitle: 'التبرعات المباشرة والمساهمات النقدية',
+                  value: s.donationsTotal,
+                  icon: Icons.volunteer_activism_rounded,
+                  iconColor: const Color(0xFFD79A3C),
+                  isDark: isDark,
+                ),
+
+                const SizedBox(height: 18),
+
+                // 3. كارت المجموع النهائي البطل (Hero Gold Border Card)
+                GoldBorder(
+                  radius: 20,
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [
+                                AppColors.green.withValues(alpha: 0.85),
+                                AppColors.greenDeep.withValues(alpha: 0.95),
+                              ]
+                            : [AppColors.greenDeep, AppColors.greenAbyss],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'المجموع الإجمالي',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  Fmt.money(s.totalAmount),
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.goldBright,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.gold.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.stars_rounded,
+                            color: AppColors.goldBright,
+                            size: 26,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -313,48 +506,101 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _BreakdownRow extends StatelessWidget {
-  const _BreakdownRow({
-    required this.label,
+class _BreakdownItemCard extends StatelessWidget {
+  const _BreakdownItemCard({
+    required this.title,
+    required this.subtitle,
     required this.value,
-    this.emphasize = false,
+    required this.icon,
+    required this.iconColor,
+    required this.isDark,
   });
 
-  final String label;
+  final String title;
+  final String subtitle;
   final num value;
-  final bool emphasize;
+  final IconData icon;
+  final Color iconColor;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: emphasize
-                ? theme.textTheme.titleMedium
-                : theme.textTheme.bodyLarge,
-          ),
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.09)
+              : Colors.black.withValues(alpha: 0.06),
+          width: 1,
         ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: FittedBox(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: isDark ? 0.20 : 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: iconColor.withValues(alpha: 0.35),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark
+                        ? AppColors.textOnDark
+                        : AppColors.textOnLight,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerEnd,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               Fmt.money(value),
-              maxLines: 1,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: emphasize ? 19 : 16,
-                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
-                color: emphasize ? AppColors.gold : theme.textTheme.bodyLarge?.color,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+                letterSpacing: 0.2,
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 11,
+              color: isDark
+                  ? AppColors.textOnDarkMuted
+                  : AppColors.textOnLightMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -382,8 +628,11 @@ class _LockedStatsCard extends ConsumerWidget {
                     color: AppColors.gold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.lock_outline_rounded,
-                      color: AppColors.gold, size: 20),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: AppColors.gold,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -400,9 +649,9 @@ class _LockedStatsCard extends ConsumerWidget {
             Text(
               session.isPending
                   ? 'سيظهر المبلغ الكلي وأعداد المشتركين والمتبرعين مباشرة بعد '
-                      'موافقة المدير على حسابك.'
+                        'موافقة المدير على حسابك.'
                   : 'يمكنك تصفّح المنشورات بحرية. لرؤية المبلغ الكلي وأعداد '
-                      'المشتركين والمتبرعين، أنشئ حساباً وانتظر موافقة المدير.',
+                        'المشتركين والمتبرعين، أنشئ حساباً وانتظر موافقة المدير.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             if (!session.isPending) ...[
@@ -434,8 +683,9 @@ class _ListSkeleton extends StatelessWidget {
             height: 72,
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              color: (isDark ? Colors.white : Colors.black)
-                  .withValues(alpha: 0.045),
+              color: (isDark ? Colors.white : Colors.black).withValues(
+                alpha: 0.045,
+              ),
               borderRadius: BorderRadius.circular(AppTheme.radius),
             ),
           ),
@@ -452,22 +702,24 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: GlassCard(
-          padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 20),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(Icons.inbox_outlined,
-                    size: 34,
-                    color: Theme.of(context).textTheme.bodySmall?.color),
-                const SizedBox(height: 12),
-                Text(message, style: Theme.of(context).textTheme.bodyMedium),
-              ],
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: GlassCard(
+      padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 20),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 34,
+              color: Theme.of(context).textTheme.bodySmall?.color,
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _ErrorCard extends StatelessWidget {
@@ -478,22 +730,90 @@ class _ErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: GlassCard(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 30, color: AppColors.overdue),
-              const SizedBox(height: 12),
-              Text(message,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 14),
-              OutlinedButton(
-                  onPressed: onRetry, child: const Text('إعادة المحاولة')),
-            ],
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: GlassCard(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 30,
+            color: AppColors.overdue,
           ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: onRetry,
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// =============================================================================
+// معاينات الواجهة (Widget Previews)
+// =============================================================================
+
+/// وسم المعاينة الخاص بالفلاتر
+class Preview {
+  const Preview();
+}
+
+@Preview()
+Widget homePageDarkPreview() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.dark,
+    home: const ProviderScope(child: HomePage()),
+  );
+}
+
+@Preview()
+Widget homePageLightPreview() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light,
+    home: const ProviderScope(child: HomePage()),
+  );
+}
+
+@Preview()
+Widget totalAmountCardDarkPreview() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.dark,
+    home: const Scaffold(
+      backgroundColor: AppColors.greenAbyss,
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: TotalAmountCard(total: 25000000),
         ),
-      );
+      ),
+    ),
+  );
+}
+
+@Preview()
+Widget totalAmountCardLightPreview() {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light,
+    home: const Scaffold(
+      backgroundColor: AppColors.lightBg,
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: TotalAmountCard(total: 25000000),
+        ),
+      ),
+    ),
+  );
 }
