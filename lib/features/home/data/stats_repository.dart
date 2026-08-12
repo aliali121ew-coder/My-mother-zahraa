@@ -50,11 +50,13 @@ class StatsRepository extends SupabaseRepository {
 
       num getContributorTotalPaid(ContributorModel c) {
         num ledgerSum = 0;
+        bool hasRawLedger = false;
         for (int y = 2024; y <= 2030; y++) {
           final boxKey = 'ledger_${c.id}_$y';
           var raw = cache.readOne(AppConfig.boxPayments, boxKey);
           raw ??= cache.readOne(AppConfig.boxContributors, boxKey);
           if (raw != null) {
+            hasRawLedger = true;
             for (final e in raw.values) {
               if (e is Map && e['is_paid'] == true) {
                 ledgerSum += (e['amount'] as num? ?? 0);
@@ -62,7 +64,7 @@ class StatsRepository extends SupabaseRepository {
             }
           }
         }
-        return ledgerSum > 0 ? ledgerSum : c.totalPaid;
+        return hasRawLedger ? ledgerSum : c.totalPaid;
       }
 
       final subs = allActive.where((c) => c.type == ContributorType.subscriber).toList();

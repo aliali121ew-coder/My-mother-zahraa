@@ -293,34 +293,36 @@ class ContributorsRepository extends SupabaseRepository {
         }
       }
 
-      // دعم احتياطي ضامن: إذا كان للمشترك تاريخ دفع أخير ومبلغ مسدد، نضمن ظهور شهر تلك الدفعة
-      final contribRaw = cache.readOne(_demoBox, contributorId);
-      if (contribRaw != null) {
-        try {
-          final c = ContributorModel.fromJson(contribRaw);
-          if (c.lastPaymentAt != null && c.lastPaymentAt!.year == year && c.totalPaid > 0) {
-            final m = c.lastPaymentAt!.month;
+      if (raw == null) {
+        // دعم احتياطي ضامن: ينفّذ فقط إذا لم يكن هنالك أي سجل دفعات مخزن للسنة المالية
+        final contribRaw = cache.readOne(_demoBox, contributorId);
+        if (contribRaw != null) {
+          try {
+            final c = ContributorModel.fromJson(contribRaw);
+            if (c.lastPaymentAt != null && c.lastPaymentAt!.year == year && c.totalPaid > 0) {
+              final m = c.lastPaymentAt!.month;
+              if (!res.containsKey(m)) {
+                res[m] = {
+                  'amount': c.subscriptionAmount ?? c.totalPaid,
+                  'paid_at': c.lastPaymentAt!.toUtc().toIso8601String(),
+                  'is_paid': true,
+                };
+              }
+            }
+          } catch (_) {}
+        } else {
+          // فحص في الديمو الثابت إن وجد
+          final demoList = [...DemoData.donors, ...DemoData.subscribers];
+          final match = demoList.where((c) => c.id == contributorId).firstOrNull;
+          if (match != null && match.lastPaymentAt != null && match.lastPaymentAt!.year == year && match.totalPaid > 0) {
+            final m = match.lastPaymentAt!.month;
             if (!res.containsKey(m)) {
               res[m] = {
-                'amount': c.subscriptionAmount ?? c.totalPaid,
-                'paid_at': c.lastPaymentAt!.toUtc().toIso8601String(),
+                'amount': match.subscriptionAmount ?? match.totalPaid,
+                'paid_at': match.lastPaymentAt!.toUtc().toIso8601String(),
                 'is_paid': true,
               };
             }
-          }
-        } catch (_) {}
-      } else {
-        // فحص في الديمو الثابت إن وجد
-        final demoList = [...DemoData.donors, ...DemoData.subscribers];
-        final match = demoList.where((c) => c.id == contributorId).firstOrNull;
-        if (match != null && match.lastPaymentAt != null && match.lastPaymentAt!.year == year && match.totalPaid > 0) {
-          final m = match.lastPaymentAt!.month;
-          if (!res.containsKey(m)) {
-            res[m] = {
-              'amount': match.subscriptionAmount ?? match.totalPaid,
-              'paid_at': match.lastPaymentAt!.toUtc().toIso8601String(),
-              'is_paid': true,
-            };
           }
         }
       }
@@ -348,8 +350,9 @@ class ContributorsRepository extends SupabaseRepository {
           ? Map<String, dynamic>.from(existing)
           : <String, dynamic>{};
 
+      final monthStr = month.toString();
+
       if (isPaid && amount > 0) {
-        final monthStr = month.toString();
         final monthData = map.containsKey(monthStr) && map[monthStr] is Map
             ? Map<String, dynamic>.from(map[monthStr] as Map)
             : <String, dynamic>{};
@@ -397,8 +400,15 @@ class ContributorsRepository extends SupabaseRepository {
 
         map[monthStr] = monthData;
       } else {
-        map.remove(month.toString());
+        map[monthStr] = {
+          'amount': 0,
+          'is_paid': false,
+          'donations': <Map<String, dynamic>>[],
+        };
       }
+
+      await cache.put(AppConfig.boxPayments, boxKey, map);
+      await cache.put(AppConfig.boxContributors, boxKey, map);
 
       await cache.put(AppConfig.boxPayments, boxKey, map);
 
