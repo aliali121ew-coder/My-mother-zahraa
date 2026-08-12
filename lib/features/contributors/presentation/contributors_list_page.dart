@@ -69,6 +69,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final async = (widget.showAll || widget.showSupporters)
         ? ref.watch(allContributorsProvider)
         : (widget.showDonors == true
@@ -94,29 +95,76 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
       appBar: AppBar(
         centerTitle: true,
         leading: _isSelectionMode
-            ? IconButton(
-                icon: const Icon(Icons.close_rounded),
-                tooltip: 'إلغاء التحديد',
-                onPressed: () => setState(() {
-                  _isSelectionMode = false;
-                  _selectedIds.clear();
-                }),
+            ? Center(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    tooltip: 'إلغاء التحديد',
+                    onPressed: () => setState(() {
+                      _isSelectionMode = false;
+                      _selectedIds.clear();
+                    }),
+                  ),
+                ),
               )
             : null,
         title: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(
-            _isSelectionMode
-                ? (_selectedIds.isEmpty
-                    ? 'حدد العناصر للحذف'
-                    : 'تم تحديد (${_selectedIds.length})')
-                : title,
-            style: TextStyle(
-              fontSize: 16.0,
-              fontWeight: FontWeight.bold,
-              color: _isSelectionMode ? AppColors.goldBright : null,
-            ),
-          ),
+          child: _isSelectionMode
+              ? AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  decoration: BoxDecoration(
+                    gradient: _selectedIds.isNotEmpty
+                        ? const LinearGradient(
+                            colors: [AppColors.goldDark, AppColors.gold],
+                          )
+                        : null,
+                    color: _selectedIds.isEmpty
+                        ? (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.05))
+                        : null,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.gold.withValues(alpha: 0.6),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    _selectedIds.isEmpty
+                        ? 'حدد العناصر للحذف'
+                        : 'تم تحديد ${_selectedIds.length} عنصر',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFamily,
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.bold,
+                      color: _selectedIds.isNotEmpty
+                          ? Colors.black
+                          : (isDark
+                              ? AppColors.goldBright
+                              : AppColors.goldDark),
+                    ),
+                  ),
+                )
+              : Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
         actions: [
           if (_isSelectionMode) ...[
@@ -130,6 +178,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                     allSelected
                         ? Icons.deselect_rounded
                         : Icons.select_all_rounded,
+                    color: isDark ? AppColors.goldBright : AppColors.goldDark,
                   ),
                   tooltip: allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل',
                   onPressed: () {
@@ -145,71 +194,94 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
               },
               orElse: () => const SizedBox.shrink(),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_forever_rounded,
-                  color: Colors.redAccent),
-              tooltip: 'حذف المحدّد (${_selectedIds.length})',
-              onPressed: () async {
-                if (_selectedIds.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('يرجى تحديد عنصر واحد على الأقل للحذف'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-                final count = _selectedIds.length;
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('حذف العناصر المحددة؟',
-                        style: TextStyle(
-                            fontFamily: AppTheme.displayFamily,
-                            fontWeight: FontWeight.bold)),
-                    content: Text(
-                        'هل أنت تأكيد من حذف الـ ($count) مساهمين المحددين نهائياً؟'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('إلغاء'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('حذف المحدّد',
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true && context.mounted) {
-                  final repo = ref.read(contributorsRepositoryProvider);
-                  final idsToDelete = List<String>.from(_selectedIds);
-                  for (final id in idsToDelete) {
-                    await repo.softDelete(id);
-                  }
-                  await Future.wait([
-                    ref.refresh(donorsRawProvider.future),
-                    ref.refresh(subscribersRawProvider.future),
-                    ref.refresh(allContributorsRawProvider.future),
-                    ref.refresh(statsRawProvider.future),
-                  ]);
-                  if (context.mounted) {
-                    setState(() {
-                      _selectedIds.clear();
-                      _isSelectionMode = false;
-                    });
+            Container(
+              margin: const EdgeInsets.only(left: 10, right: 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _selectedIds.isNotEmpty
+                      ? [Colors.redAccent, const Color(0xFFD32F2F)]
+                      : [
+                          Colors.redAccent.withValues(alpha: 0.4),
+                          Colors.red.withValues(alpha: 0.4)
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: _selectedIds.isNotEmpty
+                    ? [
+                        BoxShadow(
+                          color: Colors.redAccent.withValues(alpha: 0.45),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : [],
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.delete_forever_rounded,
+                    color: Colors.white, size: 22),
+                tooltip: 'حذف المحدّد (${_selectedIds.length})',
+                onPressed: () async {
+                  if (_selectedIds.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('تم حذف $count مساهمين بنجاح!'),
-                        backgroundColor: AppColors.greenDeep,
+                      const SnackBar(
+                        content: Text('يرجى تحديد عنصر واحد على الأقل للحذف'),
+                        backgroundColor: Colors.orange,
                       ),
                     );
+                    return;
                   }
-                }
-              },
+                  final count = _selectedIds.length;
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('حذف العناصر المحددة؟',
+                          style: TextStyle(
+                              fontFamily: AppTheme.displayFamily,
+                              fontWeight: FontWeight.bold)),
+                      content: Text(
+                          'هل أنت تأكيد من حذف الـ ($count) مساهمين المحددين نهائياً؟'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('إلغاء'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('حذف المحدّد',
+                              style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && context.mounted) {
+                    final repo = ref.read(contributorsRepositoryProvider);
+                    final idsToDelete = List<String>.from(_selectedIds);
+                    for (final id in idsToDelete) {
+                      await repo.softDelete(id);
+                    }
+                    await Future.wait([
+                      ref.refresh(donorsRawProvider.future),
+                      ref.refresh(subscribersRawProvider.future),
+                      ref.refresh(allContributorsRawProvider.future),
+                      ref.refresh(statsRawProvider.future),
+                    ]);
+                    if (context.mounted) {
+                      setState(() {
+                        _selectedIds.clear();
+                        _isSelectionMode = false;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('تم حذف $count مساهمين بنجاح!'),
+                          backgroundColor: AppColors.greenDeep,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
             ),
           ] else if (session.role.canManageContributors) ...[
             IconButton(
