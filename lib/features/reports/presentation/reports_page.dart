@@ -104,7 +104,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               return GlassCard(
                 radius: 20,
                 padding: const EdgeInsets.all(16),
-                borderColor: AppColors.gold.withValues(alpha: 0.35),
+                borderColor: isDark
+                    ? AppColors.gold.withValues(alpha: 0.35)
+                    : AppColors.greenDeep.withValues(alpha: 0.25),
                 gradient: LinearGradient(
                   colors: isDark
                       ? [
@@ -112,8 +114,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           AppColors.greenDeep.withValues(alpha: 0.85),
                         ]
                       : [
-                          AppColors.lightGreenTint,
-                          AppColors.gold.withValues(alpha: 0.12),
+                          const Color(0xFFF0F7F3),
+                          Colors.white,
                         ],
                   begin: Alignment.topRight,
                   end: Alignment.bottomLeft,
@@ -147,7 +149,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                                     fontWeight: FontWeight.w900,
                                     color: isDark
                                         ? AppColors.goldBright
-                                        : AppColors.goldDark,
+                                        : AppColors.greenDeep,
                                   ),
                                 ),
                               ),
@@ -159,17 +161,24 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.2),
+                            color: isDark
+                                ? AppColors.gold.withValues(alpha: 0.2)
+                                : AppColors.greenDeep.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppColors.gold.withValues(alpha: 0.4),
+                              color: isDark
+                                  ? AppColors.gold.withValues(alpha: 0.4)
+                                  : AppColors.greenDeep.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.verified_user_rounded,
-                                  size: 14, color: AppColors.goldBright),
+                              Icon(Icons.verified_user_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppColors.goldBright
+                                      : AppColors.greenDeep),
                               const SizedBox(width: 4),
                               Text(
                                 '$totalContribsCount مساهم',
@@ -179,7 +188,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                                   fontWeight: FontWeight.bold,
                                   color: isDark
                                       ? AppColors.goldBright
-                                      : AppColors.goldDark,
+                                      : AppColors.greenDeep,
                                 ),
                               ),
                             ],
@@ -194,7 +203,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           child: _miniStatBadge(
                             title: 'المشتركون',
                             count: '$subscribersCount',
-                            color: AppColors.green,
+                            color: AppColors.greenDeep,
                             icon: Icons.groups_rounded,
                           ),
                         ),
@@ -203,7 +212,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           child: _miniStatBadge(
                             title: 'المتبرعون',
                             count: '$donorsCount',
-                            color: AppColors.goldBright,
+                            color: isDark ? AppColors.goldBright : Colors.teal.shade700,
                             icon: Icons.volunteer_activism_rounded,
                           ),
                         ),
@@ -212,7 +221,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                           child: _miniStatBadge(
                             title: 'الداعمون',
                             count: '$supportersCount',
-                            color: Colors.lightBlueAccent,
+                            color: Colors.lightBlue.shade700,
                             icon: Icons.shopping_basket_rounded,
                           ),
                         ),
@@ -286,7 +295,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               fontFamily: AppTheme.displayFamily,
               fontSize: 14.5,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.goldBright : AppColors.goldDark,
+              color: isDark ? AppColors.goldBright : AppColors.greenDeep,
             ),
           ),
           const SizedBox(height: 12),
@@ -305,13 +314,20 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       onTap: () => setState(() => _selectedCategory = category),
       radius: 12,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderColor: isSelected ? AppColors.gold : null,
+      borderColor: isSelected
+          ? (isDark ? AppColors.gold : AppColors.greenDeep)
+          : null,
       gradient: isSelected
           ? LinearGradient(
-              colors: [
-                AppColors.gold.withValues(alpha: isDark ? 0.3 : 0.2),
-                AppColors.goldDark.withValues(alpha: isDark ? 0.2 : 0.1),
-              ],
+              colors: isDark
+                  ? [
+                      AppColors.gold.withValues(alpha: 0.3),
+                      AppColors.goldDark.withValues(alpha: 0.2),
+                    ]
+                  : [
+                      AppColors.greenDeep.withValues(alpha: 0.15),
+                      AppColors.lightGreenTint,
+                    ],
             )
           : null,
       child: Row(
@@ -321,7 +337,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             icon,
             size: 15,
             color: isSelected
-                ? AppColors.goldBright
+                ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
                 : (isDark ? Colors.white60 : Colors.black54),
           ),
           const SizedBox(width: 6),
@@ -332,7 +348,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: isSelected
-                  ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                  ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
                   : (isDark ? Colors.white70 : Colors.black87),
             ),
           ),
@@ -390,7 +406,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         title: 'الخزنة والمالية',
         description: 'رصيد الموكب الفعلي، الدفعات التراكمية، ومقبوضات الصندوق',
         icon: Icons.account_balance_wallet_rounded,
-        color: AppColors.goldBright,
+        color: AppColors.greenDeep,
         category: _ReportCategory.financial,
         route: '/reports/vault',
         badgeText: 'مالي',
@@ -401,7 +417,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         title: 'المشتريات والنفقات',
         description: 'كشف مالي تفصيلي للمشتريات والفواتير الصادرة والنفقات',
         icon: Icons.shopping_cart_rounded,
-        color: Colors.amber.shade700,
+        color: Colors.amber.shade800,
         category: _ReportCategory.financial,
         route: '/reports/purchases',
         badgeText: 'مصروفات',
@@ -412,7 +428,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         title: 'كل المساهمين (الفئات الـ 3 الموحدة)',
         description: 'طباعة المشتركين والمتبرعين والداعمين العينيين في ملف A4 موحد',
         icon: Icons.picture_as_pdf_rounded,
-        color: AppColors.green,
+        color: AppColors.greenDeep,
         category: _ReportCategory.contributors,
         route: '/reports/all_consolidated',
         badgeText: 'A4 موحد',
@@ -435,7 +451,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         title: 'تقرير المتبرعين',
         description: 'كشف التبرعات النقدية الفردية والمبالغ التراكمية',
         icon: Icons.volunteer_activism_rounded,
-        color: AppColors.goldDark,
+        color: Colors.teal.shade700,
         category: _ReportCategory.contributors,
         route: '/reports/donors',
         badgeText: 'تبرعات',
@@ -455,7 +471,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       _ReportItemData(
         id: 'paid',
         title: 'سجل المسددين',
-        description: 'قائمة المشتركين المسددين لاشتراكاتهم دون تأخير',
+        description: 'قائمة المشتركين المسددين لااشتراكاتهم دون تأخير',
         icon: Icons.check_circle_rounded,
         color: AppColors.paid,
         category: _ReportCategory.contributors,
@@ -561,7 +577,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             crossAxisCount: crossCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: constraints.maxWidth > 600 ? 1.4 : 1.1,
+            childAspectRatio: constraints.maxWidth > 600 ? 1.35 : 0.88,
           ),
           itemCount: filteredReports.length,
           itemBuilder: (context, idx) {

@@ -224,13 +224,16 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.gold.withValues(alpha: 0.18)
+                                ? (isDark
+                                    ? AppColors.gold.withValues(alpha: 0.2)
+                                    : AppColors.greenDeep.withValues(alpha: 0.12))
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             border: isSelected
                                 ? Border.all(
-                                    color:
-                                        AppColors.gold.withValues(alpha: 0.6),
+                                    color: isDark
+                                        ? AppColors.gold.withValues(alpha: 0.6)
+                                        : AppColors.greenDeep.withValues(alpha: 0.4),
                                     width: 1,
                                   )
                                 : null,
