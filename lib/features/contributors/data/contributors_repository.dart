@@ -263,7 +263,11 @@ class ContributorsRepository extends SupabaseRepository {
               'is_paid': true,
             };
           }
-          await cache.put(boxKey, res);
+          await cache.put(
+            AppConfig.boxPayments,
+            boxKey,
+            {'ledger': res.map((k, v) => MapEntry(k.toString(), v))},
+          );
           return res;
         } catch (_) {
           // فشل الشبكة — نكمل للمخزن المحلي أسفله

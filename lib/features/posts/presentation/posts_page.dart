@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../data/posts_repository.dart';
+import '../domain/post_model.dart';
 import '../data/stories_repository.dart';
 import 'create_post_flow_page.dart';
 import 'interactions_activity_page.dart';
@@ -35,7 +36,8 @@ class _PostsPageState extends ConsumerState<PostsPage> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) {
         // الارتداد للمخزن المحلي المحفوظ عند فشل الشبكة كليًا
-        final local = ref.read(postsProvider).value ?? const [];
+        final local =
+            (ref.read(postsProvider).valueOrNull ?? const []) as List<PostModel>;
         if (local.isNotEmpty) {
           return _PostsFeedBody(
             posts: local,
@@ -258,7 +260,7 @@ class _PostsFeedBody extends StatelessWidget {
     required _PostCategory category,
     required IconData icon,
   }) {
-    final selected = _selectedCategory == category;
+    final selected = selectedCategory == category;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -275,7 +277,7 @@ class _PostsFeedBody extends StatelessWidget {
         ),
       ),
       child: InkWell(
-        onTap: () => setState(() => _selectedCategory = category),
+        onTap: () => onCategoryChange(category),
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),

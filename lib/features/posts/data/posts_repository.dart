@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../auth/data/auth_repository.dart';
 import '../domain/post_model.dart';
@@ -19,8 +20,7 @@ class PostsNotifier extends AsyncNotifier<List<PostModel>> {
   Future<List<PostModel>> build() => _repo.loadFeed();
 
   Future<void> refresh() async {
-    final list = await _repo.loadFeed();
-    if (!mounted) return;
+    final list = await _repo.loadFeed().onError((_, __) => state.value ?? []);
     state = AsyncData(list);
   }
 
@@ -126,7 +126,6 @@ class PostsRepository extends SupabaseRepository {
           final cc = await db
               .from('post_comments')
               .select('post_id')
-              .is_('deleted_at', null)
               .filter('post_id', 'in', postIds);
           for (final r in cc) {
             final id = r['post_id'].toString();
@@ -199,7 +198,6 @@ class PostsRepository extends SupabaseRepository {
         .from('post_comments')
         .select('*, profiles!post_comments_user_id_profiles_id_fkey(full_name, avatar_url)')
         .eq('post_id', postId)
-        .is_('deleted_at', null)
         .order('created_at', ascending: false);
 
     final comments = <CommentModel>[];

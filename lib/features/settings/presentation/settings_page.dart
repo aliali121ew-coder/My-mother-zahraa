@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/data/supabase_repository.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/storage/hive_service.dart';
 import '../../../core/theme/app_colors.dart';

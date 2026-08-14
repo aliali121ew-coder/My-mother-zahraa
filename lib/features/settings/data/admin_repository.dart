@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/profile_model.dart';
@@ -21,8 +22,7 @@ class AdminUsersNotifier extends AsyncNotifier<List<ProfileModel>> {
   Future<List<ProfileModel>> build() => _repo.loadAll();
 
   Future<void> refresh() async {
-    final list = await _repo.loadAll();
-    if (!mounted) return;
+    final list = await _repo.loadAll().onError((_, __) => state.value ?? []);
     state = AsyncData(list);
   }
 
@@ -46,7 +46,7 @@ class AdminUsersNotifier extends AsyncNotifier<List<ProfileModel>> {
 /// كل العمليات محمية بـ RLS عبر سياسة `profiles_admin_all` — غير المدير
 /// سيحصل على 42501 ولن يستطيع تعديل أي صف.
 class AdminRepository extends SupabaseRepository {
-  static const _box = AppConfig.boxAdminUsers;
+  static final _box = AppConfig.boxAdminUsers;
 
   /// جلب كل الحسابات غير المحذوفة مرتبة بالأحدث.
   Future<List<ProfileModel>> loadAll() async {

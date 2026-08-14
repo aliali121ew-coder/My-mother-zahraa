@@ -15,6 +15,49 @@ import '../data/admin_repository.dart';
 ///
 /// القائمة تُجلب من جدول `profiles` الذي تحميه سياسة `profiles_admin_all`،
 /// فغير المدير يحصل على 42501 ويُعرض له خطأ صلاحية واضح.
+// حوار تأكيد عام — رفض/حظر الحسابات، خارج أي حالة واجهة.
+/// حوار تأكيد قبل الإجراءات المصيرية (رفض/حظر) — اللمسات الخاطئة
+/// على أزرار الحظر لا تمرّ مباشرة للخادم.
+Future<void> confirmWith(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required Future<void> Function() action,
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('تأكيد'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  try {
+    await action();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم تحديث الحساب بنجاح'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } catch (e) {
+    _onActionError(context, e);
+  }
+}
+
+@override
+
 class AdminUsersPage extends ConsumerStatefulWidget {
   const AdminUsersPage({super.key});
 
@@ -45,47 +88,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     );
   }
 
-  /// حوار تأكيد قبل الإجراءات المصيرية (رفض/حظر) — اللمسات الخاطئة
-  /// على أزرار الحظر لا تمرّ مباشرة للخادم.
-  Future<void> _confirmWith(
-    BuildContext context, {
-    required String title,
-    required String message,
-    required Future<void> Function() action,
-  }) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message, style: Theme.of(context).textTheme.bodyMedium),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('تأكيد'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    try {
-      await action();
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحديث الحساب بنجاح'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      _onActionError(context, e);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -379,7 +381,7 @@ class _AccountTile extends ConsumerWidget {
                   label: 'رفض',
                   icon: Icons.cancel_rounded,
                   color: AppColors.overdue,
-                  onTap: () => _confirmWith(
+                  onTap: () => confirmWith(
                     context,
                     title: 'رفض الحساب',
                     message: 'رفض طلب حساب «${profile.fullName}»؟\nسيُمنع من الدخول.',
@@ -406,12 +408,12 @@ class _AccountTile extends ConsumerWidget {
                 _ActionButton(
                   label: profile.isBanned ? 'رفع الحظر' : 'حظر',
                   icon: profile.isBanned
-                      ? Icons.unblock_rounded
+                      ? Icons.lock_open_rounded
                       : Icons.block_rounded,
                   color: profile.isBanned ? AppColors.paid : AppColors.overdue,
                   onTap: () => profile.isBanned
                       ? notifier.unban(profile.id)
-                      : _confirmWith(
+                      : confirmWith(
                           context,
                           title: 'حظر الحساب',
                           message: 'حظر «${profile.fullName}»؟\nسيُمنع نهائيًا من استخدام التطبيق.',

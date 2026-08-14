@@ -41,9 +41,9 @@ Future<void> main() async {
     );
   }
 
-  runApp(const ProviderScope(child: MawkibApp()));
   // حارس المسارات (P2): الاشتراك في الجلسة يعيد تقييم التوجيه عند كل
   // تغيّر — الدخول والخروج وتغيّر الدور أو حالة الحظر.
-  final container = ProviderScope.containerOf(context: null);
+  final container = ProviderContainer();
+  runApp(ProviderScope(container: container, child: const MawkibApp()));
   SessionListenable.instance.start(container);
 }

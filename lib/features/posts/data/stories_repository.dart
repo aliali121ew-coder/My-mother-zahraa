@@ -21,8 +21,9 @@ class StoriesNotifier extends AsyncNotifier<List<StoryModel>> {
   Future<List<StoryModel>> build() => _repo.loadStories();
 
   Future<void> refresh() async {
-    final list = await _repo.loadStories();
-    if (!mounted) return;
+    final list = await _repo
+        .loadStories()
+        .onError((_, __) => state.value ?? []);
     state = AsyncData(list);
   }
 

@@ -13,6 +13,7 @@ import '../../shared/models/profile_model.dart';
 import '../../shared/models/stats_snapshot.dart';
 import '../config/app_config.dart';
 import '../data/supabase_repository.dart';
+import '../storage/hive_service.dart';
 import '../storage/settings_store.dart';
 
 // ── المستودعات ───────────────────────────────────────────────
@@ -138,7 +139,7 @@ class SessionNotifier extends Notifier<AppSession> {
     final statusChanged = p?.status != prev.status;
     final identityChanged = p?.id != prev.id;
     if (roleChanged || statusChanged || identityChanged) {
-      cache.clearSensitiveCache();
+      HiveService.instance.clearSensitiveCache();
     }
   }
 
