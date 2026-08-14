@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/mock_posts_data.dart';
+import '../../data/stories_repository.dart';
 import '../../domain/post_model.dart';
 
 class InstagramStoryBar extends ConsumerWidget {
@@ -12,7 +12,9 @@ class InstagramStoryBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stories = ref.watch(storiesProvider);
+    // AsyncValue — أثناء فشل الشبكة يُعرض آخر محتوى محلي من المخزن
+    final storiesAsync = ref.watch(storiesProvider);
+    final stories = storiesAsync.value ?? const [];
 
     return SizedBox(
       height: 105,

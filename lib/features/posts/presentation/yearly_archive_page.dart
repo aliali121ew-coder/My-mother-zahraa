@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
-import '../data/mock_posts_data.dart';
+import '../data/posts_repository.dart';
 import '../domain/post_model.dart';
 
 class YearlyArchivePage extends ConsumerWidget {
@@ -15,7 +15,8 @@ class YearlyArchivePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final posts = ref.watch(postsProvider);
+    // AsyncValue — أثناء فشل الشبكة يُعرض آخر أرشيف محلي محفوظ
+    final posts = ref.watch(postsProvider).value ?? const [];
 
     // Group posts by yearTag (English Gregorian format)
     final Map<String, List<PostModel>> yearMap = {};

@@ -228,11 +228,48 @@ class ContributorsRepository extends SupabaseRepository {
     return row;
   }
 
-  /// جلب سجل الدفعات الشهرية لسنة مالية معينة لمشترك
+  /// جلب سجل الدفعات الشهرية لسنة مالية معينة لمشترك — يقرأ أولًا من جدول
+  /// `payments` على الخادم (المصدر الموثوق)، ويخزّن النتيجة محليًا في Hive
+  /// للسرعة خارج الاتصال، ثم يرتدّ للمخزن فقط عند فشل الشبكة.
   Future<Map<int, Map<String, dynamic>>> loadMonthlyLedger(
       String contributorId, int year) async {
     try {
       final boxKey = 'ledger_${contributorId}_$year';
+
+      // المصدر الأساسي: جدول الدفعات على الخادم — كل دفعة مسددة هنا
+      // تُكتب عبر addPayment فتظهر مباشرة في هذا الاستعلام
+      if (isLive) {
+        try {
+          final rows = await db
+              .from('payments')
+              .select()
+              .eq('contributor_id', contributorId)
+              .gte('paid_at', DateTime.utc(year, 1, 1).toIso8601String())
+              .lt('paid_at', DateTime.utc(year + 1, 1, 1).toIso8601String())
+              .order('paid_at', ascending: false);
+          final res = <int, Map<String, dynamic>>{};
+          for (final row in List<Map<String, dynamic>>.from(rows)) {
+            final paidAt = DateTime.tryParse(
+              (row['paid_at'] as String?) ?? '',
+            );
+            if (paidAt == null) continue;
+            final m = paidAt.month;
+            // لو تكررت دفعات في الشهر نفسه نجمعها
+            final prev = res[m];
+            res[m] = {
+              'amount': ((prev?['amount'] as num?) ?? 0) +
+                  ((row['amount'] as num?) ?? 0),
+              'paid_at': row['paid_at'],
+              'is_paid': true,
+            };
+          }
+          await cache.put(boxKey, res);
+          return res;
+        } catch (_) {
+          // فشل الشبكة — نكمل للمخزن المحلي أسفله
+        }
+      }
+
       var raw = cache.readOne(AppConfig.boxPayments, boxKey);
       raw ??= cache.readOne(AppConfig.boxContributors, boxKey);
 

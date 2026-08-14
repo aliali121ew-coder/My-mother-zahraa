@@ -13,6 +13,7 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/posts/presentation/posts_page.dart';
 import '../../features/reports/presentation/report_details_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
+import '../../features/settings/presentation/admin_users_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/splash/presentation/splash_page.dart';
 import '../providers/app_providers.dart';
@@ -42,6 +43,9 @@ String? _guard(BuildContext context, GoRouterState state) {
 
   // حساب موقوف بانتظار موافقة المدير أو محظور → شاشة الانتظار
   if (s.isPending || s.isBanned) return '/pending';
+
+  // لوحة إدارة الحسابات حصرية للمدير العام — غير المدير لا يدخلها
+  if (path == '/settings/admin/users' && !s.isAdmin) return '/';
 
   return null;
 }
@@ -154,7 +158,16 @@ final appRouter = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+            GoRoute(
+              path: '/settings',
+              builder: (_, _) => const SettingsPage(),
+              routes: [
+                GoRoute(
+                  path: 'admin/users',
+                  builder: (_, _) => const AdminUsersPage(),
+                ),
+              ],
+            ),
           ],
         ),
       ],

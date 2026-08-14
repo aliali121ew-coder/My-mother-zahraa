@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
-import '../data/mock_posts_data.dart';
+import '../data/posts_repository.dart';
+import '../data/stories_repository.dart';
 import 'create_post_flow_page.dart';
 import 'interactions_activity_page.dart';
 import 'widgets/instagram_post_card.dart';
@@ -27,11 +28,70 @@ class _PostsPageState extends ConsumerState<PostsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final posts = ref.watch(postsProvider);
+    final postsAsync = ref.watch(postsProvider);
+
+    // تحميل أولي من الخادم مع إبقاء آخر خلاصة محلية أثناء عدم الاتصال
+    return postsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) {
+        // الارتداد للمخزن المحلي المحفوظ عند فشل الشبكة كليًا
+        final local = ref.read(postsProvider).value ?? const [];
+        if (local.isNotEmpty) {
+          return _PostsFeedBody(
+            posts: local,
+            selectedCategory: _selectedCategory,
+            onCategoryChange: (c) => setState(() => _selectedCategory = c),
+            onPullRefresh: () => ref.read(postsProvider.notifier).refresh(),
+          );
+        }
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 44, color: AppColors.gold),
+              const SizedBox(height: 10),
+              Text(
+                'تعذر تحميل الخلاصة — جرّب السحب للتحديث لاحقًا',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      data: (posts) => _PostsFeedBody(
+        posts: posts,
+        selectedCategory: _selectedCategory,
+        onCategoryChange: (c) => setState(() => _selectedCategory = c),
+        onPullRefresh: () => ref.read(postsProvider.notifier).refresh(),
+      ),
+    );
+  }
+}
+
+class _PostsFeedBody extends StatelessWidget {
+  const _PostsFeedBody({
+    required this.posts,
+    required this.selectedCategory,
+    required this.onCategoryChange,
+    required this.onPullRefresh,
+  });
+
+  final List<PostModel> posts;
+  final _PostCategory selectedCategory;
+  final void Function(_PostCategory) onCategoryChange;
+  final Future<void> Function() onPullRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // تصفية المنشورات
     final filteredPosts = posts.where((p) {
-      switch (_selectedCategory) {
+      switch (selectedCategory) {
         case _PostCategory.all:
           return true;
         case _PostCategory.weeklyMajalis:
@@ -88,8 +148,11 @@ class _PostsPageState extends ConsumerState<PostsPage> {
       body: CustomScrollView(
         slivers: [
           // 1. Instagram Story Bar Header
-          const SliverToBoxAdapter(
-            child: InstagramStoryBar(),
+          SliverToBoxAdapter(
+            child: RefreshIndicator(
+              onRefresh: onPullRefresh,
+              child: const InstagramStoryBar(),
+            ),
           ),
 
           // Divider

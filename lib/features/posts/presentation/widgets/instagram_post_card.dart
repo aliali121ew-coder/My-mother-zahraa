@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass.dart';
-import '../../data/mock_posts_data.dart';
+import '../../data/posts_repository.dart';
 import '../../domain/post_model.dart';
 import 'comments_bottom_sheet.dart';
 import 'location_map_dialog.dart';
@@ -50,7 +50,9 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
 
   void _onDoubleTapLike() {
     if (!widget.post.isLiked) {
-      ref.read(postsProvider.notifier).toggleLike(widget.post.id);
+      ref
+          .read(postsProvider.notifier)
+          .toggleLike(widget.post.id, widget.post.isLiked);
     }
     setState(() {
       _showHeartAnimation = true;
@@ -266,7 +268,9 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                     size: 26,
                   ),
                   onPressed: () {
-                    ref.read(postsProvider.notifier).toggleLike(post.id);
+                    ref
+                        .read(postsProvider.notifier)
+                        .toggleLike(post.id, post.isLiked);
                   },
                 ),
                 IconButton(
@@ -320,7 +324,9 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                     size: 25,
                   ),
                   onPressed: () {
-                    ref.read(postsProvider.notifier).toggleSave(post.id);
+                    ref
+                        .read(postsProvider.notifier)
+                        .toggleSave(post.id, post.isSaved);
                   },
                 ),
               ],

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/mock_posts_data.dart';
+import '../../data/posts_repository.dart';
 import '../../domain/post_model.dart';
 
 class CommentsBottomSheet extends ConsumerStatefulWidget {
@@ -40,11 +40,13 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    ref.read(postsProvider.notifier).addComment(
-          widget.post.id,
-          text,
-          'زائر كريم',
-        );
+    ref
+        .read(postsProvider.notifier)
+        .addComment(widget.post.id, text, 'مستخدم')
+        .whenComplete(() {
+          // تحديث التعليقات فورًا بعد الإرسال
+          ref.read(postsProvider.notifier).loadComments(widget.post.id);
+        });
 
     _commentController.clear();
     FocusScope.of(context).unfocus();
@@ -54,11 +56,17 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final posts = ref.watch(postsProvider);
-    final currentPost = posts.firstWhere(
+    // AsyncValue — أثناء فشل الشبكة يُستخدم المنشور ذاته كمرجع محلي
+    final postsAsync = ref.watch(postsProvider);
+    final currentPost = postsAsync.value?.firstWhere(
       (p) => p.id == widget.post.id,
       orElse: () => widget.post,
-    );
+    ) ?? widget.post;
+
+    // تحميل أحدث التعليقات من الخادم عند فتح الشيت
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(postsProvider.notifier).loadComments(widget.post.id);
+    });
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,

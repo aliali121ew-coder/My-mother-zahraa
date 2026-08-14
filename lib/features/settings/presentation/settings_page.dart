@@ -117,7 +117,7 @@ class SettingsPage extends ConsumerWidget {
                 _Tile(
                   icon: Icons.lock_outline_rounded,
                   title: 'تغيير كلمة المرور',
-                  onTap: () => _soon(context),
+                  onTap: () => _changePassword(context, ref),
                 ),
                 _Tile(
                   icon: Icons.fingerprint_rounded,
@@ -136,19 +136,21 @@ class SettingsPage extends ConsumerWidget {
               children: [
                 _Tile(
                   icon: Icons.how_to_reg_outlined,
-                  title: 'طلبات الحسابات',
-                  subtitle: 'الموافقة أو الرفض',
-                  onTap: () => _soon(context),
+                  title: 'إدارة الحسابات',
+                  subtitle: 'طلبات الحسابات، الأدوار، الحظر',
+                  onTap: () => context.push('/settings/admin/users'),
                 ),
                 _Tile(
                   icon: Icons.admin_panel_settings_outlined,
                   title: 'الصلاحيات والأدوار',
-                  onTap: () => _soon(context),
+                  subtitle: 'داخل لوحة إدارة الحسابات',
+                  onTap: () => context.push('/settings/admin/users'),
                 ),
                 _Tile(
                   icon: Icons.block_outlined,
                   title: 'حظر المستخدمين',
-                  onTap: () => _soon(context),
+                  subtitle: 'داخل لوحة إدارة الحسابات',
+                  onTap: () => context.push('/settings/admin/users'),
                 ),
                 _Tile(
                   icon: Icons.collections_bookmark_outlined,
@@ -291,6 +293,70 @@ class SettingsPage extends ConsumerWidget {
   void _soon(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('هذه الشاشة قيد البناء')),
       );
+
+  /// حوار تغيير كلمة المرور — يتم التحقق من قوتها قبل الإرسال للخادم.
+  Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final result = await showDialog<Map<String, String>?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تغيير كلمة المرور'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          textAlign: TextAlign.right,
+          decoration: const InputDecoration(
+            hintText: 'كلمة المرور الجديدة (٦ أحرف على الأقل)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context, {'password': controller.text});
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (!context.mounted) return;
+    final password = result?['password']?.trim() ?? '';
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('كلمة المرور يجب أن تكون ٦ أحرف على الأقل'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(authRepositoryProvider).changePassword(password);
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('تم تغيير كلمة المرور بنجاح'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(arabicError(e)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 }
 
 class _SectionTitle extends StatelessWidget {

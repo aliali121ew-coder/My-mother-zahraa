@@ -27,4 +27,5 @@ abstract final class AppConfig {
   static const boxStats = 'stats';
   static const boxOutbox = 'outbox';
   static const boxSettings = 'settings';
+  static const boxAdminUsers = 'admin_users';
 }

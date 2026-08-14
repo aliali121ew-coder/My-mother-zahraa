@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
-import '../data/mock_posts_data.dart';
+import '../data/posts_repository.dart';
 import 'post_detail_page.dart';
 
 enum _InteractionFilter { all, comments, likes }
@@ -49,7 +49,7 @@ class _InteractionsActivityPageState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final posts = ref.watch(postsProvider);
+    final posts = ref.watch(postsProvider).value ?? const [];
 
     // تجميع نشاطات التفاعل والتعليقات والإعجابات الحية من المنشورات
     final List<_InteractionItem> allInteractions = [];

@@ -61,6 +61,7 @@ class AppSession {
   bool get isApproved => profile?.isActive ?? false;
   bool get isPending => profile?.isPending ?? false;
   bool get isBanned => profile?.isBanned ?? false;
+  bool get isAdmin => profile?.role == UserRole.admin;
 
   /// دور المستخدم — الزائر يُعالَج كعضو بلا صلاحيات
   UserRole get role => profile?.role ?? UserRole.member;

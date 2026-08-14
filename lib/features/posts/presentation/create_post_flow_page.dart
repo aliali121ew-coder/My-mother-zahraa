@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import 'widgets/audio_selection_bottom_sheet.dart';
 import 'widgets/location_selection_sheet.dart';
-import '../data/mock_posts_data.dart';
+import '../data/posts_repository.dart';
 import '../domain/post_model.dart';
 
 /// مسار إضافة المنشور والتغطية الجديدة على طريقة الإنستغرام الحقيقي (سلس وسريع بدون توقف)
@@ -26,6 +26,7 @@ class CreatePostFlowPage extends ConsumerStatefulWidget {
 
 class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   int _currentStep = 0; // 0: المعرض, 1: الفلاتر واللطميات, 2: التفاصيل والنشر
+  bool _isPublishing = false;
 
   // قائمة الصور الافتراضية للمعرض
   final List<String> _galleryImages = [
@@ -130,54 +131,68 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
     }
   }
 
-  void _publishPost() {
-    final caption = _captionController.text.trim();
-    final location = _locationController.text.trim();
-    final audioTitle = (_selectedAudioTrack == null || _selectedAudioTrack == 'بدون صوت خلفي')
-        ? null
-        : _selectedAudioTrack;
+  Future<void> _publishPost() async {
+    // منع النقر المتكرر أثناء النشر
+    if (_isPublishing) return;
+    setState(() => _isPublishing = true);
 
-    final newPost = PostModel(
-      id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-      publisherName: 'موكب أمنا الزهراء (ع)',
-      publisherAvatar: 'assets/images/logo.png',
-      isVerified: true,
-      location: location.isEmpty ? 'كربلاء المقدسة — بين الحرمين الشريفين' : location,
-      images: [_selectedImage],
-      caption: caption.isEmpty
-          ? 'تغطية حسينية مصورة من مجالس ومشاريع موكب أمنا الزهراء (ع) 🖤✨'
-          : caption,
-      likesCount: 1,
-      commentsCount: 0,
-      isLiked: true,
-      isSaved: false,
-      createdAt: DateTime.now(),
-      yearTag: _selectedYearTag,
-      audioTrackTitle: audioTitle,
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // النشر الحقيقي — رفع الصورة إلى Supabase Storage ثم إنشاء المنشور
+      final newPost = await ref.read(postsProvider.notifier).addPost(
+            imageUrls: [_selectedImage],
+            caption: _captionController.text.trim().isEmpty
+                ? 'تغطية حسينية مصورة من مجالس ومشاريع موكب أمنا الزهراء (ع) 🖤✨'
+                : _captionController.text.trim(),
+            location: _locationController.text.trim().isEmpty
+                ? 'كربلاء المقدسة — بين الحرمين الشريفين'
+                : _locationController.text.trim(),
+            yearTag: _selectedYearTag,
+            audioTrackTitle: (_selectedAudioTrack == null || _selectedAudioTrack == 'بدون صوت خلفي')
+                ? null
+                : _selectedAudioTrack,
+          );
 
-    ref.read(postsProvider.notifier).addPost(newPost);
-    Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'تم نشر التغطية بنجاح 🖤✨ ${audioTitle != null ? "($audioTitle)" : ""}',
-                style: const TextStyle(fontFamily: AppTheme.fontFamily),
+      messenger.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  newPost != null
+                      ? 'تم نشر التغطية بنجاح 🖤✨'
+                      : 'تم نشر التغطية ✓',
+                  style: const TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: AppColors.greenDeep,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        backgroundColor: AppColors.greenDeep,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'تعذر نشر التغطية — تحقق من الاتصال ثم أعد المحاولة',
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isPublishing = false);
+    }
   }
 
   @override
