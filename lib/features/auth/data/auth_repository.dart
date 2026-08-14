@@ -53,7 +53,13 @@ class AuthRepository extends SupabaseRepository {
     await db.auth.signInAnonymously();
   }
 
-  Future<void> signOut() => db.auth.signOut();
+  /// تسجيل الخروج مع **مسح البيانات الحساسة محلياً** أولاً — ثغرة أمنية
+  /// كان تسجيل الخروج يترك أسماء المتبرعين والمشتركين والدفعات في Hive
+  /// لتُعرض لمستخدم آخر على الجهاز نفسه إذا فشل الاتصال (P1).
+  Future<void> signOut() async {
+    await cache.clearSensitiveCache();
+    return db.auth.signOut();
+  }
 
   Future<void> resetPassword(String email) =>
       db.auth.resetPasswordForEmail(email.trim());

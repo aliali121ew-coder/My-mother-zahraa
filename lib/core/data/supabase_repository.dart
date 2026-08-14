@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/data/auth_repository.dart';
 import '../config/app_config.dart';
 import '../storage/hive_service.dart';
 
@@ -20,16 +21,25 @@ abstract class SupabaseRepository {
   /// يقرأ من الشبكة ويخزّن النتيجة، ويرتدّ للمخزن المحلي عند الفشل.
   ///
   /// [boxName] صندوق Hive · [idOf] يستخرج معرّف كل عنصر · [fetch] جلب الشبكة
+  /// [sensitive] هل الصندوق يحوي بيانات حساسة (أسماء ودفعات) لا يجوز عرضها
+  /// من مخزّن جلسة سابقة؟ عندئذٍ يُشترط أن تكون الجلسة الحالية **معتمدة**
+  /// قبل الارتداد، وإلا رُمي الخطأ (P1).
   Future<CachedResult<List<Map<String, dynamic>>>> fetchList({
     required String boxName,
     required String Function(Map<String, dynamic>) idOf,
     required Future<List<Map<String, dynamic>>> Function() fetch,
+    bool sensitive = false,
   }) async {
     try {
       final rows = await fetch();
       await cache.replaceAll(boxName, rows, idOf);
       return CachedResult(data: rows, fromCache: false);
     } catch (e) {
+      // الارتداد للمخزن المحلي للصناديق الحساسة فقط إذا كانت الجلسة ما زالت
+      // معتمدة — فلا تُعرض بيانات مخزّنة من جلسة سابقة بعد حظر أو إبطال
+      // اعتماد (P1). إذا لم يكن Supabase مهيّأً (وضع تجريبي) فالجلسة
+      // محلية أصلاً ونسمح بالارتداد.
+      if (sensitive && isLive && _sessionNotApproved()) rethrow;
       final local = cache.readAll(boxName);
       if (local.isEmpty) rethrow;
       return CachedResult(data: local, fromCache: true, error: e);
@@ -37,20 +47,31 @@ abstract class SupabaseRepository {
   }
 
   /// نفس المنطق لعنصر واحد مخزّن كسجل مفرد (مثل الإحصائيات)
+  /// انظر [fetchList] لشرح [sensitive]
   Future<CachedResult<Map<String, dynamic>>> fetchOne({
     required String boxName,
     required String key,
     required Future<Map<String, dynamic>> Function() fetch,
+    bool sensitive = false,
   }) async {
     try {
       final row = await fetch();
       await cache.put(boxName, key, row);
       return CachedResult(data: row, fromCache: false);
     } catch (e) {
+      if (sensitive && isLive && _sessionNotApproved()) rethrow;
       final local = cache.readOne(boxName, key);
       if (local == null) rethrow;
       return CachedResult(data: local, fromCache: true, error: e);
     }
+  }
+
+  /// هل جلسة Supabase الحالية **غير معتمدة** (زائر أو موقوف أو مرفوض)؟
+  /// نستخدم `isApproved` بدل فحص الملف الشخصي لتجنّب اعتماد كامل الجلسة.
+  bool _sessionNotApproved() {
+    if (!isLive) return false;
+    final repo = AuthRepository();
+    return !repo.isSignedIn || repo.isAnonymous;
   }
 }
 

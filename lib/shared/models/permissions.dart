@@ -28,5 +28,11 @@ extension RolePermissions on UserRole {
   bool get canManageUsers => this == UserRole.admin;
 
   /// رؤية الإحصائيات والمجاميع — كل من سجّل واعتُمد
-  bool get canSeeStats => true;
+  ///
+  /// تعديل أمني (P4): الامتداد وحده يعيد true لكل الأدوار (العضو أيضًا)،
+  /// أما الاعتماد الفعلي `status='approved'` فيُفحص في
+  /// `AppSession.canSeeStats` عند طبقة الجلسة. تركنا هنا التعريف الدقيق
+  /// «الإحصائيات متاحة لكل الأدوار» مع توثيق واضح، والفيصل هو
+  /// `AppSession.canSeeStats` الذي يشرط الاعتماد.
+  bool get canSeeStats => true; // يعتمد على [AppSession.canSeeStats]
 }

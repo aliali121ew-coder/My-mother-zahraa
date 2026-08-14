@@ -147,7 +147,7 @@ class HiveService {
         AppConfig.boxStories,
       ].fold<int>(0, (sum, n) => sum + box(n).length);
 
-  /// مسح كل البيانات المخزّنة محلياً — لا يمسّ طابور المزامنة
+  /// مسح كل البيانات المخزّنة محلياً — بما فيها طابور المزامنة المرفوضة
   Future<void> clearCache() async {
     for (final n in const [
       AppConfig.boxContributors,
@@ -156,6 +156,22 @@ class HiveService {
       AppConfig.boxPosts,
       AppConfig.boxStories,
       AppConfig.boxStats,
+      AppConfig.boxOutbox,
+    ]) {
+      await box(n).clear();
+    }
+  }
+
+  /// مسح **البيانات الحساسة** فقط (الأسماء والدفعات والإحصائيات وطابور
+  /// المزامنة) دون المنشورات والستوريز العامة — يُستدعى عند تسجيل الخروج
+  /// أو تغيّر الدور حتى لا تُعرض بيانات جلسة سابقة لمستخدم آخر.
+  Future<void> clearSensitiveCache() async {
+    for (final n in const [
+      AppConfig.boxContributors,
+      AppConfig.boxPayments,
+      AppConfig.boxDonations,
+      AppConfig.boxStats,
+      AppConfig.boxOutbox,
     ]) {
       await box(n).clear();
     }
