@@ -31,7 +31,7 @@ class _AuthPageState extends ConsumerState<AuthPage>
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _name = TextEditingController();
-  final _slide = AnimationController(
+  late final AnimationController _slide = AnimationController(
     duration: const Duration(milliseconds: 380),
     vsync: this,
   );
@@ -435,10 +435,12 @@ class _SlidingTabBar extends StatelessWidget {
               AnimatedPositionedDirectional(
                 duration: const Duration(milliseconds: 360),
                 curve: Curves.fastOutSlowIn,
-                end: isRegister ? 4 : null,
-                top: 4,
-                bottom: 4,
-                left: isRegister ? null : 4,
+            // في وضع الدخول: المؤشر على «تسجيل الدخول» (اليمين في RTL)
+            // في وضع التسجيل: المؤشر على «إنشاء حساب» (اليسار)
+            end: isRegister ? 4 : null,
+            start: isRegister ? null : 4,
+            top: 4,
+            bottom: 4,
                 width: barWidth / 2,
                 child: Container(
                   decoration: BoxDecoration(
