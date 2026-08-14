@@ -91,19 +91,24 @@ flutter:
     - assets/images/
 
   fonts:
-    # خط كايرو المتغيّر. الملفات الثابتة السابقة كانت صفحات HTML لا خطوطاً
-    # (بدأت بـ <!DOCTYPE html>)، فكان Flutter يرتدّ صامتاً للخط الافتراضي.
+    # الخطوط الفعلية المتوفرة في assets/fonts/ هي IBM Plex Sans Arabic.
+    # نحافظ على عائلات Cairo وAmiri بأسمائها حتى لا نغيّر أي كود، ونُسقط
+    # عليها الخطوط المتوفرة: الواجهة بخط IBM Plex العربي نفسه.
     - family: Cairo
       fonts:
-        - asset: assets/fonts/Cairo-Variable.ttf
-    # خط العرض النسخي: للعناوين والأسماء فقط. التباين بينه وبين خط
-    # الواجهة السانس هو ما يمنح الشاشة تدرّجاً في الأهمية بدل أن تبدو
-    # كلها بمستوى واحد. يُجلب بـ tools/fetch_fonts
+        - asset: assets/fonts/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSansArabic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
+          weight: 700
     - family: Amiri
       fonts:
-        - asset: assets/fonts/Amiri-Regular.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-SemiBold.ttf
           weight: 400
-        - asset: assets/fonts/Amiri-Bold.ttf
+        - asset: assets/fonts/IBMPlexSansArabic-Bold.ttf
           weight: 700
     - family: IBMPlexSansArabic
       fonts:
