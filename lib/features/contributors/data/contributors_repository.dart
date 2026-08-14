@@ -75,6 +75,7 @@ class ContributorsRepository extends SupabaseRepository {
     final res = await fetchList(
       boxName: AppConfig.boxContributors,
       idOf: (m) => m['id'].toString(),
+      sensitive: true, // أسماء ومبالغ — لا ارتداد من مخزّن جلسة سابقة (P1)
       fetch: () async {
         var query = db.from('contributors').select();
         if (type != null) {

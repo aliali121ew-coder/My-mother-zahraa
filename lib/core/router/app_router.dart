@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/auth_page.dart';
@@ -14,6 +15,7 @@ import '../../features/reports/presentation/report_details_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/splash/presentation/splash_page.dart';
+import '../providers/app_providers.dart';
 import '../widgets/app_shell.dart';
 
 /// مسارات التطبيق.
@@ -21,9 +23,35 @@ import '../widgets/app_shell.dart';
 /// الشاشات الخمس داخل [StatefulShellRoute.indexedStack] فيبقى شريط التنقّل
 /// ثابتاً وتُحفظ حالة كل تبويب. الشاشات الفرعية (قوائم المساهمين، الجداول)
 /// تُفتح **داخل** التبويب نفسه فلا يختفي الشريط السفلي.
+/// حارس المسارات (P2): يعيد تقييم مسار كل تنقّل ويوجّه:
+///  • الزائر غير المسجّل → شاشة تسجيل الدخول
+///  • حساب بانتظار الموافقة أو محظور → شاشة الانتظار
+///  • المسجّل المعتمد → الصفحة المطلوبة
+///
+/// `refreshListenable` يضمن إعادة التقييم عند كل تغيير في الجلسة.
+String? _guard(BuildContext context, GoRouterState state) {
+  final s = ProviderScope.containerOf(context, listen: false)
+      .read(sessionProvider);
+
+  // المسارات العامة تبقى متاحة للجميع
+  final path = state.matchedLocation;
+  if (path == '/splash' || path == '/auth' || path == '/pending') return null;
+
+  // من لا يملك ملفاً شخصياً (زائر أو خرج حديثاً) → تسجيل الدخول
+  if (s.isGuest) return '/auth';
+
+  // حساب موقوف بانتظار موافقة المدير أو محظور → شاشة الانتظار
+  if (s.isPending || s.isBanned) return '/pending';
+
+  return null;
+}
+
 final appRouter = GoRouter(
   initialLocation: '/splash',
   debugLogDiagnostics: false,
+  redirect: _guard,
+  // إعادة تقييم المسارات عند كل تغيّر في الجلسة (دخول/خروج/تغيّر الدور)
+  refreshListenable: SessionListenable.instance,
   routes: [
     GoRoute(
       path: '/splash',
@@ -154,3 +182,27 @@ final appRouter = GoRouter(
     ),
   ),
 );
+
+/// مستمع يعيد تقييم توجيه GoRouter عند كل تغيّر في الجلسة عبر Riverpod.
+///
+/// يستدعي `ProviderScope.containerOf` من أعلى شجرة التطبيق (عبر
+/// `navigatorKey` في `MaterialApp`) ثم يشترك في `sessionProvider`، فيُشعَل
+/// GoRouter بإعادة تشغيل دالة التوجيه `_guard` وتحديث المسار إن لزم.
+class SessionListenable extends ChangeNotifier {
+  SessionListenable._();
+  static final SessionListenable instance = SessionListenable._();
+
+  bool _started = false;
+
+  /// يشغّل الاشتراك — يجب استدعاؤه مرة واحدة من `main()` بعد بناء
+  /// `ProviderScope`، وإلا لن يتحدّث التوجيه عند الدخول/الخروج.
+  void start(ProviderContainer container) {
+    if (_started) return;
+    _started = true;
+    container.listen<AppSession>(
+      sessionProvider,
+      (_, __) => notifyListeners(),
+      fireImmediately: true,
+    );
+  }
+}

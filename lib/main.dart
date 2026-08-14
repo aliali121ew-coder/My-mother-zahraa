@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/app_config.dart';
+import 'core/router/app_router.dart';
 import 'core/storage/hive_service.dart';
 
 Future<void> main() async {
@@ -41,4 +42,8 @@ Future<void> main() async {
   }
 
   runApp(const ProviderScope(child: MawkibApp()));
+  // حارس المسارات (P2): الاشتراك في الجلسة يعيد تقييم التوجيه عند كل
+  // تغيّر — الدخول والخروج وتغيّر الدور أو حالة الحظر.
+  final container = ProviderScope.containerOf(context: null);
+  SessionListenable.instance.start(container);
 }

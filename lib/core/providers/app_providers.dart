@@ -79,6 +79,10 @@ class AppSession {
 class SessionNotifier extends Notifier<AppSession> {
   StreamSubscription<AuthState>? _sub;
 
+  /// الملف السابق لمراقبة تغيّر الدور أو الحالة (ثغرة P1: تغيّر صلاحيات
+  /// المستخدم دون مسح بيانات جلسة سابقة أعلى صلاحية)
+  ProfileModel? _previousProfile;
+
   @override
   AppSession build() {
     if (!AppConfig.isConfigured) return const AppSession();
@@ -89,6 +93,8 @@ class SessionNotifier extends Notifier<AppSession> {
     _sub = repo.authChanges.listen((event) {
       switch (event.event) {
         case AuthChangeEvent.signedOut:
+          // الذاكرة الحساسة تُمسح الآن داخل AuthRepository.signOut()
+          _previousProfile = null;
           state = const AppSession();
         case AuthChangeEvent.signedIn:
         case AuthChangeEvent.tokenRefreshed:
@@ -112,9 +118,26 @@ class SessionNotifier extends Notifier<AppSession> {
     final repo = ref.read(authRepositoryProvider);
     try {
       final p = await repo.fetchMyProfile();
+      _purgeOnRoleOrStatusChange(p);
       state = AppSession(profile: p);
     } catch (e) {
       state = AppSession(error: arabicError(e));
+    }
+  }
+
+  /// إذا تغيّر الدور أو الحالة مقارنة بآخر ملف معروف (ترقية، تخفيض، حظر،
+  /// إبطال اعتماد) نمسح البيانات الحساسة المخزّنة محلياً: بيانات جلسة
+  /// سابقة بصلاحيات أعلى قد لا تسمح RLS بإعادة قراءتها، فلو بقيت على
+  /// الجهاز انكشفت لمالكها غير المخوّل.
+  void _purgeOnRoleOrStatusChange(ProfileModel? p) {
+    final prev = _previousProfile;
+    _previousProfile = p;
+    if (prev == null) return;
+    final roleChanged = p?.role != prev.role;
+    final statusChanged = p?.status != prev.status;
+    final identityChanged = p?.id != prev.id;
+    if (roleChanged || statusChanged || identityChanged) {
+      cache.clearSensitiveCache();
     }
   }
 

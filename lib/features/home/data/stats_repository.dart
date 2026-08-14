@@ -72,6 +72,7 @@ class StatsRepository extends SupabaseRepository {
     final res = await fetchOne(
       boxName: AppConfig.boxStats,
       key: kStatsKey,
+      sensitive: true, // ملخّص مالي — لا ارتداد من مخزّن جلسة سابقة (P1)
       fetch: () async {
         final raw = await db.rpc<dynamic>('get_stats');
         return jsonSafe(Map<String, dynamic>.from(raw as Map));
