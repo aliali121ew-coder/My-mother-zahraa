@@ -8,24 +8,40 @@
             "name": "تشغيل ويندوز مباشر (Live Hot Reload)",
             "request": "launch",
             "type": "dart",
-            "deviceId": "windows"
+            "deviceId": "windows",
+            "args": [
+                "--dart-define=SUPABASE_URL=https://nmpcbyoehmghmietzurs.supabase.co",
+                "--dart-define=SUPABASE_ANON_KEY=sb_publishable_ev4vJ_FdXww-7Yp_ojV5CA_XDJcrTxW"
+            ]
         },
         {
             "name": "zaharaa-cuorse",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "args": [
+                "--dart-define=SUPABASE_URL=https://nmpcbyoehmghmietzurs.supabase.co",
+                "--dart-define=SUPABASE_ANON_KEY=sb_publishable_ev4vJ_FdXww-7Yp_ojV5CA_XDJcrTxW"
+            ]
         },
         {
             "name": "zaharaa-cuorse (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "args": [
+                "--dart-define=SUPABASE_URL=https://nmpcbyoehmghmietzurs.supabase.co",
+                "--dart-define=SUPABASE_ANON_KEY=sb_publishable_ev4vJ_FdXww-7Yp_ojV5CA_XDJcrTxW"
+            ]
         },
         {
             "name": "zaharaa-cuorse (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "args": [
+                "--dart-define=SUPABASE_URL=https://nmpcbyoehmghmietzurs.supabase.co",
+                "--dart-define=SUPABASE_ANON_KEY=sb_publishable_ev4vJ_FdXww-7Yp_ojV5CA_XDJcrTxW"
+            ]
         }
     ]
 }

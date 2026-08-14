@@ -32,6 +32,13 @@ powershell -ExecutionPolicy Bypass -File tools\fetch_fonts.ps1   # ويندوز
 # تشغيل بالبيانات الحقيقية
 flutter run \
   --dart-define=SUPABASE_URL=https://nmpcbyoehmghmietzurs.supabase.co \
+
+### التحديثات والتدقيق في مخطط Supabase:
+1. **جدول المشتريات (`purchases`)**: إضافة جدول المشتريات والمصروفات المالية بكافة الحقول وسياسات RLS والتحديث الفوري.
+2. **حقول المساهمين (`contributors`)**: إضافة حقلي `address` و `latest_donation_desc`.
+3. **توسيع نوع المساهم (`contributor_type`)**: إضافة قيمة `in_kind` للتوافق التام مع enums التطبيق في Dart.
+4. **تحديث RPC (`get_stats`)**: إضافة حساب `expenses_total` المباشر لمجموع المصروفات.
+
   --dart-define=SUPABASE_ANON_KEY=sb_publishable_ev4vJ_FdXww-7Yp_ojV5CA_XDJcrTxW
 
 # تشغيل بلا مفاتيح = وضع البيانات التجريبية الكامل (كل الواجهات تعمل)
@@ -326,8 +333,157 @@ esolutionStrategy في [build.gradle.kts](file:///E:/zaharaa-cuorse/android/buil
 - **تزامن تسديد الشهر الأول للمشترك الجديد مع جدول الـ 12 شهراً:** تم تحديث دالة `_submit()` في [add_contributor_dialog.dart](file:///E:/zaharaa-cuorse/lib/features/contributors/presentation/widgets/add_contributor_dialog.dart#L188-L198) ودالة `saveMonthPayment()` في [contributors_repository.dart](file:///E:/zaharaa-cuorse/lib/features/contributors/data/contributors_repository.dart#L283-L295) لتسجيل وتوثيق دفعة الشهر المختار تلقائياً في جدول التسديدات الشهري (`Monthly Ledger`) وفورياً فور حفظ المشترك الجديد، مع مزامنتها مع قاعدة البيانات Supabase عند تفعيل الوضع الحي.
 - **الفحص والدقة:** تم تشغيل `flutter analyze` و `flutter test` والتحقق من سلامة كافة الاختبارات والفحوصات البرمجية بدون أي مشاكل (All tests passed!).
 
+---
 
+## ٦٩. إعادة تصميم كارت إحصائيات لوحة التقارير والتحليلات (المبلغ الكلي، المصروف الكلي، وتدرجات الألوان لكل خلية)
 
+**الملفات التابعة/المعدلة:**
+- [stats_snapshot.dart](file:///E:/zaharaa-cuorse/lib/shared/models/stats_snapshot.dart) [MODIFY]
+- [reports_page.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/reports_page.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
 
+### التغييرات الهندسية المنفذة:
+1. **تحديث نموذج الإحصائيات `StatsSnapshot`:**
+   - تم إضافة حقل `expensesTotal` (المصروف الكلي) إلى `StatsSnapshot` مع قيم افتراضية ومطابقة مع JSON (`expenses_total` / `total_expenses`) لمنع أي تعارضات مستقبلية.
+2. **إعادة تصميم كارت الملخص المالي في `ReportsPage`:**
+   - تم قسم الجزء العلوي إلى خليتين رئيسيتين:
+     - **خلية المبلغ الكلي (Emerald Green Gradient):** خلفية متدرجة زمردية فاخرة تحمل أيقونة الخزنة والمبلغ الكلي بتنسيق `Fmt.money`.
+     - **خلية المصروف الكلي (Ruby Red Gradient):** خلفية متدرجة ياقوتية حمراء تحمل أيقونة المصروفات وإجمالي المصروف الكلي بتنسيق `Fmt.money`.
+   - تم تحسين شارات الفئات الثلاث السفلية بإعطاء كل خلية لوناً متدرجاً فريداً مع ظلال مضيئة:
+     - **خلية المشتركين:** تدرج أزرق نبتوني فاخر (Teal/Ocean Blue Gradient).
+     - **خلية المتبرعين:** تدرج ذهبي عنبري ملكي (Amber/Gold Gradient).
+     - **خلية الداعمين:** تدرج بنفسجي ملكي (Royal Purple Gradient).
+3. **الجودة والتحقق:**
+   - تم تشغيل `flutter analyze` واجتياز الفحص بـ (No issues found!).
+   - تم تشغيل `flutter test` واجتياز جميع الاختبارات بنجاح (All tests passed!).
 
+---
 
+## ٧٠. تطبيق الرسم البياني التفاعلي بالدوائر المتقطعة (Segmented Donut Charts) وتحسين ألوان كشف التفاصيل
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **استبدال المخطط الشريطي القديم بدائرتين متقطعتين تفاعليتين (Segmented Donut Charts):**
+   - **الدائرة الأولى (الموقف المالي):** دائرة متقطعة تعكس المقارنة بين **المبلغ الكلي** (تدرج أخضر زمردي) و**المصروف الكلي** (تدرج أحمر ياقوتي).
+   - **الدائرة الثانية (توزيع فئات المساهمين):** دائرة متقطعة ثلاثية الشرائح تعكس نسبة **المشتركين** (أزرق نبتوني)، **المتبرعين** (ذهبي عنبري عالي التباين)، و**الداعمين** (بنفسجي ملكي).
+2. **التحقق والاختبار:**
+   - تم تشغيل `flutter analyze` و `flutter test` واجتياز جميع الفحوصات (No issues found).
+
+---
+
+## ٧١. استبدال المخطط الشريطي بمكتبة Syncfusion_flutter_charts للحصول على تصميم 100% مطابق
+
+**الملفات التابعة/المعدلة:**
+- `reports_analytics_chart.dart` [MODIFY]
+- `CLAUDE.md` [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **استخدام مكتبة Syncfusion:** تم استبدال رسم الدوائر اليدوي `CustomPainter` بمكتبة `syncfusion_flutter_charts` للحصول على تصميم احترافي وزوايا دائرية بالكامل `CornerStyle.bothCurve` وتأثيرات `Animation` مدمجة بشكل دقيق لتطابق متطلبات المستخدم بدقة متناهية 100%.
+2. **الدوائر المتقطعة التفاعلية (Gaps):** تم برمجة فواصل (Gaps) شفافة بين الشرائح تضمن عدم تلامس الألوان لتتطابق تماماً مع المسافات البيضاء في تصميم الصورة المرفقة.
+3. **تحديث النصوص الداخلية بشكل تفاعلي:** تم التعديل بحيث يظهر المبلغ الإجمالي بالمنتصف وبمجرد قيام المستخدم بالضغط على شريحة محددة، يتغير النص الداخلي ليعكس القيمة الخاصة بالشريحة المحددة فقط.
+4. **التحقق:**
+   - تم تشغيل `flutter analyze` واجتياز الفحص بنجاح بدون أخطاء.2. **الأنيميشن والتفاعلية (Interactive & Motion Animation):**
+   - استخدام `AnimationController` مع `CurvedAnimation` لخلق حركة دوران متدرجة وانسيابية جذابة عند فتح الصفحة.
+   - دعم النقر التفاعلي (`GestureDetector` على شرائح الدائرة وعلى شارات الدليل): يُبرز الشريحة المختارة بظلال مضيئة ويدوّرها للتركيز مع تغيير محتوى منتصف الدائرة لعرض النسبة والقيمة بالتفصيل.
+3. **تحسين كشف التفاصيل واستبدال البرتقالي الباهت:**
+   - استبدال اللون البرتقالي الباهت القديم بلون **عنبري فاخر عالي التباين (`#D97706`)** مع شارات بارزة وحوافي واضحة لسهولة القراءة والرؤية على جميع الخلفيات.
+4. **الجودة والتحقق:**
+   - تشغيل `flutter analyze` واجتياز جميع قواعد الفحص بـ `No issues found!`.
+   - تشغيل `flutter test` واجتياز كافة الاختبارات بـ `All tests passed!`.
+
+---
+
+## ٧١. محاذاة الدائرتين المتقطعتين جنباً إلى جنب (دائرة بصف دائرة) أفقياً
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **المحاذاة الأفقية الدائمة (Side-by-side Row):**
+   - إلغاء تكديس الدائرتين عمودياً ووضعهما دائماً جنباً إلى جنب داخل `Row` مع تكييف الأبعاد تلقائياً (`Expanded` و `SizedBox(115, 115)` للدائرة).
+2. **استجابة التخطيط والتغليف (Wrap & FittedBox):**
+   - تحويل دليل الأزرار التفاعلية أسفل كل كارت دائري إلى `Wrap` مرن يلتف بنظافة وسلسة دون أي تجاوز للحدود (`Overflow`).
+3. **التحقق والجودة:**
+   - تشغيل `flutter analyze` بـ `No issues found!`.
+   - تشغيل `flutter test` بـ `All tests passed!`.
+
+---
+
+## ٧٢. توحيد ارتفاع كروت الدوائر (Equal Height Cards) ونقل المبالغ والأرقام أسفل الدائرة
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **تساوي أبعاد وارتفاع الكارتين (IntrinsicHeight & Stretch):**
+   - تغليف `Row` بـ `IntrinsicHeight` وضبط `crossAxisAlignment: CrossAxisAlignment.stretch` واستخدام `Column(mainAxisAlignment: MainAxisAlignment.spaceBetween)` داخل `_buildDonutCard` لضمان محاذاة الكارتين على نفس المستوى والارتفاع بدقة 100%.
+2. **إبعاد المبالغ عن منتصف الدائرة ونقلها للأزرار السفلية:**
+   - تفريغ منتصف الدائرة من النصوص الطويلة والأرقام المقتظة، والإبقاء فقط على الأيقونة والعنوان الصغير بشكل أنيق.
+   - كتابة القيمة والمبلغ (`seg.formattedValue`) بوضوح تام داخل أزرار الفئات العريضة أسفل الدائرة مباشرة:
+     - **كارت الموقف المالي:** `المبلغ الكلي: 185,000 د.ع` و `المصروف الكلي: 0 د.ع`.
+     - **كارت فئات المساهمين:** `المشتركون: 3 عضو` و `المتبرعون: 2 متبرع` و `الداعمون: 2 داعم`.
+3. **الفحص والجودة:**
+   - تشغيل `flutter analyze` واجتياز الفحص بـ `No issues found!`.
+   - تشغيل `flutter test` واجتياز جميع الاختبارات بـ `All tests passed!`.
+
+---
+
+## ٧٣. تبسيط كروت الدوائر المتقطعة وحذف الأزرار السفلية الصغيرة والاكتفاء بكارت كشف التفاصيل
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **حذف الشارات والأزرار من داخل `_buildDonutCard`:**
+   - إلغاء تكديس الأزرار والشارات الصغيرة أسفل الدائرة، مما ألغى أي تجاوز للحدود (`Overflow`) وجعل الكارتين بسيطين وراقيين ومتناسقين بامتياز.
+2. **الاكتفاء بكارت كشف التفاصيل والمؤشرات الحية:**
+   - اعتماد كارت التفاصيل الموحد السفلي الذي يضم كافة الأرقام والمبالغ مع شارات بارزة وألوان ذات تباين عالي (المبلغ الكلي، المصروف الكلي، المشتركون، المتبرعون، الداعمون).
+3. **التفاعلية باللمس:**
+   - دعم التبديل التفاعلي بين مقاطع الدائرة عند النقر المباشر على الدائرة نفسها لتغيير الأيقونة والعنوان في المنتصف.
+4. **الفحص والجودة:**
+   - تشغيل `flutter analyze` بـ `No issues found!`.
+   - تشغيل `flutter test` بـ `All tests passed!`.
+
+---
+
+## ٧٤. رسم النسب المئوية داخل شرائح الدوائر المتقطعة وتطبيق تأثير خفت الأقسام وتحديد الشريحة
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **كتابة النسب المئوية داخل شرائح القوس مباشرة (`Arc Percentage Labels`):**
+   - تم استخدام `TextPainter` لرسم النسب المئوية (مثل `20%`، `18%`، `14%`) بدقة عالية في منتصف الأقواس الدائرية لكل قطاع، تماماً كالتصميم الاحترافي المرفق.
+2. **تأثير الإبراز التفاعلي وخفت بقية القطاعات (`Active Highlight & Faded Muting`):**
+   - عند النقر على أي شريحة في الدائرة:
+     - تبرز الشريحة المحددة بسمك أكبر وتوهج مضيء (`MaskFilter.blur`) مع شفافية 100%.
+     - تصبح بقية الشرائح غير المحددة باهتة بشفافية خفيفة (`alpha: 0.22`) لإعطاء تركيز بصري فاخر وواضح على القطاع المحدد.
+3. **تحديث منتصف الدائرة التفاعلي:**
+   - عرض النسبة المئوية الدقيقة بالإضافة إلى القيمة والعنوان والأيقونة داخل منتصف الدائرة عند التحديد.
+4. **الفحص والجودة:**
+   - تشغيل `flutter analyze` واجتياز الفحص بـ `No issues found!`.
+   - تشغيل `flutter test` واجتياز كافة الاختبارات بـ `All tests passed!`.
+
+---
+
+## ٧٥. تحويل المخططات الدائرية إلى مخطط مركزي واحد كبير مزود بمحوّل انزلاقي (Sliding Segmented Control)
+
+**الملفات التابعة/المعدلة:**
+- [reports_analytics_chart.dart](file:///E:/zaharaa-cuorse/lib/features/reports/presentation/widgets/reports_analytics_chart.dart) [MODIFY]
+- [CLAUDE.md](file:///E:/zaharaa-cuorse/CLAUDE.md) [MODIFY]
+
+### التغييرات الهندسية المنفذة:
+1. **دمج المخططات في مخطط مركزي عملاق:**
+   - استبدال التخطيط السابق (دائرتان متجاورتان بحجم 180×180) بدائرة واحدة عملاقة واحترافية بحجم **260×260** تتوسط الشاشة لتكون بارزة، مع زيادة أحجام الخطوط والتسميات لتتناسب مع الحجم الكبير.
+2. **محوّل الرؤية الانزلاقي (Cupertino Sliding Segmented Control):**
+   - إضافة وحدة تحكم انزلاقية علوية أنيقة وفخمة `CupertinoSlidingSegmentedControl` تتيح للمستخدم التبديل بسلاسة بين عرض "الموقف المالي" و"فئات المساهمين" في نفس المساحة دون تكديس الشاشة.
+   - يتغير المخطط الدائري المركزي ديناميكياً مع حركات انتقالية ناعمة بمجرد التبديل بين الزرين.
+3. **الفحص والجودة:**
+   - اجتياز قواعد `flutter analyze` بالكامل بدون أي تحذيرات أو أخطاء (`No issues found!`).

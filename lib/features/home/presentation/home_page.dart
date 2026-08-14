@@ -292,6 +292,7 @@ class HomePage extends ConsumerWidget {
 
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: isDark

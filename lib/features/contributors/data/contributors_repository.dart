@@ -432,6 +432,47 @@ class ContributorsRepository extends SupabaseRepository {
     } catch (_) {}
   }
 
+  /// جلب تفاصيل التبرع (مواد غذائية وإنشائية) لشهر محدد (مفيد للطباعة)
+  Future<String?> getDonationDescForMonth(String contributorId, int year, int? month) async {
+    final boxKey = 'ledger_${contributorId}_$year';
+    var existing = cache.readOne(AppConfig.boxPayments, boxKey);
+    existing ??= cache.readOne(AppConfig.boxContributors, boxKey);
+    
+    if (existing == null) return null;
+    final map = Map<String, dynamic>.from(existing);
+    
+    // إذا كان التقرير شهري
+    if (month != null) {
+      final monthStr = month.toString();
+      if (!map.containsKey(monthStr) || map[monthStr] == null) return null;
+      final mData = Map<String, dynamic>.from(map[monthStr]);
+      
+      final parts = <String>[];
+      final f = mData['food_desc']?.toString().trim();
+      if (f != null && f.isNotEmpty) parts.add('غذائية: $f');
+      final c = mData['construction_desc']?.toString().trim();
+      if (c != null && c.isNotEmpty) parts.add('أنشائية: $c');
+      
+      if (parts.isNotEmpty) return parts.join(' - ');
+      return null;
+    } else {
+      // إذا كان التقرير سنوي (جميع الأشهر)
+      final parts = <String>[];
+      for (int m = 1; m <= 12; m++) {
+        final monthStr = m.toString();
+        if (map.containsKey(monthStr) && map[monthStr] != null) {
+          final mData = Map<String, dynamic>.from(map[monthStr]);
+          final f = mData['food_desc']?.toString().trim();
+          if (f != null && f.isNotEmpty) parts.add('شهر $m غذائية: $f');
+          final c = mData['construction_desc']?.toString().trim();
+          if (c != null && c.isNotEmpty) parts.add('شهر $m أنشائية: $c');
+        }
+      }
+      if (parts.isNotEmpty) return parts.join(' | ');
+      return null;
+    }
+  }
+
   /// إضافة تبرع جديد لشهر متبرع (مبالغ مالية / مواد أنشائية / مواد غذائية)
   Future<void> addDonorDonation({
     required String contributorId,
@@ -517,6 +558,12 @@ class ContributorsRepository extends SupabaseRepository {
         final cMap = Map<String, dynamic>.from(existingContrib);
         cMap['total_paid'] = ((cMap['total_paid'] as num?) ?? 0) + amount;
         cMap['last_payment_at'] = latestDate.toUtc().toIso8601String();
+        
+        if (kind != 'cash' && textValue.trim().isNotEmpty) {
+           final kindLabel = kind == 'food' ? 'مواد غذائية' : 'مواد أنشائية';
+           cMap['latest_donation_desc'] = '$kindLabel: $textValue';
+        }
+
         await cache.put(_demoBox, contributorId, cMap);
       }
     } catch (_) {}

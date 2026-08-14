@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/config/app_config.dart';
-import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -65,35 +63,9 @@ class ContributorTile extends ConsumerWidget {
 
     int inKindCount = 0;
     if (c.type == ContributorType.inKind) {
-      final repo = ref.watch(contributorsRepositoryProvider);
-      for (int y = 2024; y <= 2030; y++) {
-        final boxKey = 'ledger_${c.id}_$y';
-        var raw = repo.cache.readOne(AppConfig.boxPayments, boxKey);
-        final rawMap = raw is Map ? raw : null;
-        if (rawMap != null) {
-          for (final monthEntry in rawMap.values) {
-            if (monthEntry is Map) {
-              final donations = monthEntry['donations'] is List
-                  ? (monthEntry['donations'] as List)
-                  : [];
-              if (donations.isNotEmpty) {
-                inKindCount += donations
-                    .where((d) =>
-                        d is Map &&
-                        (d['kind'] == 'food' || d['kind'] == 'construction'))
-                    .length;
-              } else {
-                final food = monthEntry['food_desc']?.toString() ?? '';
-                final constr =
-                    monthEntry['construction_desc']?.toString() ?? '';
-                if (food.trim().isNotEmpty) inKindCount++;
-                if (constr.trim().isNotEmpty) inKindCount++;
-              }
-            }
-          }
-        }
-      }
-      if (inKindCount == 0 && c.lastPaymentAt != null) {
+      if (c.latestDonationDesc != null && c.latestDonationDesc!.trim().isNotEmpty) {
+        inKindCount = 1;
+      } else if (c.lastPaymentAt != null) {
         inKindCount = 1;
       }
     }
@@ -388,6 +360,7 @@ class _Avatar extends StatelessWidget {
           File(url),
           width: size,
           height: size,
+          cacheWidth: 132,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _letterBox(context, letter),
         );

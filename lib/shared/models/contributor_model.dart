@@ -21,6 +21,7 @@ class ContributorModel {
     this.createdAt,
     this.updatedAt,
     this.pendingSync = false,
+    this.latestDonationDesc,
   });
 
   final String id;
@@ -29,6 +30,9 @@ class ContributorModel {
   final String? phone;
   final String? photoUrl;
   final String? notes;
+
+  /// تفاصيل أحدث تبرع عيني (مثل: مواد غذائية - فواكة عدد 1) ليتم عرضها في الجداول.
+  final String? latestDonationDesc;
 
   /// عنوان السكن أو المنطقة
   final String? address;
@@ -136,6 +140,7 @@ class ContributorModel {
         createdAt: _date(j['created_at']),
         updatedAt: _date(j['updated_at']),
         pendingSync: (j['pending_sync'] as bool?) ?? false,
+        latestDonationDesc: j['latest_donation_desc'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -153,6 +158,7 @@ class ContributorModel {
         'total_paid': totalPaid,
         'created_at': createdAt?.toIso8601String(),
         'updated_at': updatedAt?.toIso8601String(),
+        'latest_donation_desc': latestDonationDesc,
       };
 
   /// الحقول القابلة للكتابة في قاعدة البيانات (بلا الحقول المحسوبة)
@@ -167,6 +173,7 @@ class ContributorModel {
         'subscription_amount': subscriptionAmount,
         'subscription_type': subscriptionType?.value,
         'is_late_override': isLateOverride,
+        'latest_donation_desc': latestDonationDesc,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
@@ -186,6 +193,7 @@ class ContributorModel {
     bool clearOverride = false,
     num? totalPaid,
     bool? pendingSync,
+    String? latestDonationDesc,
   }) =>
       ContributorModel(
         id: id,
@@ -203,6 +211,7 @@ class ContributorModel {
         createdAt: createdAt ?? this.createdAt,
         updatedAt: DateTime.now(),
         pendingSync: pendingSync ?? this.pendingSync,
+        latestDonationDesc: latestDonationDesc ?? this.latestDonationDesc,
       );
 }
 

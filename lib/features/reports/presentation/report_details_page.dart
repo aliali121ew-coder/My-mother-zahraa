@@ -10,6 +10,7 @@ import '../../../shared/models/contributor_model.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/mawkib_logo.dart';
 import '../data/pdf_report_service.dart';
+import 'widgets/print_filter_bottom_sheet.dart';
 
 /// شاشة الجدول التفصيلي للتقرير (المشتركون أو المتبرعون).
 ///
@@ -79,7 +80,7 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
       case 'vault':
         return 'كشف حركة الخزنة والمالية';
       case 'purchases':
-        return 'سجل المشتريات والنفقات';
+        return 'وصل المشتريات والمصروفات';
       case 'visits_log':
         return 'سجل الزيارات والضيوف';
       case 'interactions_log':
@@ -182,48 +183,62 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                   child: Column(
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           const MawkibLogo(
-                            height: 38,
+                            height: 48,
                             small: true,
-                            radius: 10,
+                            radius: 12,
                             padding: EdgeInsets.all(4),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'موكب أمنا الزهراء',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
                                     color: isDark ? AppColors.goldBright : AppColors.goldDark,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   title,
-                                  style: theme.textTheme.bodySmall,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? Colors.white : AppColors.textOnLight,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_today_rounded, size: 12, color: theme.textTheme.bodySmall!.color),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      Fmt.date(printDate),
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Icon(Icons.access_time_rounded, size: 12, color: theme.textTheme.bodySmall!.color),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${printDate.hour.toString().padLeft(2, '0')}:${printDate.minute.toString().padLeft(2, '0')}',
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                Fmt.date(printDate),
-                                style: theme.textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${printDate.hour.toString().padLeft(2, '0')}:${printDate.minute.toString().padLeft(2, '0')}',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -262,7 +277,7 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                           style: theme.textTheme.bodyMedium,
                         ),
                       )
-                    : _buildInteractiveTable(context, filtered, isDark),
+                    : _buildInteractiveTable(context, filtered, isDark, type),
               ),
 
               // تذييل الإحصائيات المباشر
@@ -334,6 +349,7 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
     BuildContext context,
     List<ContributorModel> items,
     bool isDark,
+    String reportType,
   ) {
     final headerBg = isDark ? AppColors.greenDeep : AppColors.green;
     final headerTextColor = Colors.white;
@@ -373,7 +389,9 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                           ),
                           Expanded(
                             child: Text(
-                              widget.isDonorsReport ? 'اسم المتبرع' : 'اسم المشترك',
+                              reportType == 'all_consolidated' 
+                                  ? 'اسم المساهم' 
+                                  : (widget.isDonorsReport ? 'اسم المتبرع' : 'اسم المشترك'),
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 13,
@@ -451,7 +469,7 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                   controller: _horizontalScrollController,
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
-                    width: widget.isDonorsReport ? 350 : 540,
+                    width: reportType == 'all_consolidated' ? 622 : (widget.isDonorsReport ? 350 : 540),
                     child: Column(
                       children: [
                         // ترويسات الأعمدة الأفقية
@@ -460,19 +478,28 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                           color: headerBg,
                           padding: const EdgeInsets.symmetric(horizontal: 6),
                           child: Row(
-                            children: widget.isDonorsReport
+                            children: reportType == 'all_consolidated'
                                 ? [
-                                    _headerCell('المبلغ الإجمالي', 120, headerTextColor),
-                                    _headerCell('رقم الهاتف', 110, headerTextColor),
-                                    _headerCell('آخر دفعة', 108, headerTextColor),
+                                    _headerCell('الفئة', 80, headerTextColor),
+                                    _headerCell('المبلغ', 100, headerTextColor),
+                                    _headerCell('رقم الهاتف', 100, headerTextColor),
+                                    _headerCell('الحالة', 85, headerTextColor),
+                                    _headerCell('التاريخ', 95, headerTextColor),
+                                    _headerCell('الملاحظات/نوع الدعم', 150, headerTextColor),
                                   ]
-                                : [
-                                    _headerCell('مبلغ الاشتراك', 115, headerTextColor),
-                                    _headerCell('نوع الاشتراك', 95, headerTextColor),
-                                    _headerCell('حالة السداد', 95, headerTextColor),
-                                    _headerCell('رقم الهاتف', 113, headerTextColor),
-                                    _headerCell('تاريخ آخر دفعة', 110, headerTextColor),
-                                  ],
+                                : widget.isDonorsReport
+                                    ? [
+                                        _headerCell('المبلغ الإجمالي', 120, headerTextColor),
+                                        _headerCell('رقم الهاتف', 110, headerTextColor),
+                                        _headerCell('آخر دفعة', 108, headerTextColor),
+                                      ]
+                                    : [
+                                        _headerCell('مبلغ الاشتراك', 115, headerTextColor),
+                                        _headerCell('نوع الاشتراك', 95, headerTextColor),
+                                        _headerCell('حالة السداد', 95, headerTextColor),
+                                        _headerCell('رقم الهاتف', 113, headerTextColor),
+                                        _headerCell('تاريخ آخر دفعة', 110, headerTextColor),
+                                      ],
                           ),
                         ),
 
@@ -495,19 +522,35 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
                                 color: rowBg,
                                 padding: const EdgeInsets.symmetric(horizontal: 6),
                                 child: Row(
-                                  children: widget.isDonorsReport
+                                  children: reportType == 'all_consolidated'
                                       ? [
-                                          _dataCell(Fmt.money(c.totalPaid), 120, isDark, isBold: true),
-                                          _dataCell(c.phone ?? '—', 110, isDark),
-                                          _dataCell(c.lastPaymentAt != null ? Fmt.dateShort(c.lastPaymentAt) : '—', 108, isDark),
+                                          _dataCell(
+                                              c.type == ContributorType.subscriber 
+                                                  ? 'مشترك' : (c.type == ContributorType.donor ? 'متبرع' : 'داعم'),
+                                              80, isDark),
+                                          _dataCell(
+                                              c.type == ContributorType.inKind 
+                                                  ? (c.totalPaid > 0 ? Fmt.money(c.totalPaid) : '—') 
+                                                  : Fmt.money(c.type == ContributorType.subscriber ? (c.subscriptionAmount ?? 0) : c.totalPaid),
+                                              100, isDark, isBold: true),
+                                          _dataCell(c.phone ?? '—', 100, isDark),
+                                          c.type == ContributorType.subscriber ? _statusCell(c.paymentStatus, 85) : _dataCell('—', 85, isDark),
+                                          _dataCell(c.lastPaymentAt != null ? Fmt.dateShort(c.lastPaymentAt) : '—', 95, isDark),
+                                          _dataCell(c.latestDonationDesc?.isNotEmpty == true ? c.latestDonationDesc! : (c.notes?.isNotEmpty == true ? c.notes! : '—'), 150, isDark),
                                         ]
-                                      : [
-                                          _dataCell(Fmt.money(c.subscriptionAmount ?? 0), 115, isDark, isBold: true),
-                                          _dataCell(c.subscriptionType?.label ?? '—', 95, isDark),
-                                          _statusCell(c.paymentStatus, 95),
-                                          _dataCell(c.phone ?? '—', 113, isDark),
-                                          _dataCell(c.lastPaymentAt != null ? Fmt.dateShort(c.lastPaymentAt) : '—', 110, isDark),
-                                        ],
+                                      : widget.isDonorsReport
+                                          ? [
+                                              _dataCell(Fmt.money(c.totalPaid), 120, isDark, isBold: true),
+                                              _dataCell(c.phone ?? '—', 110, isDark),
+                                              _dataCell(c.lastPaymentAt != null ? Fmt.dateShort(c.lastPaymentAt) : '—', 108, isDark),
+                                            ]
+                                          : [
+                                              _dataCell(Fmt.money(c.subscriptionAmount ?? 0), 115, isDark, isBold: true),
+                                              _dataCell(c.subscriptionType?.label ?? '—', 95, isDark),
+                                              _statusCell(c.paymentStatus, 95),
+                                              _dataCell(c.phone ?? '—', 113, isDark),
+                                              _dataCell(c.lastPaymentAt != null ? Fmt.dateShort(c.lastPaymentAt) : '—', 110, isDark),
+                                            ],
                                 ),
                               );
                             },
@@ -605,12 +648,53 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
 
   Future<void> _handlePrintPdf(List<ContributorModel> items, String title) async {
     if (items.isEmpty) return;
+    
+    final filter = await PrintFilterBottomSheet.show(context);
+    if (filter == null) return;
+
+    final filteredItems = items.where((c) {
+      if (c.lastPaymentAt == null) return false;
+      final isYearMatch = c.lastPaymentAt!.year == filter.year;
+      if (filter.month == null) return isYearMatch;
+      return isYearMatch && c.lastPaymentAt!.month == filter.month;
+    }).toList();
+
+    if (filteredItems.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لا توجد بيانات لهذه الفترة المحددة.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isGeneratingPdf = true);
+    
+    // جلب بيانات التبرع العيني من السجلات للشهر والسنة المحددة
+    final repo = ref.read(contributorsRepositoryProvider);
+    final enrichedItems = <ContributorModel>[];
+    for (final c in filteredItems) {
+      if (c.type != ContributorType.subscriber) {
+        final desc = await repo.getDonationDescForMonth(c.id, filter.year, filter.month);
+        if (desc != null && desc.isNotEmpty) {
+          enrichedItems.add(c.copyWith(latestDonationDesc: desc));
+        } else {
+          enrichedItems.add(c);
+        }
+      } else {
+        enrichedItems.add(c);
+      }
+    }
+
+    final periodTitle = filter.month == null 
+        ? '$title - سنة ${filter.year}'
+        : '$title - شهر ${filter.month}/${filter.year}';
+
     try {
       await PdfReportService.printReport(
-        title: title,
-        items: items,
-        isDonorsReport: widget.isDonorsReport,
+        title: periodTitle,
+        items: enrichedItems,
+        reportType: widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers'),
       );
     } catch (e) {
       if (mounted) {
@@ -625,11 +709,51 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
 
   Future<void> _handleSharePdf(List<ContributorModel> items, String title) async {
     if (items.isEmpty) return;
+    
+    final filter = await PrintFilterBottomSheet.show(context);
+    if (filter == null) return;
+
+    final filteredItems = items.where((c) {
+      if (c.lastPaymentAt == null) return false;
+      final isYearMatch = c.lastPaymentAt!.year == filter.year;
+      if (filter.month == null) return isYearMatch;
+      return isYearMatch && c.lastPaymentAt!.month == filter.month;
+    }).toList();
+
+    if (filteredItems.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لا توجد بيانات لهذه الفترة المحددة.')),
+        );
+      }
+      return;
+    }
+    
+    // جلب بيانات التبرع العيني من السجلات للشهر والسنة المحددة
+    final repo = ref.read(contributorsRepositoryProvider);
+    final enrichedItems = <ContributorModel>[];
+    for (final c in filteredItems) {
+      if (c.type != ContributorType.subscriber) {
+        final desc = await repo.getDonationDescForMonth(c.id, filter.year, filter.month);
+        if (desc != null && desc.isNotEmpty) {
+          enrichedItems.add(c.copyWith(latestDonationDesc: desc));
+        } else {
+          enrichedItems.add(c);
+        }
+      } else {
+        enrichedItems.add(c);
+      }
+    }
+
+    final periodTitle = filter.month == null 
+        ? '$title - سنة ${filter.year}'
+        : '$title - شهر ${filter.month}/${filter.year}';
+
     try {
       await PdfReportService.shareReport(
-        title: title,
-        items: items,
-        isDonorsReport: widget.isDonorsReport,
+        title: periodTitle,
+        items: enrichedItems,
+        reportType: widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers'),
       );
     } catch (e) {
       if (mounted) {

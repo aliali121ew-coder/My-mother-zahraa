@@ -9,10 +9,15 @@ import '../../features/contributors/presentation/contributors_list_page.dart';
 import '../../features/contributors/presentation/subscriber_detail_page.dart';
 import '../../features/contributors/presentation/subscriber_profile_page.dart';
 import '../../features/home/presentation/home_page.dart';
+import '../../features/purchases/presentation/purchases_page.dart';
 import '../../features/posts/presentation/posts_page.dart';
 import '../../features/reports/presentation/report_details_page.dart';
 import '../../features/reports/presentation/reports_page.dart';
+import '../../features/settings/presentation/account_requests_page.dart';
+import '../../features/settings/presentation/banned_users_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/settings/presentation/story_categories_page.dart';
+import '../../features/settings/presentation/user_roles_page.dart';
 import '../../features/splash/presentation/splash_page.dart';
 import '../widgets/app_shell.dart';
 
@@ -51,7 +56,10 @@ final appRouter = GoRouter(
       branches: [
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/home', builder: (_, _) => const HomePage()),
+            GoRoute(
+              path: '/home',
+              builder: (_, _) => const HomePage(),
+            ),
           ],
         ),
         StatefulShellBranch(
@@ -127,6 +135,10 @@ final appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
+                  path: 'vault',
+                  builder: (_, _) => const PurchasesPage(),
+                ),
+                GoRoute(
                   path: ':type',
                   builder: (context, state) => ReportDetailPage(
                     isDonorsReport: false,
@@ -139,7 +151,28 @@ final appRouter = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
-            GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+            GoRoute(
+              path: '/settings',
+              builder: (_, _) => const SettingsPage(),
+              routes: [
+                GoRoute(
+                  path: 'account_requests',
+                  builder: (_, _) => const AccountRequestsPage(),
+                ),
+                GoRoute(
+                  path: 'roles',
+                  builder: (_, _) => const UserRolesPage(),
+                ),
+                GoRoute(
+                  path: 'banned_users',
+                  builder: (_, _) => const BannedUsersPage(),
+                ),
+                GoRoute(
+                  path: 'story_categories',
+                  builder: (_, _) => const StoryCategoriesPage(),
+                ),
+              ],
+            ),
           ],
         ),
       ],

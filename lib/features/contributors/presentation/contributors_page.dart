@@ -94,15 +94,20 @@ class ContributorsPage extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
-          // 2. شبكة الكروت الـ 6 (2 أعمدة × 3 صفوف)
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-            childAspectRatio: 0.95,
-            children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final ratio = constraints.maxWidth > 600
+                  ? 1.2
+                  : (constraints.maxWidth < 360 ? 0.80 : 0.85);
+
+              return GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: ratio,
+                children: [
               _GridActionCard(
                 title: 'إضافة مشترك',
                 subtitle: 'تسجيل مشترك جديد',
@@ -146,7 +151,9 @@ class ContributorsPage extends ConsumerWidget {
                 onTap: () => AddContributorDialog.show(context, ContributorType.inKind),
               ),
             ],
-          ),
+          );
+        },
+      ),
         ],
       ),
     );

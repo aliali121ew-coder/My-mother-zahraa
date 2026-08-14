@@ -29,6 +29,7 @@ class AudioSelectionBottomSheet extends StatefulWidget {
   static Future<String?> show(BuildContext context) {
     return showModalBottomSheet<String>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const AudioSelectionBottomSheet(),

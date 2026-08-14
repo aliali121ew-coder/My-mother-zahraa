@@ -447,3 +447,127 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+
+class FinancialSafeCard extends StatelessWidget {
+  const FinancialSafeCard({
+    super.key,
+    required this.availableBalance,
+    this.onTap,
+    this.loading = false,
+  });
+
+  final num availableBalance;
+  final VoidCallback? onTap;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GoldBorder(
+      radius: AppTheme.radiusLarge,
+      child: GlassCard(
+        blur: true,
+        radius: AppTheme.radiusLarge,
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: isDark
+              ? [const Color(0xFF16222A), const Color(0xFF3A6073)]
+              : [const Color(0xFFE2E2E2), const Color(0xFFC9D6FF)],
+        ),
+        borderColor: Colors.transparent,
+        onTap: onTap,
+        child: Stack(
+          children: [
+            const Positioned(
+              left: -35,
+              bottom: -35,
+              child: GirihPattern(size: 150, opacity: 0.15),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.blueAccent.withValues(alpha: 0.2) : Colors.blue.shade100,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blueAccent.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.account_balance_wallet_rounded,
+                        color: isDark ? Colors.lightBlueAccent : Colors.blue.shade800,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'الخزنة المالية (الرصيد المتاح)',
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: isDark ? Colors.white30 : Colors.black26,
+                      size: 14,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                if (loading)
+                  const SizedBox(
+                    height: 48,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 48,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          Fmt.money(availableBalance),
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                            letterSpacing: -0.5,
+                            color: isDark ? Colors.white : const Color(0xFF1F2937),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

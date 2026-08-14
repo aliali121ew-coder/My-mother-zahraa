@@ -20,12 +20,12 @@ class PdfReportService {
   static Future<void> printReport({
     required String title,
     required List<ContributorModel> items,
-    required bool isDonorsReport,
+    String reportType = 'subscribers',
   }) async {
     final pdfBytes = await generateReportPdf(
       title: title,
       items: items,
-      isDonorsReport: isDonorsReport,
+      reportType: reportType,
     );
 
     await Printing.layoutPdf(
@@ -38,12 +38,12 @@ class PdfReportService {
   static Future<void> shareReport({
     required String title,
     required List<ContributorModel> items,
-    required bool isDonorsReport,
+    String reportType = 'subscribers',
   }) async {
     final pdfBytes = await generateReportPdf(
       title: title,
       items: items,
-      isDonorsReport: isDonorsReport,
+      reportType: reportType,
     );
 
     try {
@@ -78,7 +78,7 @@ class PdfReportService {
   static Future<Uint8List> generateReportPdf({
     required String title,
     required List<ContributorModel> items,
-    required bool isDonorsReport,
+    String reportType = 'subscribers',
   }) async {
     final pdf = pw.Document();
 
@@ -130,12 +130,12 @@ class PdfReportService {
           _buildSummaryBox(
             totalCount: items.length,
             totalSum: totalSum,
-            isDonorsReport: isDonorsReport,
+            reportType: reportType,
           ),
           pw.SizedBox(height: 14),
           _buildTable(
             items: items,
-            isDonorsReport: isDonorsReport,
+            reportType: reportType,
           ),
         ],
       ),
@@ -234,8 +234,10 @@ class PdfReportService {
   static pw.Widget _buildSummaryBox({
     required int totalCount,
     required num totalSum,
-    required bool isDonorsReport,
+    required String reportType,
   }) {
+    String typeLabel = reportType == 'donors' ? 'المتبرعين' : (reportType == 'all_consolidated' ? 'المساهمين' : 'المشتركين');
+    
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: pw.BoxDecoration(
@@ -247,7 +249,7 @@ class PdfReportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            'عدد ${isDonorsReport ? 'المتبرعين' : 'المشتركين'}: ${Fmt.count(totalCount)}',
+            'العدد الكلي ($typeLabel): ${Fmt.count(totalCount)}',
             style: pw.TextStyle(
               fontSize: 11,
               fontWeight: pw.FontWeight.bold,
@@ -269,29 +271,45 @@ class PdfReportService {
 
   static pw.Widget _buildTable({
     required List<ContributorModel> items,
-    required bool isDonorsReport,
+    required String reportType,
   }) {
-    final headers = isDonorsReport
-        ? ['تاريخ آخر تبرع', 'رقم الهاتف', 'المبلغ الإجمالي', 'اسم المتبرع', 'ت']
-        : ['تاريخ آخر دفعة', 'رقم الهاتف', 'حالة السداد', 'نوع الاشتراك', 'مبلغ الاشتراك', 'اسم المشترك', 'ت'];
+    final bool isConsolidated = reportType == 'all_consolidated';
+    final bool isDonors = reportType == 'donors';
 
-    final columnWidths = isDonorsReport
+    final headers = isConsolidated
+        ? ['الملاحظات / التبرع', 'الحالة', 'التاريخ', 'الهاتف', 'المبلغ', 'الفئة', 'الاسم', 'ت']
+        : isDonors
+            ? ['تاريخ آخر تبرع', 'رقم الهاتف', 'المبلغ الإجمالي', 'اسم المتبرع', 'ت']
+            : ['تاريخ آخر دفعة', 'رقم الهاتف', 'حالة السداد', 'نوع الاشتراك', 'مبلغ الاشتراك', 'اسم المشترك', 'ت'];
+
+    final columnWidths = isConsolidated
         ? <int, pw.TableColumnWidth>{
             0: const pw.FlexColumnWidth(1.2),
-            1: const pw.FlexColumnWidth(1.2),
-            2: const pw.FlexColumnWidth(1.4),
-            3: const pw.FlexColumnWidth(2.4),
-            4: const pw.FixedColumnWidth(28),
+            1: const pw.FlexColumnWidth(0.8),
+            2: const pw.FlexColumnWidth(1.1),
+            3: const pw.FlexColumnWidth(1.0),
+            4: const pw.FlexColumnWidth(1.0),
+            5: const pw.FlexColumnWidth(0.8),
+            6: const pw.FlexColumnWidth(1.7),
+            7: const pw.FixedColumnWidth(28),
           }
-        : <int, pw.TableColumnWidth>{
-            0: const pw.FlexColumnWidth(1.1),
-            1: const pw.FlexColumnWidth(1.1),
-            2: const pw.FlexColumnWidth(0.85),
-            3: const pw.FlexColumnWidth(0.85),
-            4: const pw.FlexColumnWidth(1.2),
-            5: const pw.FlexColumnWidth(2.0),
-            6: const pw.FixedColumnWidth(28),
-          };
+        : isDonors
+            ? <int, pw.TableColumnWidth>{
+                0: const pw.FlexColumnWidth(1.2),
+                1: const pw.FlexColumnWidth(1.2),
+                2: const pw.FlexColumnWidth(1.4),
+                3: const pw.FlexColumnWidth(2.4),
+                4: const pw.FixedColumnWidth(28),
+              }
+            : <int, pw.TableColumnWidth>{
+                0: const pw.FlexColumnWidth(1.1),
+                1: const pw.FlexColumnWidth(1.1),
+                2: const pw.FlexColumnWidth(0.85),
+                3: const pw.FlexColumnWidth(0.85),
+                4: const pw.FlexColumnWidth(1.2),
+                5: const pw.FlexColumnWidth(2.0),
+                6: const pw.FixedColumnWidth(28),
+              };
 
     final rows = <pw.TableRow>[];
 
@@ -324,7 +342,64 @@ class PdfReportService {
       final isEven = i.isEven;
       final rowBg = isEven ? PdfColor.fromHex('#F9FBF9') : PdfColors.white;
 
-      if (isDonorsReport) {
+      if (isConsolidated) {
+        final categoryStr = c.type == ContributorType.subscriber 
+            ? 'مشترك' 
+            : c.type == ContributorType.donor 
+                ? 'متبرع' 
+                : 'داعم';
+        
+        final amt = (c.type == ContributorType.inKind) 
+            ? (c.totalPaid > 0 ? Fmt.money(c.totalPaid) : '—') 
+            : (c.type == ContributorType.subscriber ? Fmt.money(c.subscriptionAmount ?? 0) : Fmt.money(c.totalPaid));
+        
+        final dateStr = c.lastPaymentAt != null 
+            ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) 
+            : '—';
+            
+        final statusColor = switch (c.paymentStatus) {
+          PaymentStatus.paid => PdfColor.fromHex('#2E9E6B'),
+          PaymentStatus.grace => PdfColor.fromHex('#D79A3C'),
+          PaymentStatus.overdue => PdfColor.fromHex('#E54D42'),
+        };
+        final statusBg = switch (c.paymentStatus) {
+          PaymentStatus.paid => PdfColor.fromHex('#EAF6F0'),
+          PaymentStatus.grace => PdfColor.fromHex('#FDF8ED'),
+          PaymentStatus.overdue => PdfColor.fromHex('#FDF0EE'),
+        };
+
+        pw.Widget statusWidget = pw.Text('—', style: pw.TextStyle(color: PdfColors.grey700, fontSize: 9));
+        if (c.type == ContributorType.subscriber) {
+          statusWidget = pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: pw.BoxDecoration(
+              color: statusBg,
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: statusColor, width: 0.5),
+            ),
+            child: pw.Text(
+              c.paymentStatus.label,
+              style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: statusColor),
+            ),
+          );
+        }
+
+        rows.add(
+          pw.TableRow(
+            decoration: pw.BoxDecoration(color: rowBg),
+            children: [
+              _cell(c.latestDonationDesc?.isNotEmpty == true ? c.latestDonationDesc! : (c.notes?.isNotEmpty == true ? c.notes! : '—'), align: pw.Alignment.centerRight),
+              pw.Container(alignment: pw.Alignment.center, padding: const pw.EdgeInsets.all(5), child: statusWidget),
+              _cell(dateStr, align: pw.Alignment.center),
+              _cell(c.phone ?? '—', align: pw.Alignment.center),
+              _cell(amt, align: pw.Alignment.center, isBold: true),
+              _cell(categoryStr, align: pw.Alignment.center),
+              _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
+              _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+            ],
+          ),
+        );
+      } else if (isDonors) {
         rows.add(
           pw.TableRow(
             decoration: pw.BoxDecoration(color: rowBg),
@@ -451,7 +526,7 @@ class PdfReportService {
     final pdfBytes = await generateReportPdf(
       title: title,
       items: allItems,
-      isDonorsReport: false,
+      reportType: 'all_consolidated',
     );
 
     await Printing.layoutPdf(

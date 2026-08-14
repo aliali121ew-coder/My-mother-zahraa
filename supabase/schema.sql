@@ -29,7 +29,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type contributor_type as enum ('subscriber', 'donor');
+  create type contributor_type as enum ('subscriber', 'donor', 'in_kind');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -56,7 +56,7 @@ create table if not exists public.profiles (
   updated_at  timestamptz not null default now()
 );
 
--- المساهمون: مشتركون ومتبرعون، كلاهما مانح بفئتين مختلفتين
+-- المساهمون: مشتركون ومتبرعون وداعمون عينيون
 create table if not exists public.contributors (
   id                  uuid primary key default gen_random_uuid(),
   type                contributor_type not null,
@@ -64,6 +64,8 @@ create table if not exists public.contributors (
   phone               text,
   photo_url           text,
   notes               text,
+  address             text,
+  latest_donation_desc text,
   -- حقول الاشتراك: للمشتركين فقط
   subscription_amount numeric(14,0),
   subscription_type   subscription_type,
@@ -112,6 +114,18 @@ create table if not exists public.donations (
     (kind = 'cash'    and amount is not null and amount > 0) or
     (kind = 'in_kind' and amount is null and in_kind_item is not null)
   )
+);
+
+-- المشتريات / المصروفات المالية
+create table if not exists public.purchases (
+  id            uuid primary key default gen_random_uuid(),
+  item_name     text not null,
+  amount        numeric(14,0) not null check (amount > 0),
+  supplier_name text,
+  notes         text,
+  purchase_date timestamptz not null default now(),
+  recorded_by   uuid references public.profiles(id) on delete set null,
+  created_at    timestamptz not null default now()
 );
 
 -- المنشورات: عدة صور بتمرير أفقي + سنة للأرشيف
@@ -217,6 +231,8 @@ create index if not exists idx_donations_contributor
   on public.donations(contributor_id, donated_at desc);
 create index if not exists idx_donations_kind
   on public.donations(kind);
+create index if not exists idx_purchases_date
+  on public.purchases(purchase_date desc);
 create index if not exists idx_posts_created
   on public.posts(created_at desc) where deleted_at is null;
 create index if not exists idx_posts_year
@@ -412,6 +428,9 @@ begin
       join public.contributors c on c.id = d.contributor_id
       where d.kind = 'cash' and c.deleted_at is null
     ), 0),
+    'expenses_total', coalesce((
+      select sum(amount) from public.purchases
+    ), 0),
     'subscribers_count', (
       select count(*) from public.contributors
       where type = 'subscriber' and deleted_at is null
@@ -453,6 +472,7 @@ alter table public.profiles         enable row level security;
 alter table public.contributors     enable row level security;
 alter table public.payments         enable row level security;
 alter table public.donations        enable row level security;
+alter table public.purchases        enable row level security;
 alter table public.posts            enable row level security;
 alter table public.post_images      enable row level security;
 alter table public.post_likes       enable row level security;
@@ -486,7 +506,7 @@ create policy profiles_admin_all on public.profiles
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────
---  سياسات: contributors / payments / donations
+--  سياسات: contributors / payments / donations / purchases
 --  القراءة للمدير والمالي فقط. العضو يرى الأرقام عبر get_stats() لا هنا.
 -- ─────────────────────────────────────────────────────────────────
 drop policy if exists contributors_read on public.contributors;
@@ -511,6 +531,14 @@ create policy donations_read on public.donations
 
 drop policy if exists donations_write on public.donations;
 create policy donations_write on public.donations
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists purchases_read on public.purchases;
+create policy purchases_read on public.purchases
+  for select to authenticated using (public.can_read_names());
+
+drop policy if exists purchases_write on public.purchases;
+create policy purchases_write on public.purchases
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────
@@ -633,6 +661,9 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 do $$ begin
   alter publication supabase_realtime add table public.contributors;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.purchases;
 exception when duplicate_object then null; end $$;
 
 -- ════════════════════════════════════════════════════════════════

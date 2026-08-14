@@ -47,6 +47,7 @@ class HiveService {
       AppConfig.boxStories,
       AppConfig.boxStats,
       AppConfig.boxOutbox,
+      AppConfig.boxPurchases,
     ]) {
       await _openBoxSafe<String>(name, cipher: cipher);
     }

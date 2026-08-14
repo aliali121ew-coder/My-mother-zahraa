@@ -1,18 +1,17 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
-import '../../../../core/config/app_config.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../../../shared/models/enums.dart';
+import '../../../purchases/data/purchases_provider.dart';
 
-/// رسم بياني احترافي تفاعلي لمقارنة الأشهر الـ 12 لسنة 2026 من حيث:
-/// - 🟢 التسديدات (الاشتراكات)
-/// - 🟡 التبرعات (المالية)
-/// - 🔵 الدعم العيني (المواد)
+/// رسم بياني تفاعلي احترافي باستخدام مكتبة Syncfusion Charts
 class ReportsAnalyticsChart extends ConsumerStatefulWidget {
   const ReportsAnalyticsChart({super.key});
 
@@ -22,104 +21,132 @@ class ReportsAnalyticsChart extends ConsumerStatefulWidget {
 }
 
 class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
-  int? _selectedMonthIndex; // 1 to 12
-
-  final List<String> _monthsShort = const [
-    'يناير',
-    'فبراير',
-    'مارس',
-    'أبريل',
-    'مايو',
-    'يونيو',
-    'يوليو',
-    'أغسطس',
-    'سبتمبر',
-    'أكتوبر',
-    'نوفمبر',
-    'ديسمبر'
-  ];
+  int? _selectedFinIndex;
+  int? _selectedContribIndex;
+  int _currentSegment = 0;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final allContributorsAsync = ref.watch(allContributorsProvider);
+    final statsAsync = ref.watch(statsProvider);
+    final allContribsAsync = ref.watch(allContributorsProvider);
+    final purchasesAsync = ref.watch(purchasesProvider);
 
-    return allContributorsAsync.when(
+    return statsAsync.when(
       loading: () => const SizedBox(
-        height: 220,
+        height: 240,
         child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
       ),
       error: (err, stack) => const SizedBox.shrink(),
-      data: (contributors) {
-        // حساب مبالغ ومشاركات كل شهر
-        final monthlyPayments = List<double>.filled(12, 0.0);
-        final monthlyDonations = List<double>.filled(12, 0.0);
-        final monthlySupportCount = List<int>.filled(12, 0);
+      data: (stats) {
+        final subscribersCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.isSubscriber)
+                .length ??
+            stats.subscribersCount;
+        final donorsCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.type == ContributorType.donor)
+                .length ??
+            stats.donorsCount;
+        final supportersCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.type == ContributorType.inKind)
+                .length ??
+            stats.inKindCount;
 
-        final repo = ref.watch(contributorsRepositoryProvider);
+        // 1. بيانات دائرة الموقف المالي (المبلغ الكلي vs المصروف الكلي)
+        final localPurchasesTotal = purchasesAsync.valueOrNull?.fold<num>(0, (sum, item) => sum + item.amount) ?? 0;
+        final totalExpensesWithPurchases = stats.expensesTotal + localPurchasesTotal;
+        
+        final totalAmt = stats.totalAmount > 0 ? stats.totalAmount.toDouble() : 1.0;
+        final expAmt = totalExpensesWithPurchases.toDouble();
 
-        for (final c in contributors) {
-          for (int month = 1; month <= 12; month++) {
-            final boxKey = 'ledger_${c.id}_2026';
-            var raw = repo.cache.readOne(AppConfig.boxPayments, boxKey);
-            raw ??= repo.cache.readOne(AppConfig.boxContributors, boxKey);
-            final rawMap = raw is Map ? raw : null;
-            if (rawMap != null) {
-              final monthEntry = rawMap[month.toString()];
-              if (monthEntry is Map) {
-                final isPaid = monthEntry['is_paid'] == true;
-                final amt = (monthEntry['amount'] as num?)?.toDouble() ?? 0.0;
-                final donations = monthEntry['donations'] is List
-                    ? (monthEntry['donations'] as List)
-                    : [];
+        final finSegments = [
+          _DonutSegmentData(
+            label: 'المبلغ الكلي',
+            value: totalAmt,
+            formattedValue: Fmt.money(stats.totalAmount),
+            color: const Color(0xFF10B981),
+            darkColor: const Color(0xFF047857),
+            icon: Icons.account_balance_wallet_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'المصروف الكلي',
+            value: expAmt > 0 ? expAmt : 0.001,
+            formattedValue: Fmt.money(totalExpensesWithPurchases),
+            color: const Color(0xFFF43F5E),
+            darkColor: const Color(0xFFBE123C),
+            icon: Icons.receipt_long_rounded,
+          ),
+        ];
 
-                if (c.isSubscriber && isPaid) {
-                  monthlyPayments[month - 1] += amt;
-                } else if (c.type == ContributorType.donor) {
-                  monthlyDonations[month - 1] += amt;
-                }
+        // 3. حالة المشتركين (المتأخرون، في المهلة، المسددون)
+        final overdueCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.isSubscriber && c.paymentStatus == PaymentStatus.overdue)
+                .length ?? 0;
+        final graceCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.isSubscriber && c.paymentStatus == PaymentStatus.grace)
+                .length ?? 0;
+        final paidCount = allContribsAsync.valueOrNull
+                ?.where((c) => c.isSubscriber && c.paymentStatus == PaymentStatus.paid)
+                .length ?? 0;
 
-                if (donations.isNotEmpty) {
-                  for (final d in donations) {
-                    if (d is Map) {
-                      final k = d['kind']?.toString();
-                      if (k == 'cash' && c.type == ContributorType.donor) {
-                        monthlyDonations[month - 1] +=
-                            (d['amount'] as num?)?.toDouble() ?? 0.0;
-                      } else if (k == 'food' || k == 'construction') {
-                        monthlySupportCount[month - 1]++;
-                      }
-                    }
-                  }
-                } else {
-                  final food = monthEntry['food_desc']?.toString() ?? '';
-                  final constr =
-                      monthEntry['construction_desc']?.toString() ?? '';
-                  if (food.trim().isNotEmpty) monthlySupportCount[month - 1]++;
-                  if (constr.trim().isNotEmpty) monthlySupportCount[month - 1]++;
-                }
-              }
-            }
-          }
-        }
-
-        // إيجاد القيمة القسوى للمقياس
-        double maxVal = 10000;
-        for (int i = 0; i < 12; i++) {
-          if (monthlyPayments[i] > maxVal) maxVal = monthlyPayments[i];
-          if (monthlyDonations[i] > maxVal) maxVal = monthlyDonations[i];
-        }
-
-        final selectedIdx = _selectedMonthIndex ?? (DateTime.now().month - 1);
-        final selPayments = monthlyPayments[selectedIdx];
-        final selDonations = monthlyDonations[selectedIdx];
-        final selSupport = monthlySupportCount[selectedIdx];
-        final selMonthName = _monthsShort[selectedIdx];
+        // 2. بيانات دائرة الفئات والمساهمين وحالات السداد (6 فئات مدمجة)
+        final combinedSegments = [
+          _DonutSegmentData(
+            label: 'المشتركون',
+            value: subscribersCount > 0 ? subscribersCount.toDouble() : 1.0,
+            formattedValue: '$subscribersCount مشترك',
+            color: const Color(0xFF0284C7),
+            darkColor: const Color(0xFF0369A1),
+            icon: Icons.groups_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'المتبرعون',
+            value: donorsCount > 0 ? donorsCount.toDouble() : 1.0,
+            formattedValue: '$donorsCount متبرع',
+            color: const Color(0xFFD97706),
+            darkColor: const Color(0xFFB45309),
+            icon: Icons.volunteer_activism_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'الداعمون',
+            value: supportersCount > 0 ? supportersCount.toDouble() : 1.0,
+            formattedValue: '$supportersCount داعم',
+            color: const Color(0xFF7C3AED),
+            darkColor: const Color(0xFF6D28D9),
+            icon: Icons.shopping_basket_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'المتأخرون',
+            value: overdueCount > 0 ? overdueCount.toDouble() : 1.0,
+            formattedValue: '$overdueCount متأخر',
+            color: const Color(0xFFE11D48),
+            darkColor: const Color(0xFF9F1239),
+            icon: Icons.timer_off_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'في المهلة',
+            value: graceCount > 0 ? graceCount.toDouble() : 1.0,
+            formattedValue: '$graceCount في المهلة',
+            color: const Color(0xFFF59E0B),
+            darkColor: const Color(0xFFB45309),
+            icon: Icons.hourglass_bottom_rounded,
+          ),
+          _DonutSegmentData(
+            label: 'المسددون',
+            value: paidCount > 0 ? paidCount.toDouble() : 1.0,
+            formattedValue: '$paidCount مسدد',
+            color: const Color(0xFF10B981),
+            darkColor: const Color(0xFF047857),
+            icon: Icons.check_circle_rounded,
+          ),
+        ];
 
         return GlassCard(
-          radius: 20,
+          radius: 24,
           padding: const EdgeInsets.all(16),
-          borderColor: AppColors.gold.withValues(alpha: 0.35),
+          borderColor: isDark
+              ? AppColors.gold.withValues(alpha: 0.4)
+              : AppColors.greenDeep.withValues(alpha: 0.3),
           gradient: isDark
               ? LinearGradient(
                   colors: [
@@ -133,286 +160,265 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── الترويسة والعنوان ودليل الألوان ──
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.gold.withValues(alpha: 0.2),
-                          border: Border.all(
-                            color: AppColors.gold.withValues(alpha: 0.5),
+
+                  // ── محوّل الرؤية الانزلاقي (Sliding Segmented Control) ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: CupertinoSlidingSegmentedControl<int>(
+                      backgroundColor: isDark 
+                          ? Colors.black.withValues(alpha: 0.3) 
+                          : AppColors.lightGreenTint.withValues(alpha: 0.5),
+                      thumbColor: isDark 
+                          ? AppColors.gold.withValues(alpha: 0.25)
+                          : Colors.white,
+                      groupValue: _currentSegment,
+                      onValueChanged: (int? value) {
+                        if (value != null) {
+                          setState(() {
+                            _currentSegment = value;
+                          });
+                        }
+                      },
+                      children: {
+                        0: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'الموقف المالي',
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: _currentSegment == 0
+                                  ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
+                                  : (isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted),
+                            ),
                           ),
                         ),
-                        child: const Icon(
-                          Icons.bar_chart_rounded,
-                          color: AppColors.goldBright,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'المقارنة التحليلية الشهرية (2026)',
-                              style: TextStyle(
-                                fontFamily: AppTheme.displayFamily,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        1: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'الإحصائية',
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFamily,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: _currentSegment == 1
+                                  ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
+                                  : (isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted),
                             ),
-                            Text(
-                              'اضغط على العمود لرؤية كشف الشهر',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 10.5,
-                                color: isDark
-                                    ? AppColors.textOnDarkMuted
-                                    : AppColors.textOnLightMuted,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  // دليل الألوان
-                  Row(
-                    children: [
-                      _legendDot(AppColors.green, 'تسديدات'),
-                      const SizedBox(width: 12),
-                      _legendDot(AppColors.gold, 'تبرعات'),
-                      const SizedBox(width: 12),
-                      _legendDot(Colors.lightBlueAccent, 'دعم عيني'),
-                    ],
+                  const SizedBox(height: 24),
+
+                  // ── الدائرة الرئيسية الاحترافية الكبيرة ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: _currentSegment == 0 
+                        ? _buildDonutCard(
+                            title: 'توزيع الأموال والمصروفات',
+                            segments: finSegments,
+                            selectedIndex: _selectedFinIndex,
+                            onSelect: (idx) => setState(() {
+                              _selectedFinIndex = _selectedFinIndex == idx ? null : idx;
+                            }),
+                            isDark: isDark,
+                          )
+                        : _buildDonutCard(
+                            title: 'الإحصائية',
+                            segments: combinedSegments,
+                            selectedIndex: _selectedContribIndex,
+                            onSelect: (idx) => setState(() {
+                              _selectedContribIndex = _selectedContribIndex == idx ? null : idx;
+                            }),
+                            isDark: isDark,
+                          ),
                   ),
+
                 ],
               ),
-
-              const SizedBox(height: 16),
-
-              // ── شريط الرسوم البيانية للأشهر الـ 12 ──
-              SizedBox(
-                height: 140,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: List.generate(12, (index) {
-                    final isSelected = index == selectedIdx;
-                    final payH = maxVal > 0
-                        ? (monthlyPayments[index] / maxVal) * 90
-                        : 5.0;
-                    final donH = maxVal > 0
-                        ? (monthlyDonations[index] / maxVal) * 90
-                        : 5.0;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedMonthIndex = index;
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? (isDark
-                                    ? AppColors.gold.withValues(alpha: 0.2)
-                                    : AppColors.greenDeep.withValues(alpha: 0.12))
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: isSelected
-                                ? Border.all(
-                                    color: isDark
-                                        ? AppColors.gold.withValues(alpha: 0.6)
-                                        : AppColors.greenDeep.withValues(alpha: 0.4),
-                                    width: 1,
-                                  )
-                                : null,
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              // الأشرطة المقارنة
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  // عمود التسديدات الأخضر
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    width: 5,
-                                    height: payH.clamp(4.0, 90.0),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.green,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  // عمود التبرعات الذهبي
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    width: 5,
-                                    height: donH.clamp(4.0, 90.0),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.goldBright,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              // اسم الشهر
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _monthsShort[index],
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 9.5,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: isSelected
-                                        ? (isDark
-                                            ? AppColors.goldBright
-                                            : AppColors.goldDark)
-                                        : (isDark
-                                            ? Colors.white60
-                                            : Colors.black54),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-
-              // ── ملخص الشهر المختار ──
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.black.withValues(alpha: 0.25)
-                      : AppColors.lightGreenTint.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppColors.gold.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'كشف تفاصيل شهر $selMonthName:',
-                      style: TextStyle(
-                        fontFamily: AppTheme.displayFamily,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppColors.goldBright
-                            : AppColors.goldDark,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
-                          _metricBadge(
-                              'التسديد:', Fmt.moneyShort(selPayments), AppColors.green),
-                          const SizedBox(width: 6),
-                          _metricBadge('التبرع:', Fmt.moneyShort(selDonations),
-                              AppColors.goldBright),
-                          const SizedBox(width: 6),
-                          _metricBadge('الدعم:', '$selSupport مواد',
-                              Colors.lightBlueAccent),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         );
       },
     );
   }
 
-  Widget _legendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 9.5,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildDonutCard({
+    required String title,
+    required List<_DonutSegmentData> segments,
+    required int? selectedIndex,
+    required ValueChanged<int?> onSelect,
+    required bool isDark,
+  }) {
+    final selSeg = selectedIndex != null && selectedIndex >= 0 && selectedIndex < segments.length 
+        ? segments[selectedIndex] 
+        : null;
 
-  Widget _metricBadge(String title, String val, Color color) {
+    final totalValue = segments.fold<double>(
+      0,
+      (sum, s) => sum + (s.value <= 0 ? 0.001 : s.value),
+    );
+
+    // Create chart data with transparent gaps to mimic the requested design
+    final List<_DonutSegmentData> chartData = [];
+    final gapValue = totalValue * 0.025; // تقليل الفراغات إلى 2.5% لتناسب الشكل الجديد
+
+    for (int i = 0; i < segments.length; i++) {
+      chartData.add(segments[i]);
+      // Add gap segment
+      chartData.add(_DonutSegmentData(
+        label: 'gap_$i',
+        value: gapValue,
+        formattedValue: '',
+        color: Colors.transparent,
+        darkColor: Colors.transparent,
+        icon: Icons.circle,
+      ));
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? AppColors.gold.withValues(alpha: 0.3)
+              : AppColors.greenDeep.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 10,
-              color: color,
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 3),
-          Text(
-            val,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 10.5,
-              fontWeight: FontWeight.bold,
-              color: color,
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 230,
+            width: 230,
+            child: SfCircularChart(
+              margin: EdgeInsets.zero,
+              annotations: <CircularChartAnnotation>[
+                if (selSeg != null)
+                  CircularChartAnnotation(
+                    widget: SizedBox(
+                      width: 120, // تقييد العرض لضمان عمل FittedBox وتفادي تجاوز النص للدائرة
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(selSeg.icon, color: selSeg.color, size: 24),
+                          const SizedBox(height: 6),
+                          Text(
+                            selSeg.label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFamily,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppColors.textOnDarkMuted
+                                  : AppColors.textOnLightMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              selSeg.formattedValue,
+                              style: TextStyle(
+                                fontFamily: AppTheme.displayFamily,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white : const Color(0xFF1F2937),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+              series: <CircularSeries>[
+                DoughnutSeries<_DonutSegmentData, String>(
+                  dataSource: chartData,
+                  xValueMapper: (_DonutSegmentData data, _) => data.label,
+                  yValueMapper: (_DonutSegmentData data, _) => data.value,
+                  pointColorMapper: (_DonutSegmentData data, _) => data.color,
+                  cornerStyle: CornerStyle.bothFlat,
+                  innerRadius: '66%',
+                  radius: '100%',
+                  explode: true,
+                  explodeIndex: selectedIndex != null ? selectedIndex * 2 : -1,
+                  explodeOffset: '6%',
+                  animationDuration: 1200,
+                  dataLabelSettings: const DataLabelSettings(
+                    isVisible: true,
+                    labelPosition: ChartDataLabelPosition.inside,
+                    textStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  dataLabelMapper: (_DonutSegmentData data, _) {
+                    if (data.color == Colors.transparent) return '';
+                    final pct = (data.value / totalValue) * 100;
+                    return '${pct.round()}%';
+                  },
+                  onPointTap: (ChartPointDetails details) {
+                    if (details.pointIndex != null) {
+                      // Because we injected gaps, actual indices are 0, 2, 4...
+                      if (details.pointIndex! % 2 == 0) {
+                        final actualIndex = details.pointIndex! ~/ 2;
+                        onSelect(selectedIndex == actualIndex ? null : actualIndex);
+                      }
+                    }
+                  },
+                )
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
+
+}
+
+class _DonutSegmentData {
+  final String label;
+  final double value;
+  final String formattedValue;
+  final Color color;
+  final Color darkColor;
+  final IconData icon;
+
+  const _DonutSegmentData({
+    required this.label,
+    required this.value,
+    required this.formattedValue,
+    required this.color,
+    required this.darkColor,
+    required this.icon,
+  });
 }

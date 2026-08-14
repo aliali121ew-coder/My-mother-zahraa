@@ -17,6 +17,7 @@ class CommentsBottomSheet extends ConsumerStatefulWidget {
   static void show(BuildContext context, PostModel post) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => CommentsBottomSheet(post: post),

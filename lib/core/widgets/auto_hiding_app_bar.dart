@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/app_providers.dart';
 
@@ -36,6 +37,14 @@ class AutoHidingAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final height = preferredSize.height;
     final translateY = -progress * (height + 10);
 
+    final Widget? effectiveLeading = leading ??
+        (automaticallyImplyLeading && context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.pop(),
+              )
+            : null);
+
     return Transform.translate(
       offset: Offset(0, translateY),
       child: Opacity(
@@ -43,10 +52,10 @@ class AutoHidingAppBar extends ConsumerWidget implements PreferredSizeWidget {
         child: AppBar(
           title: title,
           actions: actions,
-          leading: leading,
+          leading: effectiveLeading,
           bottom: bottom,
           centerTitle: centerTitle,
-          automaticallyImplyLeading: automaticallyImplyLeading,
+          automaticallyImplyLeading: false,
           titleSpacing: titleSpacing,
         ),
       ),

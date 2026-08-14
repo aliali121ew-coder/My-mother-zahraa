@@ -12,7 +12,7 @@ import '../../../shared/models/enums.dart';
 import '../../../shared/models/permissions.dart';
 import 'widgets/reports_analytics_chart.dart';
 
-enum _ReportCategory { all, financial, contributors, activity, security }
+enum _ReportCategory { financial, contributors, activity, security }
 
 /// صفحة لوحة التقارير والتحليلات الملكية المكتملة (State-of-the-Art Futuristic Hub)
 class ReportsPage extends ConsumerStatefulWidget {
@@ -23,12 +23,8 @@ class ReportsPage extends ConsumerStatefulWidget {
 }
 
 class _ReportsPageState extends ConsumerState<ReportsPage> {
-  final _searchController = TextEditingController();
-  _ReportCategory _selectedCategory = _ReportCategory.all;
-
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -100,19 +96,19 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   0;
 
               return GlassCard(
-                radius: 20,
-                padding: const EdgeInsets.all(16),
+                radius: 22,
+                padding: const EdgeInsets.all(14),
                 borderColor: isDark
-                    ? AppColors.gold.withValues(alpha: 0.35)
-                    : AppColors.greenDeep.withValues(alpha: 0.25),
+                    ? AppColors.gold.withValues(alpha: 0.4)
+                    : AppColors.greenDeep.withValues(alpha: 0.3),
                 gradient: LinearGradient(
                   colors: isDark
                       ? [
-                          AppColors.gold.withValues(alpha: 0.18),
-                          AppColors.greenDeep.withValues(alpha: 0.85),
+                          AppColors.gold.withValues(alpha: 0.12),
+                          AppColors.greenDeep.withValues(alpha: 0.75),
                         ]
                       : [
-                          const Color(0xFFF0F7F3),
+                          const Color(0xFFF4F9F6),
                           Colors.white,
                         ],
                   begin: Alignment.topRight,
@@ -120,69 +116,131 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 ),
                 child: Column(
                   children: [
+                    // ── الخلايا المالية الرئيسية (المبلغ الكلي والمصروف الكلي) ──
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'إجمالي الخزنة والمقبوضات',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  fontSize: 11.5,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  Fmt.money(stats.totalAmount),
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.displayFamily,
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w900,
-                                    color: isDark
-                                        ? AppColors.goldBright
-                                        : AppColors.greenDeep,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: _gradientFinancialCell(
+                            title: 'المبلغ الكلي',
+                            amount: Fmt.money(stats.totalAmount),
+                            icon: Icons.account_balance_wallet_rounded,
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? const [
+                                      Color(0xFF044E32),
+                                      Color(0xFF0E7A4A),
+                                      Color(0xFF10B981)
+                                    ]
+                                  : const [
+                                      Color(0xFF065F46),
+                                      Color(0xFF059669),
+                                      Color(0xFF10B981)
+                                    ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            shadowColor: const Color(0xFF10B981),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _gradientFinancialCell(
+                            title: 'المصروف الكلي',
+                            amount: Fmt.money(stats.expensesTotal),
+                            icon: Icons.receipt_long_rounded,
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? const [
+                                      Color(0xFF6B1124),
+                                      Color(0xFF9E1C38),
+                                      Color(0xFFF43F5E)
+                                    ]
+                                  : const [
+                                      Color(0xFF9F1239),
+                                      Color(0xFFE11D48),
+                                      Color(0xFFF43F5E)
+                                    ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            shadowColor: const Color(0xFFF43F5E),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
+                    // ── خلايا الفئات الـ 3 بتصميم مميز وتدريجي ──
                     Row(
                       children: [
                         Expanded(
-                          child: _miniStatBadge(
+                          child: _gradientCategoryBadge(
                             title: 'المشتركون',
                             count: '$subscribersCount',
-                            color: AppColors.greenDeep,
                             icon: Icons.groups_rounded,
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? const [
+                                      Color(0xFF034B75),
+                                      Color(0xFF0284C7),
+                                      Color(0xFF38BDF8)
+                                    ]
+                                  : const [
+                                      Color(0xFF0369A1),
+                                      Color(0xFF0284C7),
+                                      Color(0xFF38BDF8)
+                                    ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            shadowColor: const Color(0xFF0284C7),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 7),
                         Expanded(
-                          child: _miniStatBadge(
+                          child: _gradientCategoryBadge(
                             title: 'المتبرعون',
                             count: '$donorsCount',
-                            color: isDark ? AppColors.goldBright : Colors.teal.shade700,
                             icon: Icons.volunteer_activism_rounded,
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? const [
+                                      Color(0xFF78350F),
+                                      Color(0xFFD97706),
+                                      Color(0xFFF59E0B)
+                                    ]
+                                  : const [
+                                      Color(0xFFB45309),
+                                      Color(0xFFD97706),
+                                      Color(0xFFFBBF24)
+                                    ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            shadowColor: const Color(0xFFD97706),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 7),
                         Expanded(
-                          child: _miniStatBadge(
+                          child: _gradientCategoryBadge(
                             title: 'الداعمون',
                             count: '$supportersCount',
-                            color: Colors.lightBlue.shade700,
                             icon: Icons.shopping_basket_rounded,
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? const [
+                                      Color(0xFF4C1D95),
+                                      Color(0xFF7C3AED),
+                                      Color(0xFFA855F7)
+                                    ]
+                                  : const [
+                                      Color(0xFF6D28D9),
+                                      Color(0xFF7C3AED),
+                                      Color(0xFFA855F7)
+                                    ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            shadowColor: const Color(0xFF7C3AED),
                           ),
                         ),
                       ],
@@ -195,58 +253,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
           const SizedBox(height: 16),
 
-          // ── 2️⃣ شريط البحث الزجاجي والتصفية السريعة ──
-          TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'ابحث عن نوع التقرير أو السجل...',
-              prefixIcon: const Icon(Icons.search_rounded, size: 21),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 19),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {});
-                      },
-                    )
-                  : null,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // شريط التبويبات الفئوية
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _categoryChip(
-                    _ReportCategory.all, 'الكل', Icons.dashboard_rounded),
-                const SizedBox(width: 8),
-                _categoryChip(_ReportCategory.financial, 'المالية والخزنة',
-                    Icons.account_balance_wallet_rounded),
-                const SizedBox(width: 8),
-                _categoryChip(_ReportCategory.contributors, 'المساهمون',
-                    Icons.people_rounded),
-                const SizedBox(width: 8),
-                _categoryChip(_ReportCategory.activity, 'الرعاية والنشاط',
-                    Icons.analytics_rounded),
-                const SizedBox(width: 8),
-                _categoryChip(_ReportCategory.security, 'الأمن والحظر',
-                    Icons.security_rounded),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 18),
+          const SizedBox(height: 8),
 
           // ── 3️⃣ الرسم البياني التفاعلي للمقارنة الشهرية ──
-          if (_selectedCategory == _ReportCategory.all ||
-              _selectedCategory == _ReportCategory.financial) ...[
-            const ReportsAnalyticsChart(),
-            const SizedBox(height: 20),
-          ],
+          const ReportsAnalyticsChart(),
+          const SizedBox(height: 20),
 
           // ── 4️⃣ شبكة الكروت الزجاجية للتقارير الشاملة ──
           Text(
@@ -266,50 +277,75 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _categoryChip(_ReportCategory category, String title, IconData icon) {
-    final isSelected = _selectedCategory == category;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GlassCard(
-      onTap: () => setState(() => _selectedCategory = category),
-      radius: 12,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      borderColor: isSelected
-          ? (isDark ? AppColors.gold : AppColors.greenDeep)
-          : null,
-      gradient: isSelected
-          ? LinearGradient(
-              colors: isDark
-                  ? [
-                      AppColors.gold.withValues(alpha: 0.3),
-                      AppColors.goldDark.withValues(alpha: 0.2),
-                    ]
-                  : [
-                      AppColors.greenDeep.withValues(alpha: 0.15),
-                      AppColors.lightGreenTint,
-                    ],
-            )
-          : null,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 15,
-            color: isSelected
-                ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
-                : (isDark ? Colors.white60 : Colors.black54),
+  Widget _gradientFinancialCell({
+    required String title,
+    required String amount,
+    required IconData icon,
+    required Gradient gradient,
+    required Color shadowColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected
-                  ? (isDark ? AppColors.goldBright : AppColors.greenDeep)
-                  : (isDark ? Colors.white70 : Colors.black87),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 15, color: Colors.white),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              amount,
+              style: const TextStyle(
+                fontFamily: AppTheme.displayFamily,
+                fontSize: 17.5,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ],
@@ -317,36 +353,46 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _miniStatBadge({
+  Widget _gradientCategoryBadge({
     required String title,
     required String count,
-    required Color color,
     required IconData icon,
+    required Gradient gradient,
+    required Color shadowColor,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor.withValues(alpha: 0.25),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 0.8,
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 3),
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 4),
           Expanded(
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.center,
               child: Text(
                 '$title: $count',
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -357,8 +403,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }
 
   Widget _buildReportsGrid(BuildContext context) {
-    final query = _searchController.text.trim().toLowerCase();
-
     final allReports = [
       // 1. الخزنة
       _ReportItemData(
@@ -371,18 +415,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         route: '/reports/vault',
         badgeText: 'مالي',
       ),
-      // 2. المشتريات
-      _ReportItemData(
-        id: 'purchases',
-        title: 'المشتريات والنفقات',
-        description: 'كشف مالي تفصيلي للمشتريات والفواتير الصادرة والنفقات',
-        icon: Icons.shopping_cart_rounded,
-        color: Colors.amber.shade800,
-        category: _ReportCategory.financial,
-        route: '/reports/purchases',
-        badgeText: 'مصروفات',
-      ),
-      // 3. كل المساهمين (الفئات 3 في ملف واحد)
+      // 2. كل المساهمين (الفئات 3 في ملف واحد)
       _ReportItemData(
         id: 'all_consolidated',
         title: 'كل المساهمين (الفئات الـ 3 الموحدة)',
@@ -506,42 +539,27 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ),
     ];
 
-    final filteredReports = allReports.where((r) {
-      final matchesCategory = _selectedCategory == _ReportCategory.all ||
-          r.category == _selectedCategory;
-      final matchesQuery = query.isEmpty ||
-          r.title.toLowerCase().contains(query) ||
-          r.description.toLowerCase().contains(query);
-      return matchesCategory && matchesQuery;
-    }).toList();
-
-    if (filteredReports.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 30),
-        child: Center(
-          child: Text(
-            'لا توجد تقارير مطابقة للبحث',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossCount = constraints.maxWidth > 600 ? 3 : 2;
+        final crossCount = constraints.maxWidth > 750
+            ? 3
+            : (constraints.maxWidth > 1050 ? 4 : 2);
+        final ratio = constraints.maxWidth > 750
+            ? 1.4
+            : (constraints.maxWidth < 360 ? 0.88 : 0.92);
+
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: constraints.maxWidth > 600 ? 1.35 : 0.88,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: ratio,
           ),
-          itemCount: filteredReports.length,
+          itemCount: allReports.length,
           itemBuilder: (context, idx) {
-            final item = filteredReports[idx];
+            final item = allReports[idx];
             return _ReportGridCard(item: item);
           },
         );
@@ -587,7 +605,7 @@ class _ReportGridCard extends StatelessWidget {
       blur: true,
       onTap: () => context.go(item.route),
       radius: AppTheme.radiusLarge,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       borderColor: item.isFeatured
           ? AppColors.gold.withValues(alpha: 0.8)
           : item.color.withValues(alpha: 0.35),
@@ -605,86 +623,95 @@ class _ReportGridCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // ── الترويسة الأيقونة والشارة بمرونة كاملة ──
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(9),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: item.color.withValues(alpha: 0.4),
                   ),
                 ),
-                child: Icon(item.icon, color: item.color, size: 22),
+                child: Icon(item.icon, color: item.color, size: 19),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: item.color.withValues(alpha: 0.3),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: item.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: item.color.withValues(alpha: 0.3),
+                    ),
                   ),
-                ),
-                child: Text(
-                  item.badgeText,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.bold,
-                    color: item.color,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      item.badgeText,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: item.color,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 6),
+          // ── العنوان والوصف وزر التنقل ──
+          Text(
+            item.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.displayFamily,
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: item.isFeatured
+                  ? (isDark ? AppColors.goldBright : AppColors.goldDark)
+                  : (isDark ? Colors.white : Colors.black87),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            item.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 10,
+              height: 1.2,
+              color: isDark ? Colors.white60 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppTheme.displayFamily,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                  color: item.isFeatured
-                      ? (isDark ? AppColors.goldBright : AppColors.goldDark)
-                      : (isDark ? Colors.white : Colors.black87),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                item.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 10.5,
-                  color: isDark ? Colors.white60 : Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    'عرض الكشف',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: item.color,
-                    ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'عرض الكشف',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: item.color,
                   ),
-                  const SizedBox(width: 3),
-                  Icon(Icons.chevron_left_rounded,
-                      size: 16, color: item.color),
-                ],
+                ),
               ),
+              const SizedBox(width: 2),
+              Icon(Icons.chevron_left_rounded, size: 15, color: item.color),
             ],
           ),
         ],

@@ -11,13 +11,53 @@ import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/permissions.dart';
 
+import '../../../core/services/biometric_service.dart';
+import 'change_password_sheet.dart';
+
 /// صفحة الإعدادات: الملف الشخصي، الثيم، إدارة المستخدمين، معلومات الموكب،
 /// تسجيل الخروج ومسح الذاكرة المؤقتة.
-class SettingsPage extends ConsumerWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  bool _biometricEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _biometricEnabled = BiometricService.instance.isBiometricEnabled;
+  }
+
+  Future<void> _toggleBiometrics(bool value) async {
+    final success = await BiometricService.instance.setBiometricEnabled(value);
+    if (mounted) {
+      if (success) {
+        setState(() => _biometricEnabled = value);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(value
+                ? 'تم تفعيل قفل التطبيق بالبصمة'
+                : 'تم إيقاف قفل التطبيق بالبصمة'),
+            backgroundColor: AppColors.paid,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('الجهاز لا يدعم البصمة أو رُفض الإجراء'),
+            backgroundColor: AppColors.overdue,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final themeMode = ref.watch(themeModeProvider);
     final theme = Theme.of(context);
@@ -111,19 +151,24 @@ class SettingsPage extends ConsumerWidget {
 
           if (!session.isGuest) ...[
             const SizedBox(height: 22),
-            _SectionTitle('الحساب'),
+            _SectionTitle('الأمان'),
             _SettingsGroup(
               children: [
                 _Tile(
                   icon: Icons.lock_outline_rounded,
                   title: 'تغيير كلمة المرور',
-                  onTap: () => _soon(context),
+                  onTap: () => ChangePasswordSheet.show(context),
                 ),
                 _Tile(
                   icon: Icons.fingerprint_rounded,
                   title: 'قفل التطبيق بالبصمة',
                   subtitle: 'يُطلب عند كل فتح للتطبيق',
-                  onTap: () => _soon(context),
+                  trailing: Switch(
+                    value: _biometricEnabled,
+                    onChanged: _toggleBiometrics,
+                    activeThumbColor: AppColors.gold,
+                  ),
+                  onTap: () => _toggleBiometrics(!_biometricEnabled),
                 ),
               ],
             ),
@@ -138,22 +183,22 @@ class SettingsPage extends ConsumerWidget {
                   icon: Icons.how_to_reg_outlined,
                   title: 'طلبات الحسابات',
                   subtitle: 'الموافقة أو الرفض',
-                  onTap: () => _soon(context),
+                  onTap: () => context.go('/settings/account_requests'),
                 ),
                 _Tile(
                   icon: Icons.admin_panel_settings_outlined,
                   title: 'الصلاحيات والأدوار',
-                  onTap: () => _soon(context),
+                  onTap: () => context.go('/settings/roles'),
                 ),
                 _Tile(
                   icon: Icons.block_outlined,
                   title: 'حظر المستخدمين',
-                  onTap: () => _soon(context),
+                  onTap: () => context.go('/settings/banned_users'),
                 ),
                 _Tile(
                   icon: Icons.collections_bookmark_outlined,
                   title: 'أقسام الستوريز',
-                  onTap: () => _soon(context),
+                  onTap: () => context.go('/settings/story_categories'),
                 ),
               ],
             ),
@@ -164,10 +209,12 @@ class SettingsPage extends ConsumerWidget {
           _SettingsGroup(
             children: [
               _Tile(
-                icon: Icons.cloud_off_outlined,
+                icon: AppConfig.isConfigured
+                    ? Icons.cloud_done_rounded
+                    : Icons.cloud_off_outlined,
                 title: 'حالة الاتصال',
                 subtitle: AppConfig.isConfigured
-                    ? 'متصل بقاعدة البيانات'
+                    ? 'متصل بمشروع Supabase الحي'
                     : 'وضع تجريبي — قاعدة البيانات غير مهيّأة',
                 trailing: Icon(
                   AppConfig.isConfigured
@@ -230,6 +277,7 @@ class SettingsPage extends ConsumerWidget {
   ) async {
     final picked = await showModalBottomSheet<ThemeMode>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
@@ -287,10 +335,6 @@ class SettingsPage extends ConsumerWidget {
       const SnackBar(content: Text('تم مسح الذاكرة المؤقتة')),
     );
   }
-
-  void _soon(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('هذه الشاشة قيد البناء')),
-      );
 }
 
 class _SectionTitle extends StatelessWidget {

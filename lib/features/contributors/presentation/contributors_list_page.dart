@@ -83,7 +83,6 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
             : (widget.showDonors == true ? 'قائمة المتبرعين' : 'قائمة المشتركين'));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         centerTitle: true,
         leading: _isSelectionMode
