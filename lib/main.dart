@@ -43,7 +43,14 @@ Future<void> main() async {
 
   // حارس المسارات (P2): الاشتراك في الجلسة يعيد تقييم التوجيه عند كل
   // تغيّر — الدخول والخروج وتغيّر الدور أو حالة الحظر.
-  final container = ProviderContainer();
-  runApp(ProviderScope(container: container, child: const MawkibApp()));
+  // نُنشئ الحاوية يدوياً قبل بناء الشجرة لأن ProviderScope.containerOf
+  // يحتاج BuildContext الذي لا يتوفر قبل runApp في riverpod 2.6.x
+  final container = ProviderContainer(
+    overrides: const [],
+  );
+  runApp(UncontrolledProviderScope(
+    container: container,
+    child: const MawkibApp(),
+  ));
   SessionListenable.instance.start(container);
 }

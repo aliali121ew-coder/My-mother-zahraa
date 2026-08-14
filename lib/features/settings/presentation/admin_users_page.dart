@@ -52,10 +52,18 @@ Future<void> confirmWith(
       ),
     );
   } catch (e) {
-    _onActionError(context, e);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e is PostgrestException && e.code == '42501'
+            ? 'غير مصرّح — هذه اللوحة للمدير العام فقط'
+            : arabicError(e)),
+        backgroundColor: AppColors.overdue,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
-
 @override
 
 class AdminUsersPage extends ConsumerStatefulWidget {
@@ -75,18 +83,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     super.dispose();
   }
 
-  void _onActionError(BuildContext context, Object e) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(e is PostgrestException && e.code == '42501'
-            ? 'غير مصرّح — هذه اللوحة للمدير العام فقط'
-            : arabicError(e)),
-        backgroundColor: AppColors.overdue,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   Widget build(BuildContext context) {
     final theme = Theme.of(context);

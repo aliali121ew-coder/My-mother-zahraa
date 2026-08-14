@@ -5,17 +5,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/app_config.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
+import 'core/services/app_update_service.dart';
 import 'core/theme/app_theme.dart';
 
 /// جذر التطبيق.
 ///
 /// اللغة العربية هي اللغة الوحيدة، والاتجاه من اليمين لليسار يُطبَّق تلقائياً
 /// من إعداد اللغة فلا حاجة لتغليف الشجرة بـ Directionality يدوياً.
-class MawkibApp extends ConsumerWidget {
+///
+/// التحديث الإجباري: عند فتح التطبيق يُقارَن الإصدار الحالي مع ملف
+/// update_config.json المستضاف — لو وُجد إصدار أحدث ظهر حوار إجباري
+/// في وسط الشاشة يمنع أي استخدام حتى ينزّل العميل النسخة الجديدة.
+class MawkibApp extends ConsumerStatefulWidget {
   const MawkibApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MawkibApp> createState() => _MawkibAppState();
+}
+
+class _MawkibAppState extends ConsumerState<MawkibApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await AppUpdateService.checkForUpdates();
+      if (AppUpdateService.hasUpdate && mounted) {
+        await AppUpdateService.showUpdateDialog(context);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(

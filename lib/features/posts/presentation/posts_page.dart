@@ -36,8 +36,7 @@ class _PostsPageState extends ConsumerState<PostsPage> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) {
         // الارتداد للمخزن المحلي المحفوظ عند فشل الشبكة كليًا
-        final local =
-            (ref.read(postsProvider).valueOrNull ?? const []) as List<PostModel>;
+        final local = ref.read(postsProvider).valueOrNull ?? const [];
         if (local.isNotEmpty) {
           return _PostsFeedBody(
             posts: local,
@@ -175,30 +174,35 @@ class _PostsFeedBody extends StatelessWidget {
               child: Row(
                 children: [
                   _buildCategoryChip(
+                    context,
                     label: 'الكل',
                     category: _PostCategory.all,
                     icon: Icons.dynamic_feed_rounded,
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryChip(
+                    context,
                     label: 'مجالس أسبوعية',
                     category: _PostCategory.weeklyMajalis,
                     icon: Icons.mosque_rounded,
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryChip(
+                    context,
                     label: 'محرم والأربعينية',
                     category: _PostCategory.muharram,
                     icon: Icons.flag_rounded,
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryChip(
+                    context,
                     label: 'مشاريع وإعمار',
                     category: _PostCategory.projects,
                     icon: Icons.construction_rounded,
                   ),
                   const SizedBox(width: 8),
                   _buildCategoryChip(
+                    context,
                     label: 'أرشيف السنوات',
                     category: _PostCategory.archive,
                     icon: Icons.history_rounded,
@@ -255,7 +259,8 @@ class _PostsFeedBody extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryChip({
+  Widget _buildCategoryChip(
+    BuildContext context, {
     required String label,
     required _PostCategory category,
     required IconData icon,
