@@ -98,7 +98,13 @@ class AuthRepository extends SupabaseRepository {
     final uid = res.user?.id ?? user?.id;
     if (isMaster && uid != null) {
       try {
-        await db.from('profiles').update({'role': 'admin', 'status': 'approved'}).eq('id', uid);
+        await db.from('profiles').upsert({
+          'id': uid,
+          'full_name': 'مدير النظام',
+          'role': 'admin',
+          'status': 'approved',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        });
       } catch (_) {}
     }
     final p = await fetchMyProfile(fallbackEmail: cleanEmail);
@@ -193,6 +199,16 @@ class AuthRepository extends SupabaseRepository {
 
       if (row == null) {
         if (isMaster) {
+          try {
+            await db.from('profiles').upsert({
+              'id': uid,
+              'full_name': 'مدير النظام',
+              'role': 'admin',
+              'status': 'approved',
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            });
+          } catch (_) {}
+
           final p = ProfileModel(
             id: uid,
             fullName: 'مدير النظام',
@@ -217,7 +233,13 @@ class AuthRepository extends SupabaseRepository {
           email: currentEmail,
         );
         try {
-          await db.from('profiles').update({'role': 'admin', 'status': 'approved'}).eq('id', uid);
+          await db.from('profiles').upsert({
+            'id': uid,
+            'full_name': profile.fullName.isNotEmpty ? profile.fullName : 'مدير النظام',
+            'role': 'admin',
+            'status': 'approved',
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          });
         } catch (_) {}
       }
 

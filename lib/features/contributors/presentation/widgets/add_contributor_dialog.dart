@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/data/supabase_repository.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -187,17 +188,25 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
         createdAt: DateTime.now(),
       );
 
-      await ref.read(contributorsRepositoryProvider).create(newContributor);
+      final savedContributor =
+          await ref.read(contributorsRepositoryProvider).create(newContributor);
 
       // تسجيل تسديد الشهر المختار تلقائياً في جدول التسديدات الشهري للمشترك الجديد
       if (widget.mode == ContributorType.subscriber && totalPaidAmount > 0) {
         await ref.read(contributorsRepositoryProvider).saveMonthPayment(
-              contributorId: newContributor.id,
+              contributorId: savedContributor.id,
               year: _paymentDate.year,
               month: _paymentDate.month,
               amount: totalPaidAmount,
               paidAt: _paymentDate,
               isPaid: true,
+            );
+      } else if (widget.mode == ContributorType.donor && totalPaidAmount > 0) {
+        await ref.read(contributorsRepositoryProvider).addPayment(
+              contributorId: savedContributor.id,
+              amount: totalPaidAmount,
+              paidAt: _paymentDate,
+              note: notes,
             );
       }
 
@@ -247,8 +256,25 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ أثناء الحفظ: $e'),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'تعذر الحفظ: ${arabicError(e)}',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: AppColors.overdue,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
       }

@@ -141,31 +141,36 @@ class ContributorsRepository extends SupabaseRepository {
     }
   }
 
-  /// إضافة مساهم — يُحفظ محلياً فوراً ويُرسل لـ Supabase عند توفر الاتصال
+  /// إضافة مساهم — يُحفظ في Supabase عند توفر الاتصال، ويُخزّن محلياً
   Future<ContributorModel> create(ContributorModel c) async {
-    // 1. حفظ فوري في المخزن المحلي لضمان عدم توقف الواجهة
-    await cache.put(_demoBox, c.id, c.toJson());
-
     if (isLive) {
-      try {
-        final writeData = c.toWriteJson()..remove('id');
-        final row = await db
-            .from('contributors')
-            .insert(writeData)
-            .select()
-            .maybeSingle()
-            .timeout(const Duration(seconds: 4));
-
-        if (row != null) {
-          final serverModel = ContributorModel.fromJson(row);
-          await cache.put(_demoBox, serverModel.id, serverModel.toJson());
-          return serverModel;
-        }
-      } catch (_) {
-        // في حال بطء الشبكة أو خطأ RLS، المساهم محفوظ محلياً بنجاح
+      final writeData = c.toWriteJson()..remove('id');
+      if (writeData['subscription_type'] == null) {
+        writeData.remove('subscription_type');
       }
+      if (writeData['subscription_amount'] == null) {
+        writeData.remove('subscription_amount');
+      }
+
+      final row = await db
+          .from('contributors')
+          .insert(writeData)
+          .select()
+          .single();
+
+      final serverModel = ContributorModel.fromJson(row);
+      // حذف المعرف المؤقت من الكاش إذا اختلف عن معرّف السيرفر
+      if (c.id != serverModel.id) {
+        try {
+          await cache.box(_demoBox).delete(c.id);
+        } catch (_) {}
+      }
+      await cache.put(_demoBox, serverModel.id, serverModel.toJson());
+      return serverModel;
     }
 
+    // وضع الديمو / غير متصل
+    await cache.put(_demoBox, c.id, c.toJson());
     return c;
   }
 
