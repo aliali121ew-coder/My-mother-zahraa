@@ -130,7 +130,7 @@ class HomePage extends ConsumerWidget {
                             icon: Icons.volunteer_activism_outlined,
                             count: stats.valueOrNull?.donorsCount ?? 0,
                             loading: stats.isLoading,
-                            onTap: () => context.go('/contributors'),
+                            onTap: () => context.go('/contributors/donors'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -143,7 +143,7 @@ class HomePage extends ConsumerWidget {
                             badge: (stats.valueOrNull?.overdueCount ?? 0) > 0
                                 ? '${Fmt.count(stats.valueOrNull!.overdueCount)} متأخر'
                                 : null,
-                            onTap: () => context.go('/contributors'),
+                            onTap: () => context.go('/contributors/subscribers'),
                           ),
                         ),
                       ],

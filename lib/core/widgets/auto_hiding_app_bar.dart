@@ -41,7 +41,15 @@ class AutoHidingAppBar extends ConsumerWidget implements PreferredSizeWidget {
         (automaticallyImplyLeading && context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => context.pop(),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
               )
             : null);
 

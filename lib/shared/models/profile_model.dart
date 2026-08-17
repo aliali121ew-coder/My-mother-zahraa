@@ -5,6 +5,7 @@ class ProfileModel {
   const ProfileModel({
     required this.id,
     required this.fullName,
+    this.email,
     this.phone,
     this.avatarUrl,
     this.role = UserRole.member,
@@ -15,6 +16,7 @@ class ProfileModel {
 
   final String id;
   final String fullName;
+  final String? email;
   final String? phone;
   final String? avatarUrl;
   final UserRole role;
@@ -27,11 +29,12 @@ class ProfileModel {
   bool get isPending => status == UserStatus.pending;
   bool get isBanned => status == UserStatus.banned;
 
-  factory ProfileModel.fromJson(Map<String, dynamic> j) => ProfileModel(
+  factory ProfileModel.fromJson(Map<String, dynamic> j, {String? email}) => ProfileModel(
         id: j['id'] as String,
         fullName: (j['full_name'] as String?)?.trim().isNotEmpty == true
             ? j['full_name'] as String
             : 'مستخدم',
+        email: email ?? j['email'] as String?,
         phone: j['phone'] as String?,
         avatarUrl: j['avatar_url'] as String?,
         role: UserRole.fromValue(j['role'] as String?),
@@ -43,6 +46,7 @@ class ProfileModel {
   Map<String, dynamic> toJson() => {
         'id': id,
         'full_name': fullName,
+        if (email != null) 'email': email,
         'phone': phone,
         'avatar_url': avatarUrl,
         'role': role.value,
@@ -53,6 +57,7 @@ class ProfileModel {
 
   ProfileModel copyWith({
     String? fullName,
+    String? email,
     String? phone,
     String? avatarUrl,
     UserRole? role,
@@ -61,6 +66,7 @@ class ProfileModel {
       ProfileModel(
         id: id,
         fullName: fullName ?? this.fullName,
+        email: email ?? this.email,
         phone: phone ?? this.phone,
         avatarUrl: avatarUrl ?? this.avatarUrl,
         role: role ?? this.role,

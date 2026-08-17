@@ -48,6 +48,7 @@ class HiveService {
       AppConfig.boxStats,
       AppConfig.boxOutbox,
       AppConfig.boxPurchases,
+      AppConfig.boxAdminUsers,
     ]) {
       await _openBoxSafe<String>(name, cipher: cipher);
     }
@@ -94,7 +95,12 @@ class HiveService {
     return key;
   }
 
-  Box<String> box(String name) => Hive.box<String>(name);
+  Box<String> box(String name) {
+    if (name == AppConfig.boxSettings) {
+      return Hive.box<dynamic>(name) as Box<String>;
+    }
+    return Hive.box<String>(name);
+  }
   Box<dynamic> get settings => Hive.box<dynamic>(AppConfig.boxSettings);
 
   // ── قراءة وكتابة قوائم JSON ─────────────────────────────────
@@ -146,9 +152,11 @@ class HiveService {
         AppConfig.boxDonations,
         AppConfig.boxPosts,
         AppConfig.boxStories,
-      ].fold<int>(0, (sum, n) => sum + box(n).length);
+        AppConfig.boxPurchases,
+        AppConfig.boxAdminUsers,
+      ].fold<int>(0, (sum, n) => sum + (Hive.isBoxOpen(n) ? box(n).length : 0));
 
-  /// مسح كل البيانات المخزّنة محلياً — لا يمسّ طابور المزامنة
+  /// مسح كل البيانات المخزّنة محلياً — بما فيها طابور المزامنة والمشتريات وإدارة الحسابات
   Future<void> clearCache() async {
     for (final n in const [
       AppConfig.boxContributors,
@@ -157,8 +165,31 @@ class HiveService {
       AppConfig.boxPosts,
       AppConfig.boxStories,
       AppConfig.boxStats,
+      AppConfig.boxOutbox,
+      AppConfig.boxPurchases,
+      AppConfig.boxAdminUsers,
     ]) {
-      await box(n).clear();
+      if (Hive.isBoxOpen(n)) {
+        await box(n).clear();
+      }
+    }
+  }
+
+  /// مسح **البيانات الحساسة** فقط (الأسماء، الدفعات، المشتريات، إدارة المستخدمين، الإحصائيات، وطابور المزامنة)
+  /// دون المنشورات والستوريز العامة — يُستدعى عند تسجيل الخروج أو تغيّر الدور أو الحظر لمنع أي تسريب محلي.
+  Future<void> clearSensitiveCache() async {
+    for (final n in const [
+      AppConfig.boxContributors,
+      AppConfig.boxPayments,
+      AppConfig.boxDonations,
+      AppConfig.boxPurchases,
+      AppConfig.boxAdminUsers,
+      AppConfig.boxStats,
+      AppConfig.boxOutbox,
+    ]) {
+      if (Hive.isBoxOpen(n)) {
+        await box(n).clear();
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +10,9 @@ import '../../../core/widgets/glass.dart';
 import '../../../shared/models/contributor_model.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/mawkib_logo.dart';
+import '../../settings/presentation/account_requests_page.dart';
+import '../../settings/presentation/banned_users_page.dart';
+import '../data/login_audit_service.dart';
 import '../data/pdf_report_service.dart';
 import 'widgets/print_filter_bottom_sheet.dart';
 
@@ -104,6 +108,22 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
     final type = widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers');
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    if (type == 'visits_log') {
+      return _buildVisitsLogScaffold(context, theme, isDark, title);
+    }
+
+    if (type == 'account_requests') {
+      return const AccountRequestsPage();
+    }
+
+    if (type == 'blocked_users') {
+      return const BannedUsersPage();
+    }
+
+    if (type == 'archive_log') {
+      return _buildArchiveLogScaffold(context, theme, isDark, title);
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -763,4 +783,465 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
       }
     }
   }
+
+  Widget _buildVisitsLogScaffold(
+    BuildContext context,
+    ThemeData theme,
+    bool isDark,
+    String title,
+  ) {
+    final auditLogs = ref.watch(loginAuditProvider);
+    final search = _searchController.text.trim();
+
+    final filteredLogs = auditLogs.where((item) {
+      if (search.isEmpty) return true;
+      return item.accountName.contains(search) ||
+          item.emailOrPhone.contains(search) ||
+          item.roleName.contains(search);
+    }).toList();
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          IconButton(
+            tooltip: 'تحديث السجل',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.read(loginAuditProvider.notifier).loadLogs(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          // ترويسة سجل الزيارات
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: GlassCard(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.door_front_door_rounded, color: Colors.purpleAccent, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'سجل حركات الدخول والزيارات',
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.greenAbyss,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'إجمالي الحركات المسجلة: ${auditLogs.length} حركة دخول',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // حقل البحث
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'بحث باسم الحساب، الهاتف، أو الدور...',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                filled: true,
+                fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.white12 : Colors.black12,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // قائمة الحسابات والزيارات
+          Expanded(
+            child: filteredLogs.isEmpty
+                ? Center(
+                    child: Text(
+                      'لا توجد حركات زيارة أو دخول مسجلة حالياً',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    itemCount: filteredLogs.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = filteredLogs[index];
+                      final dateStr =
+                          '${item.timestamp.year}/${item.timestamp.month.toString().padLeft(2, '0')}/${item.timestamp.day.toString().padLeft(2, '0')}';
+                      final hour = item.timestamp.hour > 12 ? item.timestamp.hour - 12 : (item.timestamp.hour == 0 ? 12 : item.timestamp.hour);
+                      final amPm = item.timestamp.hour >= 12 ? 'م' : 'ص';
+                      final timeStr =
+                          '${hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')} $amPm';
+
+                      return GlassCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            // أيقونة الحساب
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: AppColors.goldGradient,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  item.accountName.isNotEmpty ? item.accountName[0] : 'U',
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.displayFamily,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: AppColors.greenAbyss,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // تفاصيل الحساب
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.accountName,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.displayFamily,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? Colors.white : AppColors.greenAbyss,
+                                          ),
+                                        ),
+                                      ),
+                                      // شارة الدور
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.gold.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.4), width: 0.8),
+                                        ),
+                                        child: Text(
+                                          item.roleName,
+                                          style: const TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.goldBright,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    item.emailOrPhone,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 11.5,
+                                      color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.access_time_filled_rounded, size: 13, color: AppColors.gold.withValues(alpha: 0.8)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$dateStr — $timeStr',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? Colors.white70 : Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArchiveLogScaffold(
+    BuildContext context,
+    ThemeData theme,
+    bool isDark,
+    String title,
+  ) {
+    final archiveSections = [
+      _ArchiveSectionItem(
+        title: 'قائمة المشتركين',
+        subtitle: 'أرشيف وسجلات المشتركين والاشتراكات الشهرية',
+        icon: Icons.badge_outlined,
+        color: AppColors.goldDark,
+        route: '/reports/subscribers',
+        badge: 'المشتركون',
+      ),
+      _ArchiveSectionItem(
+        title: 'قائمة المتبرعين',
+        subtitle: 'أرشيف المتبرعين والمساهمين والدعم العيني',
+        icon: Icons.volunteer_activism_rounded,
+        color: AppColors.paid,
+        route: '/reports/donors',
+        badge: 'المتبرعون',
+      ),
+      _ArchiveSectionItem(
+        title: 'ألبوم الوسائط والتغطيات',
+        subtitle: 'أرشيف منشورات وقصص وتغطيات الموكب والمناسبات',
+        icon: Icons.photo_library_rounded,
+        color: Colors.pinkAccent,
+        route: '/posts',
+        badge: 'الألبوم والمنشورات',
+      ),
+      _ArchiveSectionItem(
+        title: 'سجل الحسابات والطلبات',
+        subtitle: 'أرشيف طلبات الحسابات والأعضاء والمستخدمين',
+        icon: Icons.manage_accounts_rounded,
+        color: Colors.teal,
+        route: '/reports/account_requests',
+        badge: 'الحسابات',
+      ),
+      _ArchiveSectionItem(
+        title: 'سجل الخزنة والمالية',
+        subtitle: 'أرشيف حركة الخزنة، المشتريات، والوصولات المالية',
+        icon: Icons.account_balance_wallet_rounded,
+        color: Colors.amber.shade700,
+        route: '/reports/vault',
+        badge: 'الخزنة',
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: Column(
+        children: [
+          // ترويسة سجل الأرشيف
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: GlassCard(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(Icons.inventory_2_rounded, color: Colors.cyanAccent, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'سجل الأرشيف المركزي',
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppColors.greenAbyss,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'تصفح واستعراض كافة أرشيفات وأقسام الموكب المحفوظة',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // شبكة وبطاقات الأرشيف الـ 5
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              itemCount: archiveSections.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final item = archiveSections[index];
+                return GlassCard(
+                  padding: EdgeInsets.zero,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      if (item.route.startsWith('/reports/')) {
+                        final type = item.route.replaceFirst('/reports/', '');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ReportDetailPage(
+                              isDonorsReport: type == 'donors',
+                              reportType: type,
+                            ),
+                          ),
+                        );
+                      } else {
+                        context.go(item.route);
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: item.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: item.color.withValues(alpha: 0.35)),
+                            ),
+                            child: Icon(item.icon, color: item.color, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.title,
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.displayFamily,
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.white : AppColors.greenAbyss,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: item.color.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: item.color.withValues(alpha: 0.3), width: 0.8),
+                                      ),
+                                      child: Text(
+                                        item.badge,
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: item.color,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.subtitle,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: isDark ? Colors.white38 : Colors.black38,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArchiveSectionItem {
+  const _ArchiveSectionItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.route,
+    required this.badge,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final String route;
+  final String badge;
 }

@@ -337,23 +337,56 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
           ),
         ),
         data: (all) {
+          // إذا كان المشتركون سنويين فقط والشهري 0، التبديل التلقائي إلى سنوي لعدم إظهار قائمة فارغة
+          if (_typeFilter == SubscriptionType.monthly &&
+              widget.showDonors != true &&
+              !widget.showSupporters &&
+              !widget.showAll &&
+              _search.text.isEmpty) {
+            final hasMonthly = all.any((c) => c.subscriptionType == SubscriptionType.monthly);
+            final hasYearly = all.any((c) => c.subscriptionType == SubscriptionType.yearly);
+            if (!hasMonthly && hasYearly) {
+              _typeFilter = SubscriptionType.yearly;
+            }
+          }
+
           final list = _apply(all);
           return Column(
             children: [
               _buildToolbar(context, all, list.length),
               Expanded(
-                child: list.isEmpty
-                    ? Center(
-                        child: Text('لا نتائج مطابقة',
-                            style: Theme.of(context).textTheme.bodyMedium),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-                        itemCount: list.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, i) {
-                          final item = list[i];
-                          return ContributorTile(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await Future.wait([
+                      ref.refresh(allContributorsRawProvider.future),
+                      ref.refresh(subscribersRawProvider.future),
+                      ref.refresh(donorsRawProvider.future),
+                      ref.refresh(statsRawProvider.future),
+                    ]);
+                  },
+                  color: AppColors.gold,
+                  backgroundColor: Theme.of(context).cardTheme.color,
+                  child: list.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.4,
+                              child: Center(
+                                child: Text('لا نتائج مطابقة',
+                                    style: Theme.of(context).textTheme.bodyMedium),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                          itemCount: list.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (context, i) {
+                            final item = list[i];
+                            return ContributorTile(
                             contributor: item,
                             showStatus: widget.showDonors != true &&
                                 !widget.showSupporters,
@@ -374,6 +407,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                           );
                         },
                       ),
+                ),
               ),
             ],
           );
@@ -414,8 +448,21 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
       }
     }
 
-    final paidCount = all.where((c) => !c.isOverdue).length;
-    final overdueCount = all.where((c) => c.isOverdue).length;
+    // حصر المشتركين حسب التبويب المختار (شهري أو سنوي) والبحث لحساب دقيق للإحصائيات
+    final currentSubscribers = isSubscribersOnly
+        ? all.where((c) {
+            if (!c.isSubscriber) return false;
+            if (_typeFilter != null && c.subscriptionType != _typeFilter) return false;
+            if (q.isNotEmpty && !(c.fullName.contains(q) || (c.phone?.contains(q) ?? false))) {
+              return false;
+            }
+            return true;
+          }).toList()
+        : all;
+
+    final allSubscribersScopeCount = currentSubscribers.length;
+    final paidCount = currentSubscribers.where((c) => !c.isOverdue).length;
+    final overdueCount = currentSubscribers.where((c) => c.isOverdue).length;
 
     final subscribersCount = all.where((c) => c.isSubscriber).length;
     final donorsCount = all.where((c) => c.type == ContributorType.donor).length;
@@ -508,7 +555,7 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                 Expanded(
                   child: _StatusFilterCard(
                     title: 'الكل',
-                    count: all.length,
+                    count: allSubscribersScopeCount,
                     icon: Icons.groups_rounded,
                     color: AppColors.gold,
                     selected: _statusFilter == _StatusFilter.all,

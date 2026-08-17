@@ -1,18 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/providers/app_providers.dart';
-import '../../../core/storage/hive_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/permissions.dart';
 
 import '../../../core/services/biometric_service.dart';
+import '../../../shared/widgets/privacy_policy_dialog.dart';
 import 'change_password_sheet.dart';
+import 'edit_profile_page.dart';
 
 /// صفحة الإعدادات: الملف الشخصي، الثيم، إدارة المستخدمين، معلومات الموكب،
 /// تسجيل الخروج ومسح الذاكرة المؤقتة.
@@ -64,7 +67,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: const AutoHidingAppBar(title: Text('الإعدادات')),
+      appBar: AutoHidingAppBar(
+        title: const Text('الإعدادات'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
@@ -72,6 +87,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           GlassCard(
             blur: true,
             padding: const EdgeInsets.all(18),
+            onTap: session.isGuest ? null : () => EditProfilePage.navigate(context),
             child: Row(
               children: [
                 Container(
@@ -86,14 +102,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ],
                     ),
                   ),
-                  child: Icon(
-                    session.isGuest
-                        ? Icons.person_outline_rounded
-                        : Icons.person_rounded,
-                    color: theme.brightness == Brightness.dark
-                        ? AppColors.goldBright
-                        : AppColors.goldDark,
-                    size: 26,
+                  child: ClipOval(
+                    child: SizedBox(
+                      width: 54,
+                      height: 54,
+                      child: session.profile?.avatarUrl != null && session.profile!.avatarUrl!.isNotEmpty
+                          ? _buildSettingsAvatar(session.profile!.avatarUrl!, theme, session)
+                          : _defaultAvatarIcon(theme, session),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -127,6 +143,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                     child: const Text('دخول'),
+                  )
+                else
+                  const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.gold,
+                    size: 20,
                   ),
               ],
             ),
@@ -180,6 +202,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             _SettingsGroup(
               children: [
                 _Tile(
+                  icon: Icons.shield_outlined,
+                  title: 'البريد الأساسي لمدير النظام',
+                  subtitle: AppConfig.masterAdminEmail,
+                  trailing: const Icon(Icons.edit_note_rounded, color: AppColors.gold, size: 22),
+                  onTap: () => _showEditMasterAdminDialog(context),
+                ),
+                _Tile(
                   icon: Icons.how_to_reg_outlined,
                   title: 'طلبات الحسابات',
                   subtitle: 'الموافقة أو الرفض',
@@ -205,33 +234,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ],
 
           const SizedBox(height: 22),
-          _SectionTitle('البيانات'),
+          _SectionTitle('البيانات والمزامنة'),
           _SettingsGroup(
             children: [
               _Tile(
-                icon: AppConfig.isConfigured
-                    ? Icons.cloud_done_rounded
-                    : Icons.cloud_off_outlined,
+                icon: Icons.cloud_done_rounded,
                 title: 'حالة الاتصال',
-                subtitle: AppConfig.isConfigured
-                    ? 'متصل بمشروع Supabase الحي'
-                    : 'وضع تجريبي — قاعدة البيانات غير مهيّأة',
-                trailing: Icon(
-                  AppConfig.isConfigured
-                      ? Icons.check_circle_rounded
-                      : Icons.info_rounded,
-                  size: 19,
-                  color: AppConfig.isConfigured
-                      ? AppColors.paid
-                      : AppColors.pending,
+                subtitle: 'متصل بقاعدة بيانات Supabase السحابية',
+                trailing: const Icon(
+                  Icons.check_circle_rounded,
+                  size: 20,
+                  color: AppColors.paid,
                 ),
-              ),
-              _Tile(
-                icon: Icons.delete_sweep_outlined,
-                title: 'مسح الذاكرة المؤقتة',
-                subtitle:
-                    '${Fmt.count(HiveService.instance.cachedItemsCount)} عنصر محفوظ',
-                onTap: () => _clearCache(context),
               ),
             ],
           ),
@@ -241,9 +255,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _SettingsGroup(
             children: [
               _Tile(
+                icon: Icons.shield_outlined,
+                title: 'سياسة الخصوصية وحماية البيانات',
+                subtitle: 'تشفير AES-256 وأمان السجلات',
+                onTap: () => PrivacyPolicyDialog.show(context),
+              ),
+              _Tile(
                 icon: Icons.info_outline_rounded,
                 title: 'موكب أمنا الزهراء',
-                subtitle: 'الإصدار ١.٠.٠',
+                subtitle: 'الإصدار ١.٠.١ (Build 2)',
               ),
             ],
           ),
@@ -307,32 +327,104 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
   }
 
-  Future<void> _clearCache(BuildContext context) async {
-    final ok = await showDialog<bool>(
+  void _showEditMasterAdminDialog(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    final current = AppConfig.masterAdminEmail;
+    final ctrl = TextEditingController(text: current);
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('مسح الذاكرة المؤقتة'),
-        content: const Text(
-          'سيُحذف كل ما هو محفوظ على الهاتف ويُعاد تحميله من قاعدة البيانات '
-          'عند الاتصال. لن تفقد أي بيانات على السيرفر.',
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.shield_rounded, color: AppColors.gold, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'البريد الأساسي لمدير النظام',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.greenDeep.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.greenDeep.withValues(alpha: 0.18)),
+                ),
+                child: const Text(
+                  'هذا البريد يمتلك تلقائياً رتبة مدير عام وصلاحيات كاملة 100% فور تسجيله أو دخوله.',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12.5, height: 1.4),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'بريد المدير الأساسي',
+                  hintText: 'name@example.com',
+                  prefixIcon: Icon(Icons.email_outlined, color: AppColors.gold),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('إلغاء'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('مسح'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.greenDeep,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              final newEmail = ctrl.text.trim();
+              if (newEmail.isEmpty || !newEmail.contains('@')) {
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('يرجى كتابة بريد إلكتروني صحيح')),
+                );
+                return;
+              }
+              await AppConfig.setMasterAdminEmail(newEmail);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                setState(() {});
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('تم تعيين $newEmail كبريد أساسي لمدير النظام بنجاح'),
+                    backgroundColor: AppColors.paid,
+                  ),
+                );
+              }
+            },
+            child: const Text('حفظ التعيين'),
           ),
         ],
       ),
-    );
-    if (ok != true || !context.mounted) return;
-    await HiveService.instance.clearCache();
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم مسح الذاكرة المؤقتة')),
     );
   }
 }
@@ -408,4 +500,49 @@ class _Tile extends StatelessWidget {
                 ? null
                 : const Icon(Icons.chevron_left_rounded, size: 22)),
       );
+}
+
+Widget _defaultAvatarIcon(ThemeData theme, AppSession session) {
+  return Icon(
+    session.isGuest ? Icons.person_outline_rounded : Icons.person_rounded,
+    color: theme.brightness == Brightness.dark
+        ? AppColors.goldBright
+        : AppColors.goldDark,
+    size: 26,
+  );
+}
+
+Widget _buildSettingsAvatar(String url, ThemeData theme, AppSession session) {
+  if (url.isEmpty) return _defaultAvatarIcon(theme, session);
+
+  // 1. ملف محلي
+  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:image')) {
+    try {
+      final file = File(url);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover, width: 54, height: 54);
+      }
+    } catch (_) {}
+  }
+
+  // 2. Data URL Base64
+  if (url.startsWith('data:image')) {
+    try {
+      final commaIdx = url.indexOf(',');
+      if (commaIdx != -1) {
+        final base64Str = url.substring(commaIdx + 1);
+        final bytes = base64Decode(base64Str);
+        return Image.memory(bytes, fit: BoxFit.cover, width: 54, height: 54);
+      }
+    } catch (_) {}
+  }
+
+  // 3. Network
+  return Image.network(
+    url,
+    fit: BoxFit.cover,
+    width: 54,
+    height: 54,
+    errorBuilder: (_, _, _) => _defaultAvatarIcon(theme, session),
+  );
 }

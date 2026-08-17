@@ -136,11 +136,11 @@ class AllContributorsCategoriesPage extends ConsumerWidget {
           // 4. كارت الداعمين والمساهمين العمودي الاحترافي
           _CategoryVerticalCard(
             title: 'الداعمين والمساهمين',
-            subtitle: 'سجل الداعمين والمساهمين الذين لديهم بيانات دعم فقط',
+            subtitle: 'سجل الداعمين والمساهمين الذين لديهم مساهمات عينية',
             icon: Icons.shopping_basket_rounded,
             iconColor: const Color(0xFF0077B6),
-            count: s?.donorsCount,
-            total: s?.donationsTotal,
+            count: s?.inKindCount,
+            total: null,
             onTap: () => context.push('/contributors/supporters'),
           ),
         ],
@@ -259,8 +259,8 @@ class _CategoryVerticalCard extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: _Metric(
-                    label: 'المجموع',
-                    value: Fmt.moneyShort(total ?? 0),
+                    label: total != null ? 'المجموع' : 'نوع الدعم',
+                    value: total != null ? Fmt.moneyShort(total!) : 'عيني (مواد)',
                   ),
                 ),
                 if (badge != null)

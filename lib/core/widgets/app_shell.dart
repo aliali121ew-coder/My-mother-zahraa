@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/posts/data/posts_repository.dart';
+import '../../features/posts/data/stories_repository.dart';
+import '../../features/purchases/data/purchases_provider.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -67,6 +70,24 @@ class AppShell extends ConsumerWidget {
               items: _items,
               onTap: (i) {
                 ref.read(scrollProgressProvider.notifier).state = 0.0;
+                if (i == 0) {
+                  ref.invalidate(statsRawProvider);
+                  ref.invalidate(allContributorsRawProvider);
+                } else if (i == 1) {
+                  ref.invalidate(allContributorsRawProvider);
+                  ref.invalidate(subscribersRawProvider);
+                  ref.invalidate(donorsRawProvider);
+                } else if (i == 2) {
+                  try {
+                    ref.read(postsProvider.notifier).refresh();
+                    ref.read(storiesProvider.notifier).refresh();
+                  } catch (_) {}
+                } else if (i == 3) {
+                  try {
+                    ref.read(purchasesProvider.notifier).load();
+                    ref.invalidate(statsRawProvider);
+                  } catch (_) {}
+                }
                 shell.goBranch(i, initialLocation: i == shell.currentIndex);
               },
             ),

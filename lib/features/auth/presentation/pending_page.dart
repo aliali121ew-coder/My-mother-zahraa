@@ -22,6 +22,18 @@ class PendingPage extends ConsumerStatefulWidget {
 class _PendingPageState extends ConsumerState<PendingPage> {
   bool _checking = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final s = ref.read(sessionProvider);
+      if (s.isApproved) {
+        context.go('/home');
+      }
+    });
+  }
+
   Future<void> _check() async {
     setState(() => _checking = true);
     await ref.read(sessionProvider.notifier).refresh();

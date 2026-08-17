@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -86,191 +87,255 @@ class _AddPurchaseSheetState extends ConsumerState<AddPurchaseSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        color: isDark ? const Color(0xFF032214) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? AppColors.gold.withValues(alpha: 0.4)
+                : AppColors.greenDeep.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(10),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'تسجيل شراء / متطلب جديد',
-              style: TextStyle(
-                fontFamily: AppTheme.displayFamily,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.greenDeep,
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.gold.withValues(alpha: 0.15),
+                      border: Border.all(
+                        color: AppColors.gold.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.shopping_cart_checkout_rounded,
+                      color: AppColors.gold,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'تسجيل شراء / مصروف جديد',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFamily,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.greenDeep.withValues(alpha: 0.3) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.gold.withValues(alpha: 0.3) : AppColors.gold.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextFormField(
+              const SizedBox(height: 18),
+              _buildModernField(
                 controller: _itemNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'اسم المتطلب (مثال: أكياس رز، لحم، خيم)',
-                  prefixIcon: Icon(Icons.shopping_bag_outlined, color: AppColors.gold),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
+                isDark: isDark,
+                label: 'اسم المادة / المتطلب (مثال: أرز، لحم، خيم)',
+                icon: Icons.inventory_2_outlined,
                 validator: (v) => v == null || v.trim().isEmpty ? 'هذا الحقل مطلوب' : null,
               ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.greenDeep.withValues(alpha: 0.3) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.gold.withValues(alpha: 0.3) : AppColors.gold.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextFormField(
+              const SizedBox(height: 12),
+              _buildModernField(
                 controller: _amountCtrl,
+                isDark: isDark,
+                label: 'المبلغ الإجمالي (د.ع)',
+                icon: Icons.payments_outlined,
                 keyboardType: TextInputType.number,
-                inputFormatters: [ThousandsFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'المبلغ الإجمالي (د.ع)',
-                  prefixIcon: Icon(Icons.money, color: AppColors.gold),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
+                formatters: [ThousandsFormatter()],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'هذا الحقل مطلوب';
                   if (num.tryParse(v.replaceAll(',', '')) == null) return 'يجب أن يكون رقماً صالحاً';
                   return null;
                 },
               ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.greenDeep.withValues(alpha: 0.3) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.gold.withValues(alpha: 0.3) : AppColors.gold.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextFormField(
+              const SizedBox(height: 12),
+              _buildModernField(
                 controller: _supplierCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'اسم أمين الصندوق / المشتري (اختياري)',
-                  prefixIcon: Icon(Icons.person_rounded, color: AppColors.gold),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
+                isDark: isDark,
+                label: 'اسم المشتري / أمين الصندوق (اختياري)',
+                icon: Icons.person_outline_rounded,
               ),
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () => _pickDate(context),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.greenDeep.withValues(alpha: 0.3) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark ? AppColors.gold.withValues(alpha: 0.3) : AppColors.gold.withValues(alpha: 0.5),
-                    width: 1.5,
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_month_rounded, color: AppColors.gold),
-                    const SizedBox(width: 12),
-                    Text(
-                      'تاريخ الشراء: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}',
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.greenDeep.withValues(alpha: 0.3) : Colors.white,
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => _pickDate(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.gold.withValues(alpha: 0.3) : AppColors.gold.withValues(alpha: 0.5),
-                  width: 1.5,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextFormField(
-                controller: _notesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظات وتفاصيل إضافية (اختياري)',
-                  prefixIcon: Icon(Icons.notes, color: AppColors.gold),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                maxLines: 2,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.greenDeep,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'حفظ وتسجيل',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFF7FBF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : const Color(0xFFDDE6E0),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, color: AppColors.gold, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'تاريخ الشراء: ${DateFormat('yyyy/MM/dd').format(_selectedDate)}',
+                        style: const TextStyle(
                           fontFamily: AppTheme.fontFamily,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const Spacer(),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              _buildModernField(
+                controller: _notesCtrl,
+                isDark: isDark,
+                label: 'ملاحظات وتفاصيل إضافية (اختياري)',
+                icon: Icons.edit_note_rounded,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [
+                        AppColors.goldBright,
+                        AppColors.gold,
+                        AppColors.goldDark,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.goldDark.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: _isLoading ? null : _submit,
+                      child: Center(
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  color: AppColors.greenDeep,
+                                ),
+                              )
+                            : const Text(
+                                'حفظ وتحديث الخزنة',
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.greenDeep,
+                                  fontFamily: AppTheme.fontFamily,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildModernField({
+    required TextEditingController controller,
+    required bool isDark,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? formatters,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF7FBF8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : const Color(0xFFDDE6E0),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: formatters,
+        maxLines: maxLines,
+        style: const TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 14,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 12.5,
+            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+          ),
+          prefixIcon: Icon(icon, color: AppColors.gold, size: 20),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+        ),
+        validator: validator,
       ),
     );
   }

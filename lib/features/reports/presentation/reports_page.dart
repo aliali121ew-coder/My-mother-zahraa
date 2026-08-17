@@ -10,6 +10,7 @@ import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/permissions.dart';
+import '../../purchases/data/purchases_provider.dart';
 import 'widgets/reports_analytics_chart.dart';
 
 enum _ReportCategory { financial, contributors, activity, security }
@@ -69,6 +70,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
     final statsAsync = ref.watch(statsProvider);
     final allContribsAsync = ref.watch(allContributorsProvider);
+    final purchasesAsync = ref.watch(purchasesProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -95,6 +97,12 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                       .length ??
                   0;
 
+              final purchasesExpenses = purchasesAsync.valueOrNull
+                      ?.fold<num>(0, (sum, p) => sum + p.amount) ??
+                  0;
+              final totalExpenses =
+                  purchasesExpenses > 0 ? purchasesExpenses : stats.expensesTotal;
+
               return GlassCard(
                 radius: 22,
                 padding: const EdgeInsets.all(14),
@@ -116,14 +124,15 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 ),
                 child: Column(
                   children: [
-                    // ── الخلايا المالية الرئيسية (المبلغ الكلي والمصروف الكلي) ──
+                    // ── الخلايا المالية الرئيسية (المبلغ الكلي بعد خصم المصروفات والمصروف الكلي) ──
                     Row(
                       children: [
                         Expanded(
                           child: _gradientFinancialCell(
                             title: 'المبلغ الكلي',
-                            amount: Fmt.money(stats.totalAmount),
+                            amount: Fmt.money((stats.totalAmount - totalExpenses).clamp(0, double.infinity)),
                             icon: Icons.account_balance_wallet_rounded,
+                            onTap: () => context.go('/reports/vault'),
                             gradient: LinearGradient(
                               colors: isDark
                                   ? const [
@@ -146,8 +155,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                         Expanded(
                           child: _gradientFinancialCell(
                             title: 'المصروف الكلي',
-                            amount: Fmt.money(stats.expensesTotal),
+                            amount: Fmt.money(totalExpenses),
                             icon: Icons.receipt_long_rounded,
+                            onTap: () => context.go('/reports/vault'),
                             gradient: LinearGradient(
                               colors: isDark
                                   ? const [
@@ -284,71 +294,75 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     required IconData icon,
     required Gradient gradient,
     required Color shadowColor,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.25),
+            width: 1,
           ),
-        ],
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.25),
-          width: 1,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(9),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(icon, size: 15, color: Colors.white),
                 ),
-                child: Icon(icon, size: 15, color: Colors.white),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              amount,
-              style: const TextStyle(
-                fontFamily: AppTheme.displayFamily,
-                fontSize: 17.5,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 0.2,
+              ],
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                amount,
+                style: const TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 17.5,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -407,7 +421,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 1. الخزنة
       _ReportItemData(
         id: 'vault',
-        title: 'الخزنة والمالية',
+        title: 'سجل الخزنة',
         description: 'رصيد الموكب الفعلي، الدفعات التراكمية، ومقبوضات الصندوق',
         icon: Icons.account_balance_wallet_rounded,
         color: AppColors.greenDeep,
@@ -418,7 +432,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 2. كل المساهمين (الفئات 3 في ملف واحد)
       _ReportItemData(
         id: 'all_consolidated',
-        title: 'كل المساهمين (الفئات الـ 3 الموحدة)',
+        title: 'سجل المساهمين الموحد',
         description: 'طباعة المشتركين والمتبرعين والداعمين العينيين في ملف A4 موحد',
         icon: Icons.picture_as_pdf_rounded,
         color: AppColors.greenDeep,
@@ -430,7 +444,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 4. المشتركون
       _ReportItemData(
         id: 'subscribers',
-        title: 'تقرير المشتركين',
+        title: 'سجل المشتركين',
         description: 'جدول أسماء المشتركين بالاشتراكات الشهرية والسنوية',
         icon: Icons.groups_rounded,
         color: AppColors.greenDeep,
@@ -441,7 +455,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 5. المتبرعون
       _ReportItemData(
         id: 'donors',
-        title: 'تقرير المتبرعين',
+        title: 'سجل المتبرعين',
         description: 'كشف التبرعات النقدية الفردية والمبالغ التراكمية',
         icon: Icons.volunteer_activism_rounded,
         color: Colors.teal.shade700,
@@ -452,7 +466,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 6. الداعمون والمساهمون العينيون
       _ReportItemData(
         id: 'supporters',
-        title: 'الداعمون والمساهمون (العيني)',
+        title: 'سجل الداعمين',
         description: 'كشف المساهمات العينية المخصصة (مواد غذائية وإنشائية)',
         icon: Icons.card_giftcard_rounded,
         color: Colors.lightBlue.shade700,
@@ -485,7 +499,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 9. سجل الزيارات
       _ReportItemData(
         id: 'visits_log',
-        title: 'سجل الزيارات والضيوف',
+        title: 'سجل الزيارات',
         description: 'كشف حركات دخول الزوار وتصفح المحتوى',
         icon: Icons.door_front_door_rounded,
         color: Colors.purple.shade400,
@@ -496,7 +510,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 10. سجل التفاعلات والمنشورات
       _ReportItemData(
         id: 'interactions_log',
-        title: 'سجل التفاعلات والمنشورات',
+        title: 'سجل التفاعلات',
         description: 'تحليل المنشورات من حيث التعليقات والاعجابات والوصول',
         icon: Icons.thumb_up_alt_rounded,
         color: Colors.pinkAccent,
@@ -507,7 +521,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 11. طلبات الحسابات
       _ReportItemData(
         id: 'account_requests',
-        title: 'طلبات التسجيل والحسابات',
+        title: 'سجل الطلبات',
         description: 'عدد الحسابات الجديدة المعلقة وقيد التفعيل والإدارة',
         icon: Icons.person_add_alt_1_rounded,
         color: Colors.teal,
@@ -518,7 +532,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 12. المستخدمون المحظورون
       _ReportItemData(
         id: 'blocked_users',
-        title: 'المستخدمون المحظورون',
+        title: 'سجل المحظورين',
         description: 'قائمة الحظر والأمن الإداري للحسابات المعطلة',
         icon: Icons.block_rounded,
         color: Colors.redAccent,
@@ -529,7 +543,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       // 13. السجل الأرشيفي الإداري
       _ReportItemData(
         id: 'archive_log',
-        title: 'السجل الأرشيفي الإداري',
+        title: 'سجل الأرشيف',
         description: 'أرشيف العمليات الإدارية وسجل التغييرات',
         icon: Icons.inventory_2_rounded,
         color: Colors.blueGrey,
@@ -541,12 +555,13 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossCount = constraints.maxWidth > 750
-            ? 3
-            : (constraints.maxWidth > 1050 ? 4 : 2);
-        final ratio = constraints.maxWidth > 750
-            ? 1.4
-            : (constraints.maxWidth < 360 ? 0.88 : 0.92);
+        final isWide = constraints.maxWidth > 750;
+        final crossCount = isWide
+            ? (constraints.maxWidth > 1050 ? 4 : 3)
+            : 2;
+        final ratio = isWide
+            ? 1.25
+            : (constraints.maxWidth < 360 ? 0.78 : 0.82);
 
         return GridView.builder(
           shrinkWrap: true,

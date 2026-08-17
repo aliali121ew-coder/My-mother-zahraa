@@ -452,39 +452,60 @@ class FinancialSafeCard extends StatelessWidget {
   const FinancialSafeCard({
     super.key,
     required this.availableBalance,
+    this.totalExpenses,
+    this.purchasesCount,
     this.onTap,
     this.loading = false,
   });
 
   final num availableBalance;
+  final num? totalExpenses;
+  final int? purchasesCount;
   final VoidCallback? onTap;
   final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final expenses = totalExpenses ?? availableBalance;
 
     return GoldBorder(
       radius: AppTheme.radiusLarge,
       child: GlassCard(
         blur: true,
         radius: AppTheme.radiusLarge,
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: isDark
-              ? [const Color(0xFF16222A), const Color(0xFF3A6073)]
-              : [const Color(0xFFE2E2E2), const Color(0xFFC9D6FF)],
-        ),
+        padding: const EdgeInsets.all(20),
         borderColor: Colors.transparent,
         onTap: onTap,
+        gradient: LinearGradient(
+          colors: isDark
+              ? [
+                  const Color(0xFF032616),
+                  const Color(0xFF063B23),
+                  const Color(0xFF0A4D2E),
+                ]
+              : [
+                  const Color(0xFFE8F5EE),
+                  const Color(0xFFF2F9F5),
+                  Colors.white,
+                ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
         child: Stack(
           children: [
-            const Positioned(
-              left: -35,
-              bottom: -35,
-              child: GirihPattern(size: 150, opacity: 0.15),
+            Positioned(
+              left: -20,
+              bottom: -25,
+              child: Opacity(
+                opacity: isDark ? 0.08 : 0.04,
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  size: 135,
+                  color: AppColors.gold,
+                ),
+              ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,74 +513,134 @@ class FinancialSafeCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.blueAccent.withValues(alpha: 0.2) : Colors.blue.shade100,
                         shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [
+                                  AppColors.gold.withValues(alpha: 0.4),
+                                  AppColors.green.withValues(alpha: 0.7),
+                                ]
+                              : [
+                                  AppColors.goldBright,
+                                  AppColors.goldDark,
+                                ],
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.blueAccent.withValues(alpha: 0.25),
+                            color: AppColors.gold.withValues(alpha: 0.3),
                             blurRadius: 10,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.account_balance_wallet_rounded,
-                        color: isDark ? Colors.lightBlueAccent : Colors.blue.shade800,
-                        size: 26,
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'الخزنة المالية (الرصيد المتاح)',
-                        style: TextStyle(
-                          fontFamily: AppTheme.displayFamily,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? AppColors.textOnDark : AppColors.textOnLight,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'إجمالي الصرفيات والمشتريات',
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFamily,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.paid,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                purchasesCount != null
+                                    ? 'مجموع كروت الشراء ($purchasesCount وصولات)'
+                                    : 'مجموع وصولات وكروت الصرفيات',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? AppColors.textOnDarkMuted
+                                      : AppColors.textOnLightMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (onTap != null)
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: AppColors.goldBright,
+                          size: 14,
                         ),
                       ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: isDark ? Colors.white30 : Colors.black26,
-                      size: 14,
-                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        (isDark ? AppColors.gold : AppColors.greenDeep).withValues(alpha: 0.3),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 if (loading)
                   const SizedBox(
-                    height: 48,
+                    height: 44,
                     child: Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerStart,
                       child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent),
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.gold,
+                        ),
                       ),
                     ),
                   )
                 else
-                  SizedBox(
-                    height: 48,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          Fmt.money(availableBalance),
-                          style: TextStyle(
-                            fontFamily: AppTheme.displayFamily,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            height: 1.1,
-                            letterSpacing: -0.5,
-                            color: isDark ? Colors.white : const Color(0xFF1F2937),
-                          ),
-                        ),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      Fmt.money(expenses),
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFamily,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                        color: isDark ? Colors.white : AppColors.greenDeep,
                       ),
                     ),
                   ),

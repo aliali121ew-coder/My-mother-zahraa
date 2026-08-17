@@ -54,7 +54,7 @@ class _ReportsAnalyticsChartState extends ConsumerState<ReportsAnalyticsChart> {
 
         // 1. بيانات دائرة الموقف المالي (المبلغ الكلي vs المصروف الكلي)
         final localPurchasesTotal = purchasesAsync.valueOrNull?.fold<num>(0, (sum, item) => sum + item.amount) ?? 0;
-        final totalExpensesWithPurchases = stats.expensesTotal + localPurchasesTotal;
+        final totalExpensesWithPurchases = localPurchasesTotal > 0 ? localPurchasesTotal : stats.expensesTotal;
         
         final totalAmt = stats.totalAmount > 0 ? stats.totalAmount.toDouble() : 1.0;
         final expAmt = totalExpensesWithPurchases.toDouble();

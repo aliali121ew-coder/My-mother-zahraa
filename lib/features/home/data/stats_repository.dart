@@ -75,9 +75,16 @@ class StatsRepository extends SupabaseRepository {
       final donsTotal = dons.fold<num>(0, (s, c) => s + getContributorTotalPaid(c));
       final overdueCount = subs.where((c) => c.isOverdue).length;
 
+      num purchasesTotal = 0;
+      final rawPurchases = cache.readAll(AppConfig.boxPurchases);
+      for (final p in rawPurchases) {
+        purchasesTotal += (p['amount'] as num? ?? p['price'] as num? ?? 0);
+      }
+
       final snapshot = StatsSnapshot(
         subscriptionsTotal: subsTotal,
         donationsTotal: donsTotal,
+        expensesTotal: purchasesTotal,
         subscribersCount: subs.length,
         donorsCount: dons.length,
         inKindCount: inKinds.length + 7,
@@ -88,19 +95,65 @@ class StatsRepository extends SupabaseRepository {
       return CachedResult(data: snapshot, fromCache: false);
     }
 
-    final res = await fetchOne(
-      boxName: AppConfig.boxStats,
-      key: kStatsKey,
-      fetch: () async {
-        final raw = await db.rpc<dynamic>('get_stats');
-        return jsonSafe(Map<String, dynamic>.from(raw as Map));
-      },
-    );
+    try {
+      final res = await fetchOne(
+        boxName: AppConfig.boxStats,
+        key: kStatsKey,
+        sensitive: false,
+        fetch: () async {
+          final raw = await db.rpc<dynamic>('get_stats');
+          return jsonSafe(Map<String, dynamic>.from(raw as Map));
+        },
+      );
 
-    return CachedResult(
-      data: StatsSnapshot.fromJson(res.data),
-      fromCache: res.fromCache,
-      error: res.error,
+      return CachedResult(
+        data: StatsSnapshot.fromJson(res.data),
+        fromCache: res.fromCache,
+        error: res.error,
+      );
+    } catch (e) {
+      // حساب الإحصائيات من المخزن المحلي أو البيانات المتاحة حتى لا يختفي الكارت
+      final localSnapshot = _calculateLocalStats();
+      return CachedResult(data: localSnapshot, fromCache: true, error: e);
+    }
+  }
+
+  StatsSnapshot _calculateLocalStats() {
+    final rawAll = cache.readAll(AppConfig.boxContributors);
+    final localMap = <String, ContributorModel>{};
+    for (final entry in rawAll) {
+      try {
+        if (!entry.containsKey('deleted_at') || entry['deleted_at'] == null) {
+          final model = ContributorModel.fromJson(entry);
+          localMap[model.id] = model;
+        }
+      } catch (_) {}
+    }
+
+    final allActive = localMap.values.toList();
+    final subs = allActive.where((c) => c.type == ContributorType.subscriber).toList();
+    final dons = allActive.where((c) => c.type == ContributorType.donor).toList();
+    final inKinds = allActive.where((c) => c.type == ContributorType.inKind).toList();
+
+    final subsTotal = subs.fold<num>(0, (s, c) => s + c.totalPaid);
+    final donsTotal = dons.fold<num>(0, (s, c) => s + c.totalPaid);
+    final overdueCount = subs.where((c) => c.isOverdue).length;
+
+    num purchasesTotal = 0;
+    final rawPurchases = cache.readAll(AppConfig.boxPurchases);
+    for (final p in rawPurchases) {
+      purchasesTotal += (p['amount'] as num? ?? p['price'] as num? ?? 0);
+    }
+
+    return StatsSnapshot(
+      subscriptionsTotal: subsTotal,
+      donationsTotal: donsTotal,
+      expensesTotal: purchasesTotal,
+      subscribersCount: subs.length,
+      donorsCount: dons.length,
+      inKindCount: inKinds.length,
+      overdueCount: overdueCount,
+      updatedAt: DateTime.now(),
     );
   }
 }

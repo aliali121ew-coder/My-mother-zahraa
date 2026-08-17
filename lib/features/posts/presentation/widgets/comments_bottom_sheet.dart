@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/mock_posts_data.dart';
+import '../../data/posts_repository.dart';
 import '../../domain/post_model.dart';
 
 class CommentsBottomSheet extends ConsumerStatefulWidget {
@@ -30,36 +31,62 @@ class CommentsBottomSheet extends ConsumerStatefulWidget {
 
 class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
   final _commentController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // تحميل التعليقات مرة واحدة فقط عند فتح الشيت
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(postsProvider.notifier).loadComments(widget.post.id);
+      }
+    });
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _submitComment() {
+  Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
-    ref.read(postsProvider.notifier).addComment(
-          widget.post.id,
-          text,
-          'زائر كريم',
-        );
+    final session = ref.read(sessionProvider);
+    final userName = session.profile?.fullName.isNotEmpty == true
+        ? session.profile!.fullName
+        : 'زائر حسيني';
 
     _commentController.clear();
     FocusScope.of(context).unfocus();
+
+    await ref
+        .read(postsProvider.notifier)
+        .addComment(widget.post.id, text, userName);
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final posts = ref.watch(postsProvider);
-    final currentPost = posts.firstWhere(
-      (p) => p.id == widget.post.id,
-      orElse: () => widget.post,
-    );
+    // AsyncValue — أثناء فشل الشبكة يُستخدم المنشور ذاته كمرجع محلي
+    final postsAsync = ref.watch(postsProvider);
+    final currentPost = postsAsync.value?.firstWhere(
+          (p) => p.id == widget.post.id,
+          orElse: () => widget.post,
+        ) ??
+        widget.post;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
@@ -137,6 +164,7 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
                     ),
                   )
                 : ListView.separated(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: currentPost.comments.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 16),
@@ -147,7 +175,17 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundImage: NetworkImage(c.userAvatar),
+                            backgroundColor: AppColors.gold.withValues(alpha: 0.2),
+                            backgroundImage: c.userAvatar.startsWith('http')
+                                ? NetworkImage(c.userAvatar)
+                                : (c.userAvatar.startsWith('assets/')
+                                    ? AssetImage(c.userAvatar) as ImageProvider
+                                    : null),
+                            child: !c.userAvatar.startsWith('http') &&
+                                    !c.userAvatar.startsWith('assets/')
+                                ? const Icon(Icons.person_rounded,
+                                    color: AppColors.gold, size: 18)
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -200,10 +238,27 @@ class _CommentsBottomSheetState extends ConsumerState<CommentsBottomSheet> {
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.gold,
-                    child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                  ClipOval(
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: ref.watch(sessionProvider).profile?.avatarUrl != null &&
+                              ref.watch(sessionProvider).profile!.avatarUrl!.isNotEmpty
+                          ? Image.network(
+                              ref.watch(sessionProvider).profile!.avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppColors.gold,
+                                child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                              ),
+                            )
+                          : const CircleAvatar(
+                              radius: 18,
+                              backgroundColor: AppColors.gold,
+                              child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                            ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

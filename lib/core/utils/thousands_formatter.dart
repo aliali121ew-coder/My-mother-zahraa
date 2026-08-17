@@ -10,18 +10,32 @@ class ThousandsFormatter extends TextInputFormatter {
     if (newValue.text.isEmpty) {
       return newValue.copyWith(text: '');
     }
-    
-    // Remove all commas
-    String newText = newValue.text.replaceAll(_separator, '');
-    
+
+    // Convert Arabic-Indic numerals to Latin digits and strip formatting
+    String cleanText = newValue.text
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9')
+        .replaceAll('٬', '')
+        .replaceAll(_separator, '')
+        .replaceAll(' ', '');
+
     // Handle invalid input
-    if (int.tryParse(newText) == null) {
+    final number = int.tryParse(cleanText);
+    if (number == null) {
       return oldValue;
     }
 
     // Format with commas
     final formatter = NumberFormat('#,###', 'en');
-    String formatted = formatter.format(int.parse(newText));
+    String formatted = formatter.format(number);
 
     // Calculate selection index offset
     int selectionIndex = formatted.length;

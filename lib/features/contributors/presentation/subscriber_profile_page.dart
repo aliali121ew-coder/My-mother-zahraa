@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -8,6 +9,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/thousands_formatter.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/contributor_model.dart';
@@ -768,22 +770,10 @@ class _SubscriberProfilePageState
             keyboardType: TextInputType.number,
             hintText: '50,000',
             isDark: isDark,
-            onChanged: (val) {
-              final raw =
-                  val.replaceAll(',', '').replaceAll('٬', '').trim();
-              if (raw.isNotEmpty) {
-                final n = num.tryParse(raw);
-                if (n != null) {
-                  final fmt = Fmt.amount(n);
-                  if (fmt != val) {
-                    _amountController.value = TextEditingValue(
-                      text: fmt,
-                      selection: TextSelection.collapsed(offset: fmt.length),
-                    );
-                  }
-                }
-              }
-            },
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              ThousandsFormatter(),
+            ],
           ),
           const SizedBox(height: 18),
 
@@ -938,6 +928,7 @@ class _SubscriberProfilePageState
     required IconData icon,
     required bool isDark,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
     String? hintText,
     String? Function(String?)? validator,
@@ -946,6 +937,7 @@ class _SubscriberProfilePageState
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       maxLines: maxLines,
       validator: validator,
       onChanged: onChanged,

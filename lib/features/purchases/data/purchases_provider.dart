@@ -1,16 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/app_providers.dart';
 import '../../../shared/models/purchase_model.dart';
 import 'purchases_repository.dart';
 
 final purchasesProvider =
     StateNotifierProvider<PurchasesNotifier, AsyncValue<List<PurchaseModel>>>((ref) {
-  return PurchasesNotifier(ref.watch(purchasesRepositoryProvider));
+  return PurchasesNotifier(ref.watch(purchasesRepositoryProvider), ref);
 });
 
 class PurchasesNotifier extends StateNotifier<AsyncValue<List<PurchaseModel>>> {
   final PurchasesRepository _repo;
+  final Ref _ref;
 
-  PurchasesNotifier(this._repo) : super(const AsyncLoading()) {
+  PurchasesNotifier(this._repo, this._ref) : super(const AsyncLoading()) {
     load();
   }
 
@@ -28,6 +30,7 @@ class PurchasesNotifier extends StateNotifier<AsyncValue<List<PurchaseModel>>> {
     try {
       final p = await _repo.addPurchase(purchase);
       state = AsyncData([p, ...oldData]);
+      _ref.invalidate(statsRawProvider);
     } catch (e) {
       // Re-throw so UI can handle error
       rethrow;
@@ -39,6 +42,7 @@ class PurchasesNotifier extends StateNotifier<AsyncValue<List<PurchaseModel>>> {
     try {
       await _repo.deletePurchase(id);
       state = AsyncData(oldData.where((p) => p.id != id).toList());
+      _ref.invalidate(statsRawProvider);
     } catch (e) {
       rethrow;
     }

@@ -1,21 +1,28 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import 'widgets/audio_selection_bottom_sheet.dart';
 import 'widgets/location_selection_sheet.dart';
-import '../data/mock_posts_data.dart';
+import '../data/posts_repository.dart';
 import '../domain/post_model.dart';
 
-/// مسار إضافة المنشور والتغطية الجديدة على طريقة الإنستغرام الحقيقي (سلس وسريع بدون توقف)
+/// مسار إضافة وتعديل المنشورات الشامل على طريقة الإنستغرام الحقيقي (الصور، الموسيقى، الوصف، الموقع)
 class CreatePostFlowPage extends ConsumerStatefulWidget {
-  const CreatePostFlowPage({super.key});
+  const CreatePostFlowPage({
+    super.key,
+    this.existingPost,
+  });
 
-  static void navigate(BuildContext context) {
+  final PostModel? existingPost;
+
+  static void navigate(BuildContext context, {PostModel? existingPost}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const CreatePostFlowPage(),
+        builder: (_) => CreatePostFlowPage(existingPost: existingPost),
       ),
     );
   }
@@ -26,6 +33,8 @@ class CreatePostFlowPage extends ConsumerStatefulWidget {
 
 class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   int _currentStep = 0; // 0: المعرض, 1: الفلاتر واللطميات, 2: التفاصيل والنشر
+  bool _isPublishing = false;
+  int _currentPreviewIndex = 0;
 
   // قائمة الصور الافتراضية للمعرض
   final List<String> _galleryImages = [
@@ -39,12 +48,14 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
     'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
   ];
 
-  late String _selectedImage;
+  // الصور المختارة للنشر أو التعديل (تدعم حتى 10 صور)
+  late List<String> _selectedImages;
+
   String _selectedFilterName = 'طبيعي';
   ColorFilter? _selectedColorFilter;
   String? _selectedAudioTrack;
-  final _captionController = TextEditingController();
-  final _locationController = TextEditingController(text: 'كربلاء المقدسة — شارع السدرة');
+  late final TextEditingController _captionController;
+  late final TextEditingController _locationController;
   String _selectedYearTag = '2026';
 
   final List<_ImageFilterOption> _filters = [
@@ -63,7 +74,7 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
         0.2126, 0.7152, 0.0722, 0, 0,
         0.2126, 0.7152, 0.0722, 0, 0,
         0.2126, 0.7152, 0.0722, 0, 0,
-        0,      0,      0,      1, 0,
+        0, 0, 0, 1, 0,
       ]),
     ),
     _ImageFilterOption(
@@ -99,8 +110,22 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   @override
   void initState() {
     super.initState();
-    _selectedImage = _galleryImages.first;
-    _selectedAudioTrack = _audioTracks.first;
+    if (widget.existingPost != null) {
+      final p = widget.existingPost!;
+      _selectedImages = p.images.isNotEmpty
+          ? List<String>.from(p.images)
+          : [_galleryImages.first];
+      _selectedAudioTrack = p.audioTrackTitle ?? _audioTracks.first;
+      _captionController = TextEditingController(text: p.caption);
+      _locationController = TextEditingController(text: p.location ?? '');
+      _selectedYearTag = p.yearTag.isNotEmpty ? p.yearTag : '2026';
+    } else {
+      _selectedImages = [_galleryImages.first];
+      _selectedAudioTrack = _audioTracks.first;
+      _captionController = TextEditingController();
+      _locationController =
+          TextEditingController(text: 'كربلاء المقدسة — شارع السدرة');
+    }
   }
 
   @override
@@ -111,6 +136,12 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   }
 
   void _nextStep() {
+    if (_selectedImages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار صورة واحدة على الأقل')),
+      );
+      return;
+    }
     if (_currentStep < 2) {
       setState(() {
         _currentStep++;
@@ -130,60 +161,171 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
     }
   }
 
-  void _publishPost() {
-    final caption = _captionController.text.trim();
-    final location = _locationController.text.trim();
-    final audioTitle = (_selectedAudioTrack == null || _selectedAudioTrack == 'بدون صوت خلفي')
-        ? null
-        : _selectedAudioTrack;
+  void _toggleImageSelection(String img) {
+    setState(() {
+      if (_selectedImages.contains(img)) {
+        if (_selectedImages.length > 1) {
+          _selectedImages.remove(img);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('يجب إبقاء صورة واحدة على الأقل')),
+          );
+        }
+      } else {
+        if (_selectedImages.length >= 10) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('الحد الأقصى هو 10 صور للمنشور الواحد 📸')),
+          );
+        } else {
+          _selectedImages.add(img);
+        }
+      }
+    });
+  }
 
-    final newPost = PostModel(
-      id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-      publisherName: 'موكب أمنا الزهراء (ع)',
-      publisherAvatar: 'assets/images/logo.png',
-      isVerified: true,
-      location: location.isEmpty ? 'كربلاء المقدسة — بين الحرمين الشريفين' : location,
-      images: [_selectedImage],
-      caption: caption.isEmpty
-          ? 'تغطية حسينية مصورة من مجالس ومشاريع موكب أمنا الزهراء (ع) 🖤✨'
-          : caption,
-      likesCount: 1,
-      commentsCount: 0,
-      isLiked: true,
-      isSaved: false,
-      createdAt: DateTime.now(),
-      yearTag: _selectedYearTag,
-      audioTrackTitle: audioTitle,
-    );
-
-    ref.read(postsProvider.notifier).addPost(newPost);
-    Navigator.of(context).pop();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'تم نشر التغطية بنجاح 🖤✨ ${audioTitle != null ? "($audioTitle)" : ""}',
-                style: const TextStyle(fontFamily: AppTheme.fontFamily),
-              ),
+  Future<void> _pickFromDeviceGallery() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFiles = await picker.pickMultiImage(limit: 10);
+      if (pickedFiles.isNotEmpty) {
+        setState(() {
+          final paths = pickedFiles.take(10).map((f) => f.path).toList();
+          _selectedImages = paths;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('تم اختيار ${_selectedImages.length} صور من الهاتف ✨'),
+              backgroundColor: AppColors.greenDeep,
             ),
-          ],
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر الوصول إلى معرض الصور')),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishPost() async {
+    if (_isPublishing) return;
+    setState(() => _isPublishing = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final isEditing = widget.existingPost != null;
+
+    try {
+      if (isEditing) {
+        await ref.read(postsProvider.notifier).updatePost(
+              postId: widget.existingPost!.id,
+              imageUrls: _selectedImages,
+              caption: _captionController.text.trim(),
+              location: _locationController.text.trim().isNotEmpty
+                  ? _locationController.text.trim()
+                  : null,
+              yearTag: _selectedYearTag,
+              audioTrackTitle: (_selectedAudioTrack == null ||
+                      _selectedAudioTrack == 'بدون صوت خلفي')
+                  ? null
+                  : _selectedAudioTrack,
+            );
+
+        if (!mounted) return;
+        Navigator.of(context).pop();
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'تم تحديث وتعديل المنشور بالكامل بنجاح 🖤✨',
+                    style: TextStyle(fontFamily: AppTheme.fontFamily),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.greenDeep,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        );
+      } else {
+        final newPost = await ref.read(postsProvider.notifier).addPost(
+              imageUrls: _selectedImages,
+              caption: _captionController.text.trim().isEmpty
+                  ? 'تغطية حسينية مصورة من مجالس ومشاريع موكب أمنا الزهراء (ع) 🖤✨'
+                  : _captionController.text.trim(),
+              location: _locationController.text.trim().isEmpty
+                  ? 'كربلاء المقدسة — بين الحرمين الشريفين'
+                  : _locationController.text.trim(),
+              yearTag: _selectedYearTag,
+              audioTrackTitle: (_selectedAudioTrack == null ||
+                      _selectedAudioTrack == 'بدون صوت خلفي')
+                  ? null
+                  : _selectedAudioTrack,
+            );
+
+        if (!mounted) return;
+        Navigator.of(context).pop();
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    newPost != null
+                        ? 'تم نشر التغطية (${_selectedImages.length} صور) بنجاح 🖤✨'
+                        : 'تم نشر التغطية ✓',
+                    style: const TextStyle(fontFamily: AppTheme.fontFamily),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.greenDeep,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            isEditing
+                ? 'تعذر حفظ التعديلات — تحقق من الاتصال'
+                : 'تعذر نشر التغطية — تحقق من الاتصال ثم أعد المحاولة',
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        backgroundColor: AppColors.greenDeep,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _isPublishing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isEditing = widget.existingPost != null;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.greenDeepest : Colors.black,
@@ -192,15 +334,23 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(
-            _currentStep == 0 ? Icons.close_rounded : Icons.arrow_back_ios_new_rounded,
+            _currentStep == 0
+                ? Icons.close_rounded
+                : Icons.arrow_back_ios_new_rounded,
             color: Colors.white,
           ),
           onPressed: _previousStep,
         ),
         title: Text(
-          _currentStep == 0
-              ? 'منشور جديد (المعرض)'
-              : (_currentStep == 1 ? 'التعديل واللطميات' : 'تفاصيل النشر'),
+          isEditing
+              ? (_currentStep == 0
+                  ? 'تعديل الصور (${_selectedImages.length}/10)'
+                  : (_currentStep == 1
+                      ? 'تعديل الفلاتر والموسيقى'
+                      : 'حفظ التعديلات'))
+              : (_currentStep == 0
+                  ? 'منشور جديد (${_selectedImages.length}/10 صور)'
+                  : (_currentStep == 1 ? 'التعديل واللطميات' : 'تفاصيل النشر')),
           style: const TextStyle(
             fontFamily: AppTheme.displayFamily,
             fontSize: 16,
@@ -213,7 +363,7 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
           TextButton(
             onPressed: _nextStep,
             child: Text(
-              _currentStep == 2 ? 'نشر' : 'التالي',
+              _currentStep == 2 ? (isEditing ? 'حفظ' : 'نشر') : 'التالي',
               style: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 15,
@@ -270,47 +420,93 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   }
 
   // -------------------------------------------------------------
-  // STEP 1: Gallery Image Selection (المعاينة المعرضية الكبيرة والشبكة)
+  // STEP 1: Gallery Image Selection (المعاينة المعرضية حتى 10 صور)
   // -------------------------------------------------------------
   Widget _buildGalleryStep(bool isDark) {
     return Column(
       children: [
-        // Main Big Image Preview
+        // Main Big Image Preview / Carousel
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.38,
           width: double.infinity,
-          child: Image.network(
-            _selectedImage,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.grey.shade900,
-              child: const Icon(Icons.image, color: AppColors.gold, size: 50),
-            ),
-          ),
-        ),
-
-        // Gallery Grid Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: isDark ? Colors.black26 : Colors.grey.shade900,
-          child: const Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                'صور المعرض الحديثة',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+              PageView.builder(
+                itemCount: _selectedImages.length,
+                onPageChanged: (i) => setState(() => _currentPreviewIndex = i),
+                itemBuilder: (context, idx) {
+                  final img = _selectedImages[idx];
+                  return _buildSingleImage(img);
+                },
               ),
-              Spacer(),
-              Icon(Icons.photo_library_rounded, color: AppColors.gold, size: 20),
+              if (_selectedImages.length > 1)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_currentPreviewIndex + 1}/${_selectedImages.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
 
-        // Gallery Grid View with Fast Safe Load
+        // Gallery Grid Header with Device Picker Button
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: isDark ? Colors.black26 : Colors.grey.shade900,
+          child: Row(
+            children: [
+              Text(
+                'اختر حتى 10 صور (${_selectedImages.length}/10)',
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: _pickFromDeviceGallery,
+                icon: const Icon(Icons.add_photo_alternate_rounded,
+                    size: 16, color: Colors.white),
+                label: const Text(
+                  'من الهاتف',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.goldDark,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Gallery Grid View
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.all(4),
@@ -322,32 +518,36 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
             itemCount: _galleryImages.length,
             itemBuilder: (context, index) {
               final img = _galleryImages[index];
-              final isSelected = img == _selectedImage;
+              final isSelected = _selectedImages.contains(img);
+              final selectionIndex = _selectedImages.indexOf(img);
+
               return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedImage = img;
-                  });
-                },
+                onTap: () => _toggleImageSelection(img),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      img,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey.shade800,
-                        child: const Icon(Icons.photo, color: Colors.white38, size: 20),
-                      ),
-                    ),
+                    _buildSingleImage(img),
                     if (isSelected)
                       Container(
                         color: Colors.black45,
-                        child: const Center(
-                          child: Icon(
-                            Icons.check_circle_rounded,
-                            color: AppColors.gold,
-                            size: 26,
+                        child: Center(
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.gold,
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${selectionIndex + 1}',
+                                style: const TextStyle(
+                                  color: AppColors.greenAbyss,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -362,7 +562,7 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   }
 
   // -------------------------------------------------------------
-  // STEP 2: Filters & Audio Selection (الفلاتر واللطميات الحسينية)
+  // STEP 2: Filters & Audio Selection
   // -------------------------------------------------------------
   Widget _buildFilterAndAudioStep(bool isDark) {
     return Column(
@@ -376,16 +576,44 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
             ),
-            child: _selectedColorFilter != null
-                ? ColorFiltered(
-                    colorFilter: _selectedColorFilter!,
-                    child: Image.network(_selectedImage, fit: BoxFit.cover),
-                  )
-                : Image.network(_selectedImage, fit: BoxFit.cover),
+            child: Stack(
+              children: [
+                PageView.builder(
+                  itemCount: _selectedImages.length,
+                  itemBuilder: (context, idx) {
+                    final img = _selectedImages[idx];
+                    return _selectedColorFilter != null
+                        ? ColorFiltered(
+                            colorFilter: _selectedColorFilter!,
+                            child: _buildSingleImage(img),
+                          )
+                        : _buildSingleImage(img);
+                  },
+                ),
+                if (_selectedImages.length > 1)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_selectedImages.length} صور',
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 11),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
 
-        // Audio Track Selector Button (ينزلق الشيت السفلي الفاخر مثل الإنستغرام 3)
+        // Audio Track Selector Button
         GestureDetector(
           onTap: () async {
             final track = await AudioSelectionBottomSheet.show(context);
@@ -405,7 +633,8 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.music_note_rounded, color: AppColors.gold, size: 22),
+                const Icon(Icons.music_note_rounded,
+                    color: AppColors.gold, size: 22),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -416,12 +645,15 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: _selectedAudioTrack != null ? AppColors.goldBright : Colors.white70,
+                      color: _selectedAudioTrack != null
+                          ? AppColors.goldBright
+                          : Colors.white70,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 22),
+                const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white70, size: 22),
               ],
             ),
           ),
@@ -454,6 +686,8 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                   itemBuilder: (context, index) {
                     final item = _filters[index];
                     final selected = item.name == _selectedFilterName;
+                    final previewImg = _selectedImages.first;
+
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -467,7 +701,8 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: selected ? AppColors.gold : Colors.transparent,
+                            color:
+                                selected ? AppColors.gold : Colors.transparent,
                             width: 2,
                           ),
                         ),
@@ -479,9 +714,9 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                                 child: item.filter != null
                                     ? ColorFiltered(
                                         colorFilter: item.filter!,
-                                        child: Image.network(_selectedImage, fit: BoxFit.cover),
+                                        child: _buildSingleImage(previewImg),
                                       )
-                                    : Image.network(_selectedImage, fit: BoxFit.cover),
+                                    : _buildSingleImage(previewImg),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -490,8 +725,12 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 fontSize: 10,
-                                color: selected ? AppColors.goldBright : Colors.white70,
-                                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                                color: selected
+                                    ? AppColors.goldBright
+                                    : Colors.white70,
+                                fontWeight: selected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -513,42 +752,79 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
   // STEP 3: Final Details & Caption (كتابة الشرح والتفاصيل والنشر)
   // -------------------------------------------------------------
   Widget _buildDetailsStep(bool isDark) {
+    final isEditing = widget.existingPost != null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image Preview Card & Caption
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: _selectedColorFilter != null
-                      ? ColorFiltered(
-                          colorFilter: _selectedColorFilter!,
-                          child: Image.network(_selectedImage, fit: BoxFit.cover),
-                        )
-                      : Image.network(_selectedImage, fit: BoxFit.cover),
-                ),
+          // Multi-Image Preview Horizontal Row
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedImages.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 80,
+                        height: 90,
+                        child: _selectedColorFilter != null
+                            ? ColorFiltered(
+                                colorFilter: _selectedColorFilter!,
+                                child: _buildSingleImage(_selectedImages[i]),
+                              )
+                            : _buildSingleImage(_selectedImages[i]),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Caption Field
+          TextField(
+            controller: _captionController,
+            maxLines: 4,
+            style: const TextStyle(
+                color: Colors.white, fontFamily: AppTheme.fontFamily),
+            decoration: InputDecoration(
+              hintText: 'اكتب شرح التغطية أو نص المجلس هنا...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: TextField(
-                  controller: _captionController,
-                  maxLines: 4,
-                  style: const TextStyle(color: Colors.white, fontFamily: AppTheme.fontFamily),
-                  decoration: const InputDecoration(
-                    hintText: 'اكتب شرح التغطية أو نص المجلس هنا...',
-                    hintStyle: TextStyle(color: Colors.white38),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
 
           const Divider(color: Colors.white24, height: 30),
@@ -557,20 +833,27 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
           if (_selectedAudioTrack != null)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.music_note_rounded, color: AppColors.gold),
+              leading:
+                  const Icon(Icons.music_note_rounded, color: AppColors.gold),
               title: const Text(
                 'اللطمية المرفقة',
-                style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: AppTheme.fontFamily),
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontFamily: AppTheme.fontFamily),
               ),
               subtitle: Text(
                 _selectedAudioTrack!,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: AppTheme.fontFamily),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontFamily),
               ),
             ),
 
           const SizedBox(height: 10),
 
-          // Location Selection Field (ينزلق الشيت السفلي الفاخر مثل الإنستغرام 4)
+          // Location Selection Field
           GestureDetector(
             onTap: () async {
               final loc = await LocationSelectionSheet.show(context);
@@ -588,7 +871,8 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, color: AppColors.gold, size: 22),
+                  const Icon(Icons.location_on_outlined,
+                      color: AppColors.gold, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -598,12 +882,15 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 13.5,
-                        color: _locationController.text.isNotEmpty ? Colors.white : Colors.white38,
+                        color: _locationController.text.isNotEmpty
+                            ? Colors.white
+                            : Colors.white38,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 16),
+                  const Icon(Icons.arrow_forward_ios_rounded,
+                      color: Colors.white54, size: 16),
                 ],
               ),
             ),
@@ -616,7 +903,8 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
                 return Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: ActionChip(
-                    avatar: const Icon(Icons.place_rounded, size: 14, color: AppColors.gold),
+                    avatar: const Icon(Icons.place_rounded,
+                        size: 14, color: AppColors.gold),
                     label: Text(loc),
                     backgroundColor: Colors.white.withValues(alpha: 0.12),
                     labelStyle: const TextStyle(
@@ -640,13 +928,18 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
           // Year Tag Dropdown
           const Text(
             'سنة التوثيق الحسينية',
-            style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: AppTheme.fontFamily),
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontFamily: AppTheme.fontFamily),
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             initialValue: _selectedYearTag,
-            dropdownColor: isDark ? AppColors.greenDeepest : Colors.grey.shade900,
-            style: const TextStyle(color: Colors.white, fontFamily: AppTheme.fontFamily),
+            dropdownColor:
+                isDark ? AppColors.greenDeepest : Colors.grey.shade900,
+            style: const TextStyle(
+                color: Colors.white, fontFamily: AppTheme.fontFamily),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.08),
@@ -670,16 +963,20 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
 
           const SizedBox(height: 30),
 
-          // Publish Button
+          // Publish / Save Button
           SizedBox(
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
               onPressed: _publishPost,
-              icon: const Icon(Icons.publish_rounded),
-              label: const Text(
-                'مشاركة التغطية الآن',
-                style: TextStyle(
+              icon: Icon(isEditing
+                  ? Icons.check_circle_rounded
+                  : Icons.publish_rounded),
+              label: Text(
+                isEditing
+                    ? 'حفظ التعديلات (${_selectedImages.length} صور)'
+                    : 'نشر التغطية الآن (${_selectedImages.length} صور)',
+                style: const TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -695,6 +992,35 @@ class _CreatePostFlowPageState extends ConsumerState<CreatePostFlowPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleImage(String url) {
+    if (!url.startsWith('http://') &&
+        !url.startsWith('https://') &&
+        !url.startsWith('assets/')) {
+      final file = File(url);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          cacheWidth: 800,
+          cacheHeight: 800,
+        );
+      }
+    }
+    if (url.startsWith('assets/')) {
+      return Image.asset(url, fit: BoxFit.cover);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      cacheWidth: 800,
+      cacheHeight: 800,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey.shade900,
+        child: const Icon(Icons.image, color: AppColors.gold, size: 40),
       ),
     );
   }

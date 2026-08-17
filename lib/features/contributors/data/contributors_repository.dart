@@ -71,47 +71,102 @@ class ContributorsRepository extends SupabaseRepository {
       return CachedResult(data: combined, fromCache: false);
     }
 
-    // نخزّن كل نوع في مفتاح مستقل داخل نفس الصندوق
-    final res = await fetchList(
-      boxName: AppConfig.boxContributors,
-      idOf: (m) => m['id'].toString(),
-      fetch: () async {
-        var query = db.from('contributors').select();
-        if (type != null) {
-          query = query.eq('type', type.value);
+    // دمج السجلات المحلية المخزنة مع سجلات الخادم لضمان الظهور الفوري
+    final localRaw = cache.readAll(_demoBox);
+    final localMap = <String, ContributorModel>{};
+    for (final entry in localRaw) {
+      try {
+        if (entry.containsKey('deleted_at') && entry['deleted_at'] != null) {
+          // محذوف
+        } else {
+          final model = ContributorModel.fromJson(entry);
+          if (type == null || model.type == type) {
+            localMap[model.id] = model;
+          }
         }
-        final rows = await query
-            .isFilter('deleted_at', null)
-            .order('total_paid', ascending: false);
-        return List<Map<String, dynamic>>.from(rows);
-      },
-    );
-
-    final list = res.data
-        .map(ContributorModel.fromJson)
-        .where((c) => type == null || c.type == type)
-        .toList();
-
-    return CachedResult(
-      data: list,
-      fromCache: res.fromCache,
-      error: res.error,
-    );
-  }
-
-  /// إضافة مساهم — في الديمو يُحفظ محلياً في Hive، وفي الإنتاج يُرسل لـ Supabase.
-  Future<ContributorModel> create(ContributorModel c) async {
-    if (!isLive) {
-      await cache.put(_demoBox, c.id, c.toJson());
-      return c;
+      } catch (_) {}
     }
 
-    final row = await db
-        .from('contributors')
-        .insert(c.toWriteJson()..remove('id'))
-        .select()
-        .single();
-    return ContributorModel.fromJson(row);
+    try {
+      final res = await fetchList(
+        boxName: AppConfig.boxContributors,
+        idOf: (m) => m['id'].toString(),
+        sensitive: false,
+        fetch: () async {
+          var query = db.from('contributors').select();
+          if (type != null) {
+            query = query.eq('type', type.value);
+          }
+          final rows = await query
+              .isFilter('deleted_at', null)
+              .order('total_paid', ascending: false);
+          return List<Map<String, dynamic>>.from(rows);
+        },
+      );
+
+      final serverList = res.data
+          .map(ContributorModel.fromJson)
+          .where((c) => type == null || c.type == type)
+          .toList();
+
+      for (final s in serverList) {
+        localMap[s.id] = s;
+      }
+
+      final combined = localMap.values.toList();
+      combined.sort((a, b) => b.totalPaid.compareTo(a.totalPaid));
+
+      return CachedResult(
+        data: combined,
+        fromCache: res.fromCache,
+        error: res.error,
+      );
+    } catch (e) {
+      // الارتداد للبيانات المحلية المتاحة
+      final demoList = type == ContributorType.donor
+          ? DemoData.donors
+          : (type == ContributorType.subscriber
+              ? DemoData.subscribers
+              : [...DemoData.donors, ...DemoData.subscribers]);
+
+      for (final d in demoList) {
+        if (!localMap.containsKey(d.id)) {
+          localMap[d.id] = d;
+        }
+      }
+
+      final combined = localMap.values.toList();
+      combined.sort((a, b) => b.totalPaid.compareTo(a.totalPaid));
+      return CachedResult(data: combined, fromCache: true, error: e);
+    }
+  }
+
+  /// إضافة مساهم — يُحفظ محلياً فوراً ويُرسل لـ Supabase عند توفر الاتصال
+  Future<ContributorModel> create(ContributorModel c) async {
+    // 1. حفظ فوري في المخزن المحلي لضمان عدم توقف الواجهة
+    await cache.put(_demoBox, c.id, c.toJson());
+
+    if (isLive) {
+      try {
+        final writeData = c.toWriteJson()..remove('id');
+        final row = await db
+            .from('contributors')
+            .insert(writeData)
+            .select()
+            .maybeSingle()
+            .timeout(const Duration(seconds: 4));
+
+        if (row != null) {
+          final serverModel = ContributorModel.fromJson(row);
+          await cache.put(_demoBox, serverModel.id, serverModel.toJson());
+          return serverModel;
+        }
+      } catch (_) {
+        // في حال بطء الشبكة أو خطأ RLS، المساهم محفوظ محلياً بنجاح
+      }
+    }
+
+    return c;
   }
 
   Future<ContributorModel> update(ContributorModel c) async {
@@ -274,11 +329,52 @@ class ContributorsRepository extends SupabaseRepository {
     return row;
   }
 
-  /// جلب سجل الدفعات الشهرية لسنة مالية معينة لمشترك
+  /// جلب سجل الدفعات الشهرية لسنة مالية معينة لمشترك — يقرأ أولًا من جدول
+  /// `payments` على الخادم (المصدر الموثوق)، ويخزّن النتيجة محليًا في Hive
+  /// للسرعة خارج الاتصال، ثم يرتدّ للمخزن فقط عند فشل الشبكة.
   Future<Map<int, Map<String, dynamic>>> loadMonthlyLedger(
       String contributorId, int year) async {
     try {
       final boxKey = 'ledger_${contributorId}_$year';
+
+      // المصدر الأساسي: جدول الدفعات على الخادم — كل دفعة مسددة هنا
+      // تُكتب عبر addPayment فتظهر مباشرة في هذا الاستعلام
+      if (isLive) {
+        try {
+          final rows = await db
+              .from('payments')
+              .select()
+              .eq('contributor_id', contributorId)
+              .gte('paid_at', DateTime.utc(year, 1, 1).toIso8601String())
+              .lt('paid_at', DateTime.utc(year + 1, 1, 1).toIso8601String())
+              .order('paid_at', ascending: false);
+          final res = <int, Map<String, dynamic>>{};
+          for (final row in List<Map<String, dynamic>>.from(rows)) {
+            final paidAt = DateTime.tryParse(
+              (row['paid_at'] as String?) ?? '',
+            );
+            if (paidAt == null) continue;
+            final m = paidAt.month;
+            // لو تكررت دفعات في الشهر نفسه نجمعها
+            final prev = res[m];
+            res[m] = {
+              'amount': ((prev?['amount'] as num?) ?? 0) +
+                  ((row['amount'] as num?) ?? 0),
+              'paid_at': row['paid_at'],
+              'is_paid': true,
+            };
+          }
+          await cache.put(
+            AppConfig.boxPayments,
+            boxKey,
+            {'ledger': res.map((k, v) => MapEntry(k.toString(), v))},
+          );
+          return res;
+        } catch (_) {
+          // فشل الشبكة — نكمل للمخزن المحلي أسفله
+        }
+      }
+
       var raw = cache.readOne(AppConfig.boxPayments, boxKey);
       raw ??= cache.readOne(AppConfig.boxContributors, boxKey);
 

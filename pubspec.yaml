@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.2+3
 
 environment:
   sdk: "^3.10.0"
@@ -90,16 +90,12 @@ flutter:
   assets:
     - assets/logo/
     - assets/images/
+    - assets/fonts/
 
   fonts:
-    # خط كايرو المتغيّر. الملفات الثابتة السابقة كانت صفحات HTML لا خطوطاً
-    # (بدأت بـ <!DOCTYPE html>)، فكان Flutter يرتدّ صامتاً للخط الافتراضي.
     - family: Cairo
       fonts:
         - asset: assets/fonts/Cairo-Variable.ttf
-    # خط العرض النسخي: للعناوين والأسماء فقط. التباين بينه وبين خط
-    # الواجهة السانس هو ما يمنح الشاشة تدرّجاً في الأهمية بدل أن تبدو
-    # كلها بمستوى واحد. يُجلب بـ tools/fetch_fonts
     - family: Amiri
       fonts:
         - asset: assets/fonts/Amiri-Regular.ttf

@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/mock_posts_data.dart';
-import '../../domain/post_model.dart';
+import '../../data/posts_repository.dart';
 
 /// حوار تفاعلي لإضافة منشور جديد للموكب
 class AddPostDialog extends ConsumerStatefulWidget {
@@ -40,6 +39,12 @@ class _AddPostDialogState extends ConsumerState<AddPostDialog> {
   void _addImage() {
     final url = _imageUrlController.text.trim();
     if (url.isNotEmpty) {
+      if (_images.length >= 10) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('الحد الأقصى هو 10 صور للمنشور الواحد 📸')),
+        );
+        return;
+      }
       setState(() {
         _images.add(url);
         _imageUrlController.clear();
@@ -47,7 +52,7 @@ class _AddPostDialogState extends ConsumerState<AddPostDialog> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final caption = _captionController.text.trim();
@@ -61,44 +66,47 @@ class _AddPostDialogState extends ConsumerState<AddPostDialog> {
           ]
         : _images;
 
-    final newPost = PostModel(
-      id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-      publisherName: 'موكب أمنا الزهراء (ع)',
-      publisherAvatar: 'assets/images/logo.png',
-      isVerified: true,
-      location: location,
-      images: finalImages,
-      caption: caption,
-      likesCount: 1,
-      commentsCount: 0,
-      isLiked: true,
-      isSaved: false,
-      createdAt: DateTime.now(),
-      yearTag: _selectedYearTag,
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(postsProvider.notifier).addPost(
+            imageUrls: finalImages,
+            caption: caption,
+            location: location,
+            yearTag: _selectedYearTag,
+          );
 
-    ref.read(postsProvider.notifier).addPost(newPost);
-    Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'تم نشر التغطية بنجاح 🖤✨',
-                style: TextStyle(fontFamily: AppTheme.fontFamily),
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'تم نشر التغطية بنجاح 🖤✨',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: AppColors.greenDeep,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        backgroundColor: AppColors.greenDeep,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('تعذر نشر التغطية — تحقق من الاتصال ثم أعد المحاولة'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override

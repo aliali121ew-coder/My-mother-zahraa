@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- حظر كافة الاتصالات غير المشفرة (Cleartext / HTTP) وفرض HTTPS -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- الوثوق بشهادات النظام المعتمدة رسمياً فقط -->
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- تأمين وتثبيت نطاق Supabase السحابي الرسمي -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

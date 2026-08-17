@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,7 +10,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/thousands_formatter.dart';
 import '../../../../shared/models/contributor_model.dart';
 import '../../../../shared/models/enums.dart';
 import '../../../../shared/widgets/app_date_picker_dialog.dart';
@@ -53,10 +54,10 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
   DateTime _paymentDate = DateTime.now();
   DateTime _supportDate = DateTime.now();
 
-  // للمشترك: اختيار نوع الاشتراك يفتح حقل المبلغ
+  // للمشترك: اختيار نوع الاشتراك غير محدد مسبقاً (تظهر باقي التفاصيل عند الضغط عليه كما في السابق)
   SubscriptionType? _selectedSubscriptionType;
 
-  // للمتبرع: اختيار نوع التبرع يفتح حقل المبلغ
+  // للمتبرع: اختيار نوع التبرع غير محدد مسبقاً
   String? _selectedDonationType;
 
   String _inKindType = 'غذائية';
@@ -200,17 +201,14 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
             );
       }
 
-      // تحديث المزوّدات وانتظار اكتمال الجلب قبل الانتقال
-      // ref.refresh().future ينتظر حتى تعود البيانات الجديدة فعلاً
-      await Future.wait([
-        ref.refresh(subscribersRawProvider.future),
-        ref.refresh(donorsRawProvider.future),
-        ref.refresh(allContributorsRawProvider.future),
-        ref.refresh(statsRawProvider.future),
-      ]);
+      // تحديث المزوّدات في الخلفية لتنعكس التغييرات فوراً
+      ref.invalidate(subscribersRawProvider);
+      ref.invalidate(donorsRawProvider);
+      ref.invalidate(allContributorsRawProvider);
+      ref.invalidate(statsRawProvider);
 
       if (mounted) {
-        // الترحيل المباشر لصفحة القسم المناسب بعد اكتمال الجلب
+        // إغلاق النافذة والترحيل المباشر
         Navigator.of(context).pop();
         final destination = switch (widget.mode) {
           ContributorType.subscriber => '/contributors/subscribers',
@@ -297,38 +295,38 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
     final accent = _accentColor();
     final dateFormat = DateFormat('yyyy/MM/dd');
 
-    // مقاسات موحدة 50% من عرض الشاشة
+    // مقاسات متجاوبة ممتازة للهواتف والشاشات
     final screenWidth = MediaQuery.of(context).size.width;
-    final dialogWidth = screenWidth * 0.50;
+    final dialogWidth = screenWidth > 600 ? 460.0 : (screenWidth * 0.92);
 
     // ألوان داكنة للترويسة فقط وباقي الجسم أبيض ناصع في النهاري
-    final bodyBgColor = isDark ? const Color(0xFF0F2D1C) : Colors.white;
-    final textColor = isDark ? Colors.white : AppColors.textOnLight;
+    final bodyBgColor = isDark ? const Color(0xFF131A15) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1A261D);
     final mutedTextColor =
-        isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted;
+        isDark ? AppColors.textOnDarkMuted : const Color(0xFF5A6E60);
 
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
       child: Container(
         width: dialogWidth,
         decoration: BoxDecoration(
           color: bodyBgColor,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: accent.withValues(alpha: isDark ? 0.65 : 0.4),
+            color: accent.withValues(alpha: isDark ? 0.65 : 0.35),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: accent.withValues(alpha: isDark ? 0.35 : 0.2),
+              color: accent.withValues(alpha: isDark ? 0.35 : 0.15),
               blurRadius: 24,
               spreadRadius: 1,
               offset: const Offset(0, 6),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.7 : 0.18),
+              color: Colors.black.withValues(alpha: isDark ? 0.7 : 0.15),
               blurRadius: 32,
               spreadRadius: 2,
               offset: const Offset(0, 12),
@@ -517,32 +515,16 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
                           TextFormField(
                             controller: _amountController,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              ThousandsFormatter(),
+                            ],
                             style: const TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppColors.goldDark,
                             ),
-                            onChanged: (val) {
-                              final raw = val
-                                  .replaceAll(',', '')
-                                  .replaceAll('٬', '')
-                                  .trim();
-                              if (raw.isNotEmpty) {
-                                final numVal = num.tryParse(raw);
-                                if (numVal != null) {
-                                  final formatted = Fmt.amount(numVal);
-                                  if (formatted != val) {
-                                    _amountController.value = TextEditingValue(
-                                      text: formatted,
-                                      selection: TextSelection.collapsed(
-                                        offset: formatted.length,
-                                      ),
-                                    );
-                                  }
-                                }
-                              }
-                            },
                             decoration: _inputDecoration(
                               hint: '25,000 د.ع',
                               icon: Icons.payments_outlined,
@@ -822,12 +804,12 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
 
   Widget _buildLabel(String label, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         label,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 12,
+          fontSize: 12.5,
           fontWeight: FontWeight.bold,
           color: color,
         ),
@@ -846,34 +828,36 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
         fontFamily: AppTheme.fontFamily,
         fontSize: 12,
         color: isDark
-            ? Colors.white.withValues(alpha: 0.4)
-            : Colors.black.withValues(alpha: 0.4),
+            ? Colors.white.withValues(alpha: 0.45)
+            : const Color(0xFF8A9E90),
       ),
-      prefixIcon: Icon(icon, size: 19, color: _accentColor()),
+      prefixIcon: Icon(icon, size: 20, color: _accentColor()),
       filled: true,
       fillColor: isDark
           ? Colors.white.withValues(alpha: 0.06)
-          : Colors.grey.withValues(alpha: 0.08),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          : const Color(0xFFF4F7F5),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.grey.withValues(alpha: 0.25),
+              ? Colors.white.withValues(alpha: 0.15)
+              : const Color(0xFFD0DCD3),
+          width: 1.2,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(
           color: isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.grey.withValues(alpha: 0.25),
+              ? Colors.white.withValues(alpha: 0.15)
+              : const Color(0xFFD0DCD3),
+          width: 1.2,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(13),
-        borderSide: BorderSide(color: _accentColor(), width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: _accentColor(), width: 1.8),
       ),
     );
   }
@@ -889,16 +873,21 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
         label,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 12.5,
+          fontWeight: FontWeight.bold,
           color: selected ? Colors.white : accent,
         ),
       ),
       selected: selected,
       selectedColor: accent,
-      backgroundColor: accent.withValues(alpha: 0.14),
+      backgroundColor: accent.withValues(alpha: 0.12),
       onSelected: (_) => onTap(),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? accent : accent.withValues(alpha: 0.3),
+        ),
+      ),
       showCheckmark: false,
     );
   }
@@ -912,23 +901,24 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(13),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : Colors.grey.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(13),
+              : const Color(0xFFF4F7F5),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.grey.withValues(alpha: 0.25),
+                ? Colors.white.withValues(alpha: 0.15)
+                : const Color(0xFFD0DCD3),
+            width: 1.2,
           ),
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today_rounded, size: 17, color: _accentColor()),
+            Icon(Icons.calendar_today_rounded, size: 18, color: _accentColor()),
             const SizedBox(width: 8),
             Text(
               dateFormat.format(date),
@@ -940,7 +930,7 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
               ),
             ),
             const Spacer(),
-            const Icon(Icons.arrow_drop_down_rounded, color: AppColors.gold),
+            Icon(Icons.arrow_drop_down_rounded, color: _accentColor(), size: 24),
           ],
         ),
       ),
