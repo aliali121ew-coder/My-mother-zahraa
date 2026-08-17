@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/app_update_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
@@ -33,7 +34,14 @@ class _SplashPageState extends State<SplashPage>
   void initState() {
     super.initState();
     _c.forward();
-    Future<void>.delayed(const Duration(milliseconds: 1800), () {
+    Future<void>.delayed(const Duration(milliseconds: 1800), () async {
+      if (!mounted) return;
+      await AppUpdateService.checkForUpdates();
+      if (AppUpdateService.hasUpdate && mounted) {
+        // إذا وجد تحديث، نثبّت نافذة التحديث وسط الشاشة ولا ننتقل للرئيسية أبداً
+        await AppUpdateService.showUpdateDialog(context);
+        return;
+      }
       if (mounted) context.go('/home');
     });
   }

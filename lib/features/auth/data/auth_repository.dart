@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../core/storage/hive_service.dart';
+import '../../../core/storage/settings_store.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/profile_model.dart';
 
@@ -80,8 +81,10 @@ class AuthRepository extends SupabaseRepository {
         'cached_my_profile',
         jsonEncode(elevated.toJson()),
       );
+      await SettingsStore.instance.setLastLoginTime();
       return elevated;
     }
+    await SettingsStore.instance.setLastLoginTime();
     return p;
   }
 
@@ -107,6 +110,7 @@ class AuthRepository extends SupabaseRepository {
         });
       } catch (_) {}
     }
+    await SettingsStore.instance.setLastLoginTime();
     final p = await fetchMyProfile(fallbackEmail: cleanEmail);
     if (isMaster) {
       final elevated = (p ?? ProfileModel(
@@ -140,6 +144,7 @@ class AuthRepository extends SupabaseRepository {
   Future<void> signOut() async {
     await cache.clearSensitiveCache();
     await HiveService.instance.settings.delete('cached_my_profile');
+    await SettingsStore.instance.clearLastLoginTime();
     return db.auth.signOut();
   }
 
@@ -151,10 +156,16 @@ class AuthRepository extends SupabaseRepository {
 
   /// يقرأ ملف المستخدم الحالي. يعيد null للجلسات المجهولة أو إن لم يُنشأ بعد.
   Future<ProfileModel?> fetchMyProfile({String? fallbackEmail}) async {
+    // 0. التحقق من انتهاء صلاحية الـ 72 ساعة
+    if (SettingsStore.instance.isSessionExpired) {
+      await signOut();
+      return null;
+    }
+
     final currentEmail = user?.email ?? fallbackEmail;
     final isMaster = AppConfig.isMasterAdmin(currentEmail);
 
-    // 1. فحص المخزن المحلي أولاً
+    // 1. فحص المخزن المحلي أولاً لضمان عدم تسجيل الخروج عند انقطاع الاتصال أو بطء الشبكة
     final localRow = HiveService.instance.settings.get('cached_my_profile');
     ProfileModel? localProfile;
     if (localRow != null) {
@@ -170,6 +181,10 @@ class AuthRepository extends SupabaseRepository {
         status: UserStatus.approved,
         email: currentEmail,
       );
+    }
+
+    if (localProfile != null && SettingsStore.instance.lastLoginTime == null) {
+      await SettingsStore.instance.setLastLoginTime();
     }
 
     final uid = user?.id;

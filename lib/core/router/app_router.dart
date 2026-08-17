@@ -43,6 +43,9 @@ String? _guard(BuildContext context, GoRouterState state) {
   final path = state.matchedLocation;
   if (path == '/splash' || path == '/auth' || path == '/pending') return null;
 
+  // إذا كانت الجلسة لا تزال في طور القراءة والتحقق، ننتظر ولا نوجه لتسجيل الدخول
+  if (s.loading) return null;
+
   // من لا يملك ملفاً شخصياً (زائر أو خرج حديثاً) → تسجيل الدخول
   if (s.isGuest) return '/auth';
 

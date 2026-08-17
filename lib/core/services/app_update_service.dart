@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -61,35 +62,45 @@ class AppUpdateService {
     }
   }
 
-  /// فتح حوار التحديث الإجباري مع شريط التقدم — يعتّم الشاشة كاملة.
+  static bool _isDialogOpen = false;
+
+  /// فتح حوار التحديث الإجباري مع شريط التقدم — يعتّم الشاشة كاملة ويبقى ثابتاً في المنتصف.
   static Future<void> showUpdateDialog([BuildContext? context]) async {
+    if (_isDialogOpen) return;
     final targetContext = (context != null && context.mounted)
-        ? (rootNavigatorKey.currentContext ?? context)
+        ? context
         : rootNavigatorKey.currentContext;
     if (targetContext == null || !targetContext.mounted) return;
 
     final config = await fetchConfig() ?? {};
     final apkUrl =
         (config['apk_url'] as String?) ??
-        'https://github.com/aliali121ew-coder/My-mother-zahraa/raw/main/releases/app-release.apk';
+        'https://raw.githubusercontent.com/aliali121ew-coder/My-mother-zahraa/main/releases/mawkib_zahraa_release.apk';
     final message =
         (config['message'] as String?) ??
         'تحديث جديد متاح لتحسين أداء التطبيق وأمانه — يرجى التحديث للمتابعة';
 
     if (!targetContext.mounted) return;
-    await showDialog(
-      // حوار إجباري: لا يمكن إغلاقه بالنقر خارجه ولا بزر الرجوع
-      barrierDismissible: false,
-      context: targetContext,
-      builder: (ctx) => PopScope(
-        canPop: false,
-        child: _UpdateDialogShell(
-          apkUrl: apkUrl,
-          message: message,
-          isForce: true,
+    _isDialogOpen = true;
+    try {
+      await showDialog(
+        // حوار إجباري: لا يمكن إغلاقه بالنقر خارجه ولا بزر الرجوع
+        barrierDismissible: false,
+        barrierColor: Colors.black.withValues(alpha: 0.88),
+        useRootNavigator: true,
+        context: targetContext,
+        builder: (ctx) => PopScope(
+          canPop: false,
+          child: _UpdateDialogShell(
+            apkUrl: apkUrl,
+            message: message,
+            isForce: true,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      _isDialogOpen = false;
+    }
   }
 }
 
@@ -143,36 +154,50 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
       if (!mounted) return;
       setState(() {
         _progress = 1;
-        _statusText = 'اكتمل التنزيل بنجاح — يرجى تثبيت التحديث';
+        _downloading = false;
+        _downloaded = true;
+        _statusText = 'اكتمل التنزيل بنجاح — جارٍ فتح المثبّت...';
       });
 
-      // حفظ الملف محلياً في مجلد التطبيق المسموح به
-      try {
-        final dir = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
-        final file = File('${dir.path}/mawkib-zahraa-update.apk');
-        await file.writeAsBytes(bytes);
-        final uri = Uri.parse(widget.apkUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      } catch (_) {
-        // فتح الرابط المباشر للتحميل والتثبيت عبر المتصفح
-        final uri = Uri.parse(widget.apkUrl);
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-
-      if (mounted) setState(() => _downloaded = true);
+      // حفظ الملف محلياً وتثبيته فوراً
+      await _installApk(bytes);
     } catch (e) {
       if (!mounted) return;
-      // في حال وجود مشكلة في تدفق التنزيل المباشر، نفتح رابط التحميل في المتصفح تلقائياً
       try {
         final uri = Uri.parse(widget.apkUrl);
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } catch (_) {}
       setState(() {
         _downloading = false;
-        _statusText = 'تم فتح رابط التحميل الخارجي';
+        _statusText = 'تم فتح رابط التحميل المباشر';
       });
+    }
+  }
+
+  Future<void> _installApk([List<int>? newBytes]) async {
+    try {
+      final dir = await getExternalStorageDirectory() ??
+          await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/mawkib-zahraa-update.apk');
+      if (newBytes != null && newBytes.isNotEmpty) {
+        await file.writeAsBytes(newBytes);
+      }
+      if (await file.exists()) {
+        final res = await OpenFilex.open(
+          file.path,
+          type: 'application/vnd.android.package-archive',
+        );
+        if (res.type != ResultType.done) {
+          final uri = Uri.parse(widget.apkUrl);
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      } else {
+        final uri = Uri.parse(widget.apkUrl);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      final uri = Uri.parse(widget.apkUrl);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -308,12 +333,14 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
               ),
             if (_error != null) const SizedBox(height: 14),
 
-            // زر التحديث
+            // زر التحديث وإعادة التشغيل
             SizedBox(
               width: double.infinity,
               height: 50,
               child: FilledButton(
-                onPressed: _downloading || _downloaded ? null : _startDownload,
+                onPressed: _downloading
+                    ? null
+                    : (_downloaded ? () => _installApk() : _startDownload),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.gold,
                   foregroundColor: Colors.black,
@@ -322,11 +349,26 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
                   ),
                 ),
                 child: _downloaded
-                    ? const Text('تم التنزيل — افتح المثبّت من التحميلات')
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.restart_alt_rounded, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'تثبيت وإعادة التشغيل الآن 🔄',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
                     : Text(
-                        _downloading
-                            ? 'جارٍ التنزيل...'
-                            : 'تحديث الآن',
+                        _downloading ? 'جارٍ التنزيل...' : 'تحديث الآن',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),

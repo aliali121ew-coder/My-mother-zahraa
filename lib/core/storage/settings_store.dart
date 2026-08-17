@@ -35,4 +35,28 @@ class SettingsStore {
 
   Future<void> setGuestSeen(bool v) =>
       HiveService.instance.settings.put(_kGuestSeen, v);
+
+  static const _kLastLoginTime = 'last_login_time';
+
+  DateTime? get lastLoginTime {
+    final v = HiveService.instance.settings.get(_kLastLoginTime) as String?;
+    if (v == null) return null;
+    return DateTime.tryParse(v);
+  }
+
+  Future<void> setLastLoginTime([DateTime? time]) =>
+      HiveService.instance.settings.put(
+        _kLastLoginTime,
+        (time ?? DateTime.now()).toIso8601String(),
+      );
+
+  Future<void> clearLastLoginTime() =>
+      HiveService.instance.settings.delete(_kLastLoginTime);
+
+  /// هل انتهت صلاحية الجلسة (أكثر من 72 ساعة)؟
+  bool get isSessionExpired {
+    final t = lastLoginTime;
+    if (t == null) return false;
+    return DateTime.now().difference(t).inHours >= 72;
+  }
 }

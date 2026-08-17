@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,9 +116,21 @@ class SessionNotifier extends Notifier<AppSession> {
     });
     ref.onDispose(() => _sub?.cancel());
 
-    // تحميل الملف الشخصي المحفوظ محلياً أو من السيرفر
+    // فحص الجلسة المحفوظة محلياً لتبدأ الجلسة فوراً طالما أن مهلة 72 ساعة لم تنتهِ
+    ProfileModel? immediateProfile;
+    if (!SettingsStore.instance.isSessionExpired) {
+      final localRow = HiveService.instance.settings.get('cached_my_profile');
+      if (localRow != null) {
+        try {
+          final map = jsonDecode(localRow.toString()) as Map<String, dynamic>;
+          immediateProfile = ProfileModel.fromJson(map);
+        } catch (_) {}
+      }
+    }
+
+    // تحميل الملف الشخصي المحدّث في الخلفية
     _loadProfile();
-    return const AppSession(loading: true);
+    return AppSession(profile: immediateProfile, loading: immediateProfile == null);
   }
 
   Future<void> _loadProfile() async {
