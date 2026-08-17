@@ -235,6 +235,10 @@ supabase/schema.sql   الجداول + RLS + الدوال + المشغّلات
     - إضافة خيارات `autocorrect: false` و `enableSuggestions: false` و `autofillHints` لحقول تسجيل الدخول وإنشاء الحساب.
     - إضافة اختبارات وحدة شاملة في `test/auth_error_test.dart` للتحقق من ترجمة كافة أخطاء المصادقة والشبكة وقواعد البيانات بدقة.
 
+16. **بناء ورفع الإصدار الجديد `١.٠.٣` (Build 4) على GitHub:**
+    - ترقية رقم الإصدار إلى `1.0.3+4` في `pubspec.yaml` و `AppUpdateService` و `update_config.json`.
+    - بناء وتوقيع حزمة الـ APK المحدثة بنجاح (`releases/mawkib_zahraa_release.apk`) ورفعها إلى مستودع GitHub.
+
 ---
 
 ## ٨. الجودة ومعايير التطوير
