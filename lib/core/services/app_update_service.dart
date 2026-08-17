@@ -36,7 +36,8 @@ class AppUpdateService {
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 8);
-      final req = await client.getUrl(Uri.parse(configUrl));
+      final cacheBusterUrl = '$configUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+      final req = await client.getUrl(Uri.parse(cacheBusterUrl));
       final res = await req.close();
       if (res.statusCode != 200) return null;
       final body = await res.transform(utf8.decoder).join();
