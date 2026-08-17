@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/app_config.dart';
 import '../router/app_router.dart';
 import '../theme/app_colors.dart';
 
@@ -20,7 +21,7 @@ import '../theme/app_colors.dart';
 
 /// رقم الإصدار الحالي داخل التطبيق — يُرفَع مع كل نسخة جديدة.
 /// يجب أن يطابق (أو يزيد) قيمة `version` في update_config.json.
-const int currentAppVersion = 4;
+const int currentAppVersion = AppConfig.appBuildNumber;
 
 /// الإصدار المنشور في ملف `update_config.json` على GitHub.
 /// 0 يعني عدم توفر الملف أو فشل القراءة (لا تحديث).

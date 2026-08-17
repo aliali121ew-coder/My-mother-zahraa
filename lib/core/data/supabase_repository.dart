@@ -89,6 +89,29 @@ class CachedResult<T> {
 
 /// يحوّل رسائل أخطاء Supabase والشبكة إلى عربية مفهومة ودقيقة.
 String arabicError(Object e) {
+  final s = e.toString().toLowerCase();
+
+  // فحص أخطاء الاتصال وانقطاع الإنترنت ومشاكل DNS أولاً
+  if (s.contains('socketexception') ||
+      s.contains('failed host lookup') ||
+      s.contains('no such host') ||
+      s.contains('clientexception') ||
+      s.contains('networkexception') ||
+      s.contains('httpexception') ||
+      s.contains('handshakeexception') ||
+      s.contains('certificate_verify_failed') ||
+      s.contains('connection refused') ||
+      s.contains('connection reset') ||
+      s.contains('connection closed') ||
+      s.contains('connection timed out') ||
+      s.contains('timeoutexception') ||
+      s.contains('errno = 11001') ||
+      s.contains('errno = 7') ||
+      s.contains('failed to connect') ||
+      s.contains('network is unreachable')) {
+    return 'لا يوجد اتصال بالإنترنت أو تعذر الوصول إلى الخادم السحابي';
+  }
+
   if (e is AuthException) {
     final m = e.message.toLowerCase();
     final c = (e.statusCode ?? e.code ?? '').toLowerCase();
@@ -142,7 +165,7 @@ String arabicError(Object e) {
 
     // 6. أخطاء اتصال داخلية
     if (m.contains('network') || m.contains('connection') || m.contains('fetch')) {
-      return 'تعذر الاتصال بالخادم السحابي، يرجى التأكد من اتصال الإنترنت';
+      return 'لا يوجد اتصال بالإنترنت أو تعذر الوصول إلى الخادم السحابي';
     }
 
     return e.message;
@@ -159,20 +182,7 @@ String arabicError(Object e) {
     return 'تعذّر إتمام العملية السحابية، يرجى المحاولة لاحقاً';
   }
 
-  final s = e.toString();
-  if (s.contains('SocketException') ||
-      s.contains('Failed host lookup') ||
-      s.contains('ClientException') ||
-      s.contains('NetworkException') ||
-      s.contains('HttpException') ||
-      s.contains('HandshakeException') ||
-      s.contains('CERTIFICATE_VERIFY_FAILED') ||
-      s.contains('Connection refused') ||
-      s.contains('Permission denied')) {
-    return 'لا يوجد اتصال بالإنترنت أو تعذر الوصول للخادم';
-  }
-  if (s.contains('TimeoutException')) return 'انتهت مهلة الاتصال بالخادم';
-  return 'حدث خطأ أثناء الاتصال بالخادم';
+  return 'حدث خطأ أثناء الاتصال بالخادم، يرجى المحاولة لاحقاً';
 }
 
 /// مفتاح تخزين الإحصائيات المفرد

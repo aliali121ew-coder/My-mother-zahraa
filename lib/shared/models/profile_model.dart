@@ -30,15 +30,17 @@ class ProfileModel {
   bool get isBanned => status == UserStatus.banned;
 
   factory ProfileModel.fromJson(Map<String, dynamic> j, {String? email}) => ProfileModel(
-        id: j['id'] as String,
+        id: j['id']?.toString() ?? '',
         fullName: (j['full_name'] as String?)?.trim().isNotEmpty == true
-            ? j['full_name'] as String
-            : 'مستخدم',
-        email: email ?? j['email'] as String?,
-        phone: j['phone'] as String?,
-        avatarUrl: j['avatar_url'] as String?,
-        role: UserRole.fromValue(j['role'] as String?),
-        status: UserStatus.fromValue(j['status'] as String?),
+            ? (j['full_name'] as String).trim()
+            : (j['name'] as String?)?.trim().isNotEmpty == true
+                ? (j['name'] as String).trim()
+                : 'مستخدم',
+        email: email ?? j['email']?.toString(),
+        phone: j['phone']?.toString(),
+        avatarUrl: j['avatar_url']?.toString(),
+        role: UserRole.fromValue(j['role']?.toString()),
+        status: UserStatus.fromValue(j['status']?.toString()),
         createdAt: _date(j['created_at']),
         updatedAt: _date(j['updated_at']),
       );

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/profile_model.dart';
@@ -106,8 +105,11 @@ class _UserRolesPageState extends ConsumerState<UserRolesPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AutoHidingAppBar(
+      appBar: AppBar(
         title: const Text('الصلاحيات والأدوار'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {

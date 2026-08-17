@@ -262,8 +262,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _Tile(
                 icon: Icons.info_outline_rounded,
-                title: 'موكب أمنا الزهراء',
-                subtitle: 'الإصدار ١.٠.١ (Build 2)',
+                title: AppConfig.appName,
+                subtitle: AppConfig.versionDisplay,
               ),
             ],
           ),

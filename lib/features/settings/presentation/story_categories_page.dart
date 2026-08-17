@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../core/widgets/glass.dart';
 
 /// شاشة إدارة أقسام الستوريز — للمدير لإضافة وتعديل وحذف التصنيفات
@@ -163,8 +162,11 @@ class _StoryCategoriesPageState extends ConsumerState<StoryCategoriesPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AutoHidingAppBar(
+      appBar: AppBar(
         title: const Text('أقسام الستوريز'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
@@ -241,38 +243,40 @@ class _StoryCategoriesPageState extends ConsumerState<StoryCategoriesPage> {
                 final coverUrl = item['cover_url']?.toString();
 
                 return GlassCard(
-                  padding: EdgeInsets.zero,
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppColors.gold.withValues(alpha: 0.2),
-                      backgroundImage: coverUrl != null && coverUrl.isNotEmpty
-                          ? NetworkImage(coverUrl)
-                          : null,
-                      child: coverUrl == null || coverUrl.isEmpty
-                          ? const Icon(Icons.collections_bookmark_rounded,
-                              color: AppColors.goldDark, size: 20)
-                          : null,
-                    ),
-                    title: Text(
-                      item['name']?.toString() ?? 'بلا اسم',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppColors.gold.withValues(alpha: 0.2),
+                        backgroundImage: coverUrl != null && coverUrl.isNotEmpty
+                            ? NetworkImage(coverUrl)
+                            : null,
+                        child: coverUrl == null || coverUrl.isEmpty
+                            ? const Icon(Icons.collections_bookmark_rounded,
+                                color: AppColors.goldDark, size: 20)
+                            : null,
                       ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_rounded, size: 20),
-                          onPressed: () => _showAddEditDialog(item),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item['name']?.toString() ?? 'بلا اسم',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded,
-                              size: 20, color: AppColors.overdue),
-                          onPressed: () => _deleteCategory(item),
-                        ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_rounded, size: 20),
+                        onPressed: () => _showAddEditDialog(item),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded,
+                            size: 20, color: AppColors.overdue),
+                        onPressed: () => _deleteCategory(item),
+                      ),
+                    ],
                   ),
                 );
               },

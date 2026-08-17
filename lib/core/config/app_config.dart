@@ -26,6 +26,11 @@ abstract final class AppConfig {
   static const appName = 'موكب أمنا الزهراء';
   static const currency = 'د.ع';
 
+  /// معلومات الإصدار الموحّدة
+  static const appVersion = '1.0.5';
+  static const appBuildNumber = 6;
+  static String get versionDisplay => 'الإصدار $appVersion (Build $appBuildNumber)';
+
   /// أسماء صناديق Hive المحلية
   static const boxContributors = 'contributors';
   static const boxPayments = 'payments';

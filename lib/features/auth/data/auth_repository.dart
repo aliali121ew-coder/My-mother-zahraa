@@ -42,6 +42,20 @@ class AuthRepository extends SupabaseRepository {
     final isMaster = AppConfig.isMasterAdmin(cleanEmail);
     final uid = res.user?.id ?? user?.id;
 
+    if (uid != null) {
+      try {
+        await db.from('profiles').upsert({
+          'id': uid,
+          'full_name': fullName.trim(),
+          'email': cleanEmail,
+          'phone': phone?.trim(),
+          'role': isMaster ? 'admin' : 'member',
+          'status': isMaster ? 'approved' : 'pending',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {}
+    }
+
     if (isMaster && uid != null) {
       try {
         await db.from('profiles').update({'role': 'admin', 'status': 'approved'}).eq('id', uid);
@@ -319,18 +333,37 @@ class AuthRepository extends SupabaseRepository {
           .from('profiles')
           .select()
           .eq('status', 'pending')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
       final remoteList = (rows as List)
           .map((r) => ProfileModel.fromJson(r as Map<String, dynamic>))
           .toList();
       
-      // دمج المحلي مع السحابي
+      // دمج الذكي بين المحلي والسحابي لضمان عدم ضياع البريد والهاتف
       final merged = <String, ProfileModel>{};
       for (final p in localList) {
         merged[p.id] = p;
       }
       for (final p in remoteList) {
-        merged[p.id] = p;
+        // البحث عن بيانات محلية بنفس المعرف أو بنفس الاسم
+        ProfileModel? local = merged[p.id];
+        if (local == null) {
+          try {
+            local = localList.firstWhere((lp) => lp.fullName.trim() == p.fullName.trim());
+          } catch (_) {}
+        }
+
+        final combinedEmail = (p.email != null && p.email!.isNotEmpty)
+            ? p.email
+            : local?.email;
+        final combinedPhone = (p.phone != null && p.phone!.isNotEmpty)
+            ? p.phone
+            : local?.phone;
+
+        merged[p.id] = p.copyWith(
+          email: combinedEmail,
+          phone: combinedPhone,
+        );
       }
       final result = merged.values.where((p) => p.status == UserStatus.pending).toList();
       await _savePendingLocal(result);
@@ -346,6 +379,7 @@ class AuthRepository extends SupabaseRepository {
         'id': p.id,
         'full_name': p.fullName,
         'phone': p.phone,
+        'email': p.email,
         'avatar_url': p.avatarUrl,
         'role': p.role.name,
         'status': p.status.name,
@@ -358,19 +392,25 @@ class AuthRepository extends SupabaseRepository {
   /// تسجيل طلب حساب معلق جديد
   Future<void> recordPendingRegistration({
     required String fullName,
+    String? id,
     String? phone,
     String? email,
   }) async {
     final current = await fetchPendingProfiles();
+    final reqId = id ?? 'req_${DateTime.now().millisecondsSinceEpoch}';
     final newReq = ProfileModel(
-      id: 'req_${DateTime.now().millisecondsSinceEpoch}',
+      id: reqId,
       fullName: fullName,
-      phone: phone ?? email,
+      phone: phone,
+      email: email,
       role: UserRole.member,
       status: UserStatus.pending,
       createdAt: DateTime.now(),
     );
-    final updated = [newReq, ...current];
+    final updated = [
+      newReq,
+      ...current.where((p) => p.id != reqId && p.fullName != fullName),
+    ];
     await _savePendingLocal(updated);
   }
 
@@ -396,6 +436,7 @@ class AuthRepository extends SupabaseRepository {
             id: 'ban_1',
             fullName: 'أحمد جاسم الكعبي',
             phone: '07712348899',
+            email: 'ahmed@gmail.com',
             role: UserRole.member,
             status: UserStatus.banned,
             createdAt: DateTime.now().subtract(const Duration(days: 3)),
@@ -403,7 +444,8 @@ class AuthRepository extends SupabaseRepository {
           ProfileModel(
             id: 'user_1',
             fullName: 'مدير الموكب',
-            phone: 'admin@mawkib.org',
+            phone: '07700000000',
+            email: 'admin@mawkib.org',
             role: UserRole.admin,
             status: UserStatus.approved,
             createdAt: DateTime.now().subtract(const Duration(days: 30)),
@@ -412,6 +454,7 @@ class AuthRepository extends SupabaseRepository {
             id: 'user_2',
             fullName: 'حسين عادل الخفاجي',
             phone: '07819988776',
+            email: 'hussein@gmail.com',
             role: UserRole.member,
             status: UserStatus.approved,
             createdAt: DateTime.now().subtract(const Duration(days: 10)),
@@ -426,15 +469,60 @@ class AuthRepository extends SupabaseRepository {
       final rows = await db
           .from('profiles')
           .select()
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
       final remoteList = (rows as List)
-          .map((r) => ProfileModel.fromJson(r as Map<String, dynamic>))
+          .map((r) => ProfileModel.fromJson(Map<String, dynamic>.from(r as Map)))
           .toList();
-      await _saveAllProfilesLocal(remoteList);
-      return remoteList;
-    } catch (_) {
-      return localList;
+      
+      // دمج الذكي مع البيانات المحلية لضمان عدم ضياع التعديلات المحلية
+      final merged = <String, ProfileModel>{};
+      for (final p in localList) {
+        merged[p.id] = p;
+      }
+      for (final p in remoteList) {
+        merged[p.id] = p;
+      }
+      final result = merged.values.toList();
+      if (result.isNotEmpty) {
+        await _saveAllProfilesLocal(result);
+        return result;
+      }
+    } catch (_) {}
+
+    if (localList.isEmpty) {
+      localList = [
+        ProfileModel(
+          id: 'ban_1',
+          fullName: 'أحمد جاسم الكعبي',
+          phone: '07712348899',
+          email: 'ahmed@gmail.com',
+          role: UserRole.member,
+          status: UserStatus.banned,
+          createdAt: DateTime.now().subtract(const Duration(days: 3)),
+        ),
+        ProfileModel(
+          id: 'user_1',
+          fullName: 'مدير الموكب',
+          phone: '07700000000',
+          email: 'admin@mawkib.org',
+          role: UserRole.admin,
+          status: UserStatus.approved,
+          createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        ),
+        ProfileModel(
+          id: 'user_2',
+          fullName: 'حسين عادل الخفاجي',
+          phone: '07819988776',
+          email: 'hussein@gmail.com',
+          role: UserRole.member,
+          status: UserStatus.approved,
+          createdAt: DateTime.now().subtract(const Duration(days: 10)),
+        ),
+      ];
+      await _saveAllProfilesLocal(localList);
     }
+    return localList;
   }
 
   Future<void> _saveAllProfilesLocal(List<ProfileModel> list) async {
@@ -454,12 +542,12 @@ class AuthRepository extends SupabaseRepository {
 
   /// تحديث حالة الحساب (موافقة / رفض / حظر / إلغاء حظر)
   Future<void> updateProfileStatus(String uid, UserStatus status) async {
-    // 1. تحديث في قائمة الطلبات المعلقة
+    // 1. تحديث فوري في قائمة الطلبات المعلقة
     final currentPending = await fetchPendingProfiles();
     final updatedPending = currentPending.where((p) => p.id != uid).toList();
     await _savePendingLocal(updatedPending);
 
-    // 2. تحديث في قائمة كل الحسابات (للحظر وفك الحظر)
+    // 2. تحديث فوري في قائمة كل الحسابات (للحظر وفك الحظر)
     final currentAll = await fetchAllProfiles();
     final updatedAll = currentAll.map((p) {
       if (p.id == uid) {
@@ -471,7 +559,11 @@ class AuthRepository extends SupabaseRepository {
 
     if (!isLive) return;
     try {
-      await db.from('profiles').update({'status': status.value}).eq('id', uid);
+      await db
+          .from('profiles')
+          .update({'status': status.value})
+          .eq('id', uid)
+          .timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
@@ -489,41 +581,56 @@ class AuthRepository extends SupabaseRepository {
 
     if (!isLive) return;
     try {
-      await db.from('profiles').update({'role': role.value}).eq('id', uid);
+      await db
+          .from('profiles')
+          .update({'role': role.value})
+          .eq('id', uid)
+          .timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
   /// أقسام الستوريز
   Future<List<Map<String, dynamic>>> fetchStoryCategories() async {
     if (!isLive) return [];
-    final rows = await db
-        .from('story_categories')
-        .select()
-        .order('position', ascending: true);
-    return List<Map<String, dynamic>>.from(rows);
+    try {
+      final rows = await db
+          .from('story_categories')
+          .select()
+          .order('position', ascending: true)
+          .timeout(const Duration(seconds: 3));
+      return List<Map<String, dynamic>>.from(rows);
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> createStoryCategory(String name, String? coverUrl) async {
     if (!isLive) return;
-    await db.from('story_categories').insert({
-      'name': name.trim(),
-      if (coverUrl != null && coverUrl.isNotEmpty) 'cover_url': coverUrl.trim(),
-      'created_by': user?.id,
-    });
+    try {
+      await db.from('story_categories').insert({
+        'name': name.trim(),
+        if (coverUrl != null && coverUrl.isNotEmpty) 'cover_url': coverUrl.trim(),
+        'created_by': user?.id,
+      }).timeout(const Duration(seconds: 3));
+    } catch (_) {}
   }
 
   Future<void> updateStoryCategory(
       String id, String name, String? coverUrl) async {
     if (!isLive) return;
-    await db.from('story_categories').update({
-      'name': name.trim(),
-      'cover_url': coverUrl?.trim(),
-    }).eq('id', id);
+    try {
+      await db.from('story_categories').update({
+        'name': name.trim(),
+        'cover_url': coverUrl?.trim(),
+      }).eq('id', id).timeout(const Duration(seconds: 3));
+    } catch (_) {}
   }
 
   Future<void> deleteStoryCategory(String id) async {
     if (!isLive) return;
-    await db.from('story_categories').delete().eq('id', id);
+    try {
+      await db.from('story_categories').delete().eq('id', id).timeout(const Duration(seconds: 3));
+    } catch (_) {}
   }
 }
 

@@ -57,7 +57,8 @@ class AdminRepository extends SupabaseRepository {
       final rows = await db
           .from('profiles')
           .select()
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
 
       final list = List<Map<String, dynamic>>.from(rows)
           .map(ProfileModel.fromJson)

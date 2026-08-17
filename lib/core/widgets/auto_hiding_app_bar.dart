@@ -32,13 +32,15 @@ class AutoHidingAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress = ref.watch(scrollProgressProvider);
+    final canPop = context.canPop() || Navigator.of(context).canPop();
+    // إذا كانت الصفحة فرعية (تملك زر رجوع) لا يختفي الشريط العلوي أبداً
+    final progress = (canPop || leading != null) ? 0.0 : ref.watch(scrollProgressProvider);
     final opacity = (1.0 - progress * 0.9).clamp(0.1, 1.0);
     final height = preferredSize.height;
     final translateY = -progress * (height + 10);
 
     final Widget? effectiveLeading = leading ??
-        (automaticallyImplyLeading && context.canPop()
+        (automaticallyImplyLeading && canPop
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () {

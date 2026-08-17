@@ -63,7 +63,7 @@ void main() {
     test('يترجم أخطاء الشبكة وانقطاع الإنترنت', () {
       expect(
         arabicError(const SocketException('Failed host lookup: nmpcbyoehmghmietzurs.supabase.co')),
-        'لا يوجد اتصال بالإنترنت أو تعذر الوصول للخادم',
+        'لا يوجد اتصال بالإنترنت أو تعذر الوصول إلى الخادم السحابي',
       );
     });
 

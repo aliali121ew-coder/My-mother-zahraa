@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/biometric_service.dart';
+import '../../../core/storage/hive_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
@@ -49,6 +51,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
   bool _obscureRegisterConfirmPassword = true;
   bool _busy = false;
 
+  // تذكر البيانات وتسجيل الدخول بالبصمة
+  bool _rememberMe = true;
+
   // قوة كلمة المرور ومطابقتها
   double _passwordStrength = 0.0;
   String _passwordStrengthText = '';
@@ -66,6 +71,25 @@ class _AuthPageState extends ConsumerState<AuthPage>
 
     _registerPasswordController.addListener(_calculatePasswordStrength);
     _registerConfirmPasswordController.addListener(_checkPasswordMatch);
+    _loadSavedCredentials();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final remember = HiveService.instance.settings.get('remember_login_credentials', defaultValue: true) as bool;
+    final savedEmail = HiveService.instance.settings.get('saved_login_email') as String?;
+    final savedPassword = HiveService.instance.settings.get('saved_login_password') as String?;
+
+    if (mounted) {
+      setState(() {
+        _rememberMe = remember;
+        if (savedEmail != null && savedEmail.isNotEmpty) {
+          _loginEmailController.text = savedEmail;
+        }
+        if (savedPassword != null && savedPassword.isNotEmpty) {
+          _loginPasswordController.text = savedPassword;
+        }
+      });
+    }
   }
 
   @override
@@ -420,27 +444,65 @@ class _AuthPageState extends ConsumerState<AuthPage>
               },
             ),
 
-            // نسيت كلمة المرور
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton(
-                onPressed: _showForgotPasswordDialog,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: Text(
-                  'نسيت كلمة المرور؟',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+            // سطر تذكر بيانات تسجيل الدخول و نسيت كلمة المرور
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // تذكر بيانات تسجيل الدخول
+                InkWell(
+                  onTap: () => setState(() => _rememberMe = !_rememberMe),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Checkbox(
+                            value: _rememberMe,
+                            activeColor: AppColors.gold,
+                            checkColor: Colors.black87,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            onChanged: (v) => setState(() => _rememberMe = v ?? true),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'تذكر بيانات الدخول',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.textOnDarkMuted : AppColors.textOnLightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+
+                // نسيت كلمة المرور
+                TextButton(
+                  onPressed: _showForgotPasswordDialog,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(
+                    'نسيت كلمة المرور؟',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppColors.goldBright : AppColors.greenDeep,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
             // زر تسجيل الدخول الرئيسي
             _buildSubmitButton(
@@ -448,6 +510,73 @@ class _AuthPageState extends ConsumerState<AuthPage>
               icon: Icons.login_rounded,
               onPressed: _busy ? null : _handleSignIn,
               isDark: isDark,
+            ),
+
+            // زر تسجيل الدخول السريع بالبصمة (ظاهر دائماً بتصميم زمردي وذهبي جذاب)
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [
+                          const Color(0xFF1A4731),
+                          const Color(0xFF0D291C),
+                        ]
+                      : [
+                          Colors.white,
+                          const Color(0xFFE8F5EE),
+                        ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.gold.withValues(alpha: isDark ? 0.45 : 0.65),
+                  width: 1.3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark ? Colors.black26 : const Color(0xFF0F3824).withValues(alpha: 0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _busy ? null : _handleBiometricLogin,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fingerprint_rounded,
+                          size: 24,
+                          color: AppColors.goldBright,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'تسجيل الدخول السريع بالبصمة',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppColors.goldBright : const Color(0xFF144D30),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -1117,6 +1246,19 @@ class _AuthPageState extends ConsumerState<AuthPage>
       return;
     }
 
+    // حفظ أو مسح بيانات تسجيل الدخول في المخزن المحلي المشفر بحسب اختيار المستخدم
+    try {
+      if (_rememberMe) {
+        await HiveService.instance.settings.put('saved_login_email', email);
+        await HiveService.instance.settings.put('saved_login_password', _loginPasswordController.text);
+        await HiveService.instance.settings.put('remember_login_credentials', true);
+      } else {
+        await HiveService.instance.settings.delete('saved_login_email');
+        await HiveService.instance.settings.delete('saved_login_password');
+        await HiveService.instance.settings.put('remember_login_credentials', false);
+      }
+    } catch (_) {}
+
     ref.read(loginAuditProvider.notifier).recordLogin(
           accountName: isMaster ? 'مدير النظام (البريد الأساسي)' : (session.profile?.fullName ?? 'مستخدم موثق'),
           emailOrPhone: email,
@@ -1125,10 +1267,41 @@ class _AuthPageState extends ConsumerState<AuthPage>
           deviceInfo: 'تسجيل دخول موثق',
         );
 
+    if (!mounted) return;
     _snack(isMaster
         ? 'أهلاً بك يا مدير النظام، تم تسجيل الدخول بصلاحيات كاملة'
         : 'أهلاً بك، تم تسجيل الدخول بنجاح');
     context.go('/home');
+  }
+
+  /// معالجة تسجيل الدخول السريع بالبصمة
+  Future<void> _handleBiometricLogin() async {
+    var email = _loginEmailController.text.trim();
+    var pass = _loginPasswordController.text;
+
+    // 1. استرجاع البيانات المحفوظة إذا كانت الحقول فارغة
+    if (email.isEmpty || pass.isEmpty) {
+      final savedEmail = HiveService.instance.settings.get('saved_login_email')?.toString();
+      final savedPassword = HiveService.instance.settings.get('saved_login_password')?.toString();
+      if (savedEmail?.isNotEmpty == true && savedPassword?.isNotEmpty == true) {
+        email = savedEmail!;
+        pass = savedPassword!;
+        _loginEmailController.text = email;
+        _loginPasswordController.text = pass;
+      }
+    }
+
+    if (email.isEmpty || pass.isEmpty) {
+      _snack('يرجى كتابة البريد وكلمة المرور وحفظهما مرة واحدة لتمكين الدخول التلقائي بالبصمة', isError: true);
+      return;
+    }
+
+    final authenticated = await BiometricService.instance.authenticate('يرجى تأكيد البصمة للدخول السريع');
+    if (authenticated && mounted) {
+      // تعيين تذكر البيانات تلقائياً للدخول السريع
+      _rememberMe = true;
+      await _handleSignIn();
+    }
   }
 
   Future<void> _handleSignUp() async {
@@ -1164,7 +1337,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
     if (!isMaster) {
       // تسجيل الطلب المعلق للمستخدمين العاديين
       final repo = ref.read(authRepositoryProvider);
+      final currentUid = ref.read(sessionProvider).profile?.id;
       await repo.recordPendingRegistration(
+        id: currentUid,
         fullName: fullName,
         phone: phone,
         email: email,
