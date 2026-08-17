@@ -228,9 +228,12 @@ supabase/schema.sql   الجداول + RLS + الدوال + المشغّلات
 13. **إصلاح طفح النص في نافذة البريد الأساسي لمدير النظام (`Master Admin Dialog Overflow Fix`):**
     - تغليف عنوان النافذة بـ `Expanded` مع حماية `TextOverflow.ellipsis`، وتحديد سعة العرض القصوى بـ `ConstrainedBox` وتنسيق البطاقة التوضيحية لضمان الاستجابة التامة على كافة مقاسات الشاشات.
 
-14. **إطلاق وبناء الإصدار الجديد `١.٠.٢` (Build 3) وتجهيز حزمة التحديث التلقائي:**
-    - ترقية رقم الإصدار إلى `1.0.2+3` في `pubspec.yaml` و `AppUpdateService` و `update_config.json`.
-    - بناء وتوقيع ملف الـ APK المشفّر والمحمي بنجاح (`releases/mawkib_zahraa_release.apk` بحجم 45.4 ميغابايت) لتمكين التحديث التلقائي لكافة الأجهزة المثبت عليها التطبيق.
+15. **إصلاح تسجيل الدخول على الهواتف وتصحيح معالجة وترجمة أخطاء المصادقة (`Mobile Auth & Error Handling Fix`):**
+    - إضافة أذونات الإنترنت وحالة الشبكة (`android.permission.INTERNET` و `android.permission.ACCESS_NETWORK_STATE`) في ملف `android/app/src/main/AndroidManifest.xml` لتمكين تطبيقات الهواتف من الاتصال بسحابة Supabase في وضع الـ Release.
+    - إعادة بناء دالة `arabicError()` في `supabase_repository.dart` لتشمل كافة رموز وحالات خطأ Supabase (`invalid_credentials`, `invalid_grant`, `user_not_found`, إلخ) وترجمتها بدقة إلى «البريد الإلكتروني أو كلمة المرور غير صحيحة»، ومنع وقوعها في شرط «كلمة المرور ضعيفة» الذي كان يظهر خطأً للمستخدمين.
+    - توحيد تهذيب وتصغير أحرف البريد الإلكتروني (`.trim().toLowerCase()`) في `signUp` و `signIn` و `resetPassword` لتفادي تعارض لوحات مفاتيح الهواتف التي تقوم بتكبير أول حرف تلقائياً.
+    - إضافة خيارات `autocorrect: false` و `enableSuggestions: false` و `autofillHints` لحقول تسجيل الدخول وإنشاء الحساب.
+    - إضافة اختبارات وحدة شاملة في `test/auth_error_test.dart` للتحقق من ترجمة كافة أخطاء المصادقة والشبكة وقواعد البيانات بدقة.
 
 ---
 

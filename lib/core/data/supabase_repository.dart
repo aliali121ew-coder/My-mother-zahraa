@@ -87,21 +87,67 @@ class CachedResult<T> {
   bool get isStale => fromCache;
 }
 
-/// يحوّل رسائل أخطاء Supabase إلى عربية مفهومة.
+/// يحوّل رسائل أخطاء Supabase والشبكة إلى عربية مفهومة ودقيقة.
 String arabicError(Object e) {
   if (e is AuthException) {
     final m = e.message.toLowerCase();
-    if (m.contains('invalid login')) return 'البريد أو كلمة المرور غير صحيحة';
-    if (m.contains('email not confirmed')) return 'يجب تأكيد البريد الإلكتروني أولاً';
-    if (m.contains('already registered') || m.contains('already been registered')) {
-      return 'هذا البريد مسجّل مسبقاً';
+    final c = (e.statusCode ?? e.code ?? '').toLowerCase();
+
+    // 1. أخطاء عدم تطابق بيانات الدخول (البريد أو كلمة المرور غير صحيحة)
+    if (c == 'invalid_credentials' ||
+        c == 'invalid_grant' ||
+        c == 'user_not_found' ||
+        m.contains('invalid login') ||
+        m.contains('invalid credential') ||
+        m.contains('invalid_credentials') ||
+        m.contains('invalid email or password') ||
+        m.contains('invalid grant') ||
+        m.contains('invalid password') ||
+        m.contains('wrong password') ||
+        m.contains('user not found')) {
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
     }
-    if (m.contains('password')) return 'كلمة المرور ضعيفة — ٦ أحرف على الأقل';
-    if (m.contains('rate limit') || m.contains('too many')) {
-      return 'محاولات كثيرة — انتظر قليلاً وأعد المحاولة';
+
+    // 2. تأكيد البريد الإلكتروني
+    if (m.contains('email not confirmed') || c == 'email_not_confirmed') {
+      return 'يجب تأكيد البريد الإلكتروني أولاً عبر الرابط المرسل لبريدك';
     }
+
+    // 3. الحساب مسجل مسبقاً
+    if (m.contains('already registered') ||
+        m.contains('already been registered') ||
+        m.contains('user already exists') ||
+        c == 'user_already_exists') {
+      return 'هذا البريد الإلكتروني مسجّل مسبقاً';
+    }
+
+    // 4. كلمة المرور ضعيفة (فقط عند إنشاء حساب أو تغيير كلمة المرور بكلمة قصيرة)
+    if (c == 'weak_password' ||
+        m.contains('weak password') ||
+        m.contains('should be at least') ||
+        m.contains('is too short') ||
+        m.contains('signup requires a valid password') ||
+        m.contains('password should be') ||
+        m.contains('password must be')) {
+      return 'كلمة المرور ضعيفة — ٦ أحرف على الأقل';
+    }
+
+    // 5. تجاوز معدل الطلبات
+    if (m.contains('rate limit') ||
+        m.contains('too many') ||
+        c == 'over_request_rate_limit' ||
+        c.contains('rate_limit')) {
+      return 'محاولات كثيرة — يرجى الانتظار قليلاً وإعادة المحاولة';
+    }
+
+    // 6. أخطاء اتصال داخلية
+    if (m.contains('network') || m.contains('connection') || m.contains('fetch')) {
+      return 'تعذر الاتصال بالخادم السحابي، يرجى التأكد من اتصال الإنترنت';
+    }
+
     return e.message;
   }
+
   if (e is PostgrestException) {
     // 42501 = رفض من سياسة RLS
     if (e.code == '42501' || e.message.contains('permission denied')) {
@@ -112,14 +158,21 @@ String arabicError(Object e) {
     if (e.code == '23503') return 'تعذّر إتمام الإجراء لارتباط هذا السجل ببيانات أخرى';
     return 'تعذّر إتمام العملية السحابية، يرجى المحاولة لاحقاً';
   }
+
   final s = e.toString();
   if (s.contains('SocketException') ||
       s.contains('Failed host lookup') ||
-      s.contains('ClientException')) {
-    return 'لا يوجد اتصال بالإنترنت';
+      s.contains('ClientException') ||
+      s.contains('NetworkException') ||
+      s.contains('HttpException') ||
+      s.contains('HandshakeException') ||
+      s.contains('CERTIFICATE_VERIFY_FAILED') ||
+      s.contains('Connection refused') ||
+      s.contains('Permission denied')) {
+    return 'لا يوجد اتصال بالإنترنت أو تعذر الوصول للخادم';
   }
-  if (s.contains('TimeoutException')) return 'انتهت مهلة الاتصال';
-  return 'حدث خطأ غير متوقّع';
+  if (s.contains('TimeoutException')) return 'انتهت مهلة الاتصال بالخادم';
+  return 'حدث خطأ أثناء الاتصال بالخادم';
 }
 
 /// مفتاح تخزين الإحصائيات المفرد

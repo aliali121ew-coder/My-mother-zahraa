@@ -331,6 +331,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _loginEmailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const [AutofillHints.email],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -371,6 +374,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _loginPasswordController,
               obscureText: _obscureLoginPassword,
               textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const [AutofillHints.password],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -591,6 +597,7 @@ class _AuthPageState extends ConsumerState<AuthPage>
             TextFormField(
               controller: _registerNameController,
               textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.name],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -615,6 +622,7 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _registerPhoneController,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.telephoneNumber],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -639,6 +647,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _registerEmailController,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const [AutofillHints.email],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -662,6 +673,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _registerPasswordController,
               obscureText: _obscureRegisterPassword,
               textInputAction: TextInputAction.next,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const [AutofillHints.newPassword],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,
@@ -734,6 +748,9 @@ class _AuthPageState extends ConsumerState<AuthPage>
               controller: _registerConfirmPasswordController,
               obscureText: _obscureRegisterConfirmPassword,
               textInputAction: TextInputAction.done,
+              autocorrect: false,
+              enableSuggestions: false,
+              autofillHints: const [AutofillHints.newPassword],
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? Colors.white : Colors.black87,

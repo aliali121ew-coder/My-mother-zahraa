@@ -20,7 +20,7 @@ import '../theme/app_colors.dart';
 
 /// رقم الإصدار الحالي داخل التطبيق — يُرفَع مع كل نسخة جديدة.
 /// يجب أن يطابق (أو يزيد) قيمة `version` في update_config.json.
-const int currentAppVersion = 3;
+const int currentAppVersion = 4;
 
 /// الإصدار المنشور في ملف `update_config.json` على GitHub.
 /// 0 يعني عدم توفر الملف أو فشل القراءة (لا تحديث).

@@ -30,7 +30,7 @@ class AuthRepository extends SupabaseRepository {
     required String fullName,
     String? phone,
   }) async {
-    final cleanEmail = email.trim();
+    final cleanEmail = email.trim().toLowerCase();
     final res = await db.auth.signUp(
       email: cleanEmail,
       password: password,
@@ -75,7 +75,7 @@ class AuthRepository extends SupabaseRepository {
     required String email,
     required String password,
   }) async {
-    final cleanEmail = email.trim();
+    final cleanEmail = email.trim().toLowerCase();
     final res = await db.auth.signInWithPassword(
       email: cleanEmail,
       password: password,
@@ -124,7 +124,7 @@ class AuthRepository extends SupabaseRepository {
   }
 
   Future<void> resetPassword(String email) =>
-      db.auth.resetPasswordForEmail(email.trim());
+      db.auth.resetPasswordForEmail(email.trim().toLowerCase());
 
   Future<void> changePassword(String newPassword) =>
       db.auth.updateUser(UserAttributes(password: newPassword));
