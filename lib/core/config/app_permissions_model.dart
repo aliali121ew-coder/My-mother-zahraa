@@ -6,6 +6,7 @@ class AppPermissionsModel {
     this.canAddSubscriber = false,
     this.canAddDonor = false,
     this.canAddSupporter = false,
+    this.canAddPurchase = false,
     this.canShowSubscriberNames = true,
     this.canShowDonorNames = true,
     this.canShowSupporterNames = true,
@@ -27,6 +28,7 @@ class AppPermissionsModel {
   final bool canAddSubscriber;
   final bool canAddDonor;
   final bool canAddSupporter;
+  final bool canAddPurchase;
 
   // عرض الأسماء (افتراضياً متاح لكل من سجّل)
   final bool canShowSubscriberNames;
@@ -51,6 +53,7 @@ class AppPermissionsModel {
     bool? canAddSubscriber,
     bool? canAddDonor,
     bool? canAddSupporter,
+    bool? canAddPurchase,
     bool? canShowSubscriberNames,
     bool? canShowDonorNames,
     bool? canShowSupporterNames,
@@ -71,6 +74,7 @@ class AppPermissionsModel {
       canAddSubscriber: canAddSubscriber ?? this.canAddSubscriber,
       canAddDonor: canAddDonor ?? this.canAddDonor,
       canAddSupporter: canAddSupporter ?? this.canAddSupporter,
+      canAddPurchase: canAddPurchase ?? this.canAddPurchase,
       canShowSubscriberNames:
           canShowSubscriberNames ?? this.canShowSubscriberNames,
       canShowDonorNames: canShowDonorNames ?? this.canShowDonorNames,
@@ -101,6 +105,7 @@ class AppPermissionsModel {
       'canAddSubscriber': canAddSubscriber,
       'canAddDonor': canAddDonor,
       'canAddSupporter': canAddSupporter,
+      'canAddPurchase': canAddPurchase,
       'canShowSubscriberNames': canShowSubscriberNames,
       'canShowDonorNames': canShowDonorNames,
       'canShowSupporterNames': canShowSupporterNames,
@@ -124,6 +129,7 @@ class AppPermissionsModel {
       canAddSubscriber: map['canAddSubscriber'] as bool? ?? false,
       canAddDonor: map['canAddDonor'] as bool? ?? false,
       canAddSupporter: map['canAddSupporter'] as bool? ?? false,
+      canAddPurchase: map['canAddPurchase'] as bool? ?? false,
       canShowSubscriberNames: map['canShowSubscriberNames'] as bool? ?? true,
       canShowDonorNames: map['canShowDonorNames'] as bool? ?? true,
       canShowSupporterNames: map['canShowSupporterNames'] as bool? ?? true,

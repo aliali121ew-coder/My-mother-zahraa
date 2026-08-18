@@ -27,8 +27,8 @@ abstract final class AppConfig {
   static const currency = 'د.ع';
 
   /// معلومات الإصدار الموحّدة
-  static const appVersion = '1.2.0';
-  static const appBuildNumber = 10;
+  static const appVersion = '1.2.1';
+  static const appBuildNumber = 11;
   static String get versionDisplay => 'الإصدار $appVersion (Build $appBuildNumber)';
 
   /// أسماء صناديق Hive المحلية

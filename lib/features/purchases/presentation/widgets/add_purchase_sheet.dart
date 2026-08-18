@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/thousands_formatter.dart';
@@ -53,6 +54,16 @@ class _AddPurchaseSheetState extends ConsumerState<AddPurchaseSheet> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // فحص الصلاحية عند الحفظ — تسجيل الشراء مخصص لمدير النظام فقط
+    final session = ref.read(sessionProvider);
+    final permissions = ref.read(appPermissionsProvider);
+    final isAllowed = session.isAdmin || permissions.canAddPurchase;
+
+    if (!isAllowed) {
+      _showAdminOnlyDialog(context);
+      return;
+    }
     
     setState(() => _isLoading = true);
     try {
@@ -336,6 +347,100 @@ class _AddPurchaseSheetState extends ConsumerState<AddPurchaseSheet> {
           errorBorder: InputBorder.none,
         ),
         validator: validator,
+      ),
+    );
+  }
+
+  void _showAdminOnlyDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF131A15) : Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppColors.gold.withValues(alpha: isDark ? 0.6 : 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.45),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings_rounded,
+                  color: AppColors.gold,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'تنبيه الصلاحيات',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.gold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'تسجيل المشتريات والمصروفات مخصص لمدير النظام فقط.\nلا يمكنك إتمام العملية أو خصم مبالغ من الخزنة دون الحصول على إذن من إدارة الموكب.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  height: 1.5,
+                  color: isDark ? Colors.white70 : const Color(0xFF334438),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.greenAbyss,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'فهمت ذلك',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

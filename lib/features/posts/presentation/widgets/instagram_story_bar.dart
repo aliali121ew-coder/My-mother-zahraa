@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/models/enums.dart';
 import '../../data/stories_repository.dart';
 import '../../domain/post_model.dart';
 
@@ -65,6 +66,13 @@ class _AddStoryItemState extends ConsumerState<_AddStoryItem> {
 
   Future<void> _pickAndUploadStory() async {
     final session = ref.read(sessionProvider);
+    final isPublisherOrAdmin =
+        session.isAdmin || session.profile?.role == UserRole.publisher;
+
+    if (!isPublisherOrAdmin) {
+      _showStoryAdminPublisherOnlyDialog(context);
+      return;
+    }
 
     try {
       final picker = ImagePicker();
@@ -138,11 +146,107 @@ class _AddStoryItemState extends ConsumerState<_AddStoryItem> {
     }
   }
 
+  void _showStoryAdminPublisherOnlyDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF131A15) : Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: AppColors.gold.withValues(alpha: isDark ? 0.6 : 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.45),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.campaign_rounded,
+                  color: AppColors.gold,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'تنبيه الصلاحيات',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.gold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'نشر القصص اليومية والتغطيات (الستوري) مخصص لمدير النظام والناشر المعتمد فقط.\nإذا كنت ترغب في نشر تغطية للموكب، يرجى التواصل مع إدارة الموكب لتعيينك كناشر.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  height: 1.5,
+                  color: isDark ? Colors.white70 : const Color(0xFF334438),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.greenAbyss,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'فهمت ذلك',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final session = ref.watch(sessionProvider);
+    final isPublisherOrAdmin =
+        session.isAdmin || session.profile?.role == UserRole.publisher;
     final userAvatar = session.profile?.avatarUrl;
     final hasStories = widget.existingStory != null &&
         widget.existingStory!.items.isNotEmpty;
@@ -156,8 +260,10 @@ class _AddStoryItemState extends ConsumerState<_AddStoryItem> {
               .read(storiesProvider.notifier)
               .markAsViewed(widget.existingStory!.id);
           _StoryViewerModal.show(context, widget.existingStory!);
-        } else {
+        } else if (isPublisherOrAdmin) {
           _pickAndUploadStory();
+        } else {
+          _showStoryAdminPublisherOnlyDialog(context);
         }
       },
       child: Column(
@@ -226,29 +332,30 @@ class _AddStoryItemState extends ConsumerState<_AddStoryItem> {
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: _isUploading ? null : _pickAndUploadStory,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: AppColors.gold,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+              if (isPublisherOrAdmin)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: _isUploading ? null : _pickAndUploadStory,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: AppColors.gold,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 4,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.add_rounded,
+                          color: Colors.white, size: 14),
                     ),
-                    child: const Icon(Icons.add_rounded,
-                        color: Colors.white, size: 14),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 5),
