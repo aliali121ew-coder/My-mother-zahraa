@@ -20,6 +20,9 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- إذن تثبيت التحديثات وحزم APK تلقائياً من داخل التطبيق -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
     <application
         android:label="موكب أمنا الزهراء"
         android:name="${applicationName}"

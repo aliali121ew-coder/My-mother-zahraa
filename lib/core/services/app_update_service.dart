@@ -163,24 +163,27 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
       await _installApk(bytes);
     } catch (e) {
       if (!mounted) return;
-      try {
-        final uri = Uri.parse(widget.apkUrl);
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } catch (_) {}
       setState(() {
         _downloading = false;
-        _statusText = 'تم فتح رابط التحميل المباشر';
+        _statusText = 'تعذر التنزيل التلقائي — يمكنك الفتح عبر المتصفح';
+        _error = 'حدث خطأ أثناء التنزيل. يرجى الضغط على زر التحميل المباشر أدناه.';
       });
     }
   }
 
+  Future<void> _openInBrowser() async {
+    try {
+      final uri = Uri.parse(widget.apkUrl);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
   Future<void> _installApk([List<int>? newBytes]) async {
     try {
-      final dir = await getExternalStorageDirectory() ??
-          await getApplicationDocumentsDirectory();
+      final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/mawkib-zahraa-update.apk');
       if (newBytes != null && newBytes.isNotEmpty) {
-        await file.writeAsBytes(newBytes);
+        await file.writeAsBytes(newBytes, flush: true);
       }
       if (await file.exists()) {
         final res = await OpenFilex.open(
@@ -188,16 +191,31 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
           type: 'application/vnd.android.package-archive',
         );
         if (res.type != ResultType.done) {
-          final uri = Uri.parse(widget.apkUrl);
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (mounted) {
+            setState(() {
+              _statusText = 'يرجى تأكيد التثبيت أو الفتح عبر المتصفح';
+              _error = 'إذا لم تظهر شاشة التثبيت تلقائياً، اضغط على زر التحميل عبر المتصفح أدناه.';
+            });
+          }
+          await _openInBrowser();
+        } else {
+          if (mounted) {
+            setState(() {
+              _statusText = 'تم فتح مثبت التطبيقات — يرجى تأكيد التثبيت';
+            });
+          }
         }
       } else {
-        final uri = Uri.parse(widget.apkUrl);
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await _openInBrowser();
       }
     } catch (_) {
-      final uri = Uri.parse(widget.apkUrl);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (mounted) {
+        setState(() {
+          _statusText = 'تعذر فتح المثبت مباشرة';
+          _error = 'يرجى الضغط على زر التحميل المباشر عبر المتصفح لتثبيت التحديث.';
+        });
+      }
+      await _openInBrowser();
     }
   }
 
@@ -225,7 +243,7 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
                 border: Border.all(color: AppColors.gold, width: 1.6),
                 color: AppColors.gold.withValues(alpha: 0.12),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.system_update_rounded,
                 color: AppColors.gold,
                 size: 32,
@@ -298,13 +316,16 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
                     child: CircularProgressIndicator(strokeWidth: 1.8),
                   ),
                 if (_downloading) const SizedBox(width: 6),
-                Text(
-                  _statusText,
-                  style: TextStyle(
-                    color: isDark
-                        ? AppColors.textOnDarkMuted
-                        : AppColors.textOnLightMuted,
-                    fontSize: 12,
+                Flexible(
+                  child: Text(
+                    _statusText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.textOnDarkMuted
+                          : AppColors.textOnLightMuted,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -333,7 +354,7 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
               ),
             if (_error != null) const SizedBox(height: 14),
 
-            // زر التحديث وإعادة التشغيل
+            // زر التثبيت الأساسي
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -352,10 +373,10 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
                     ? const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.restart_alt_rounded, size: 22),
+                          Icon(Icons.download_done_rounded, size: 22),
                           SizedBox(width: 8),
                           Text(
-                            'تثبيت وإعادة التشغيل الآن 🔄',
+                            'تثبيت التحديث الآن 🚀',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -372,6 +393,31 @@ class _UpdateDialogShellState extends State<_UpdateDialogShell> {
                       ),
               ),
             ),
+            if (_downloaded || _error != null) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: _openInBrowser,
+                  icon: const Icon(Icons.open_in_browser_rounded, size: 18, color: AppColors.gold),
+                  label: const Text(
+                    'تحميل مباشر عبر المتصفح 🌐',
+                    style: TextStyle(
+                      color: AppColors.goldBright,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.gold.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
