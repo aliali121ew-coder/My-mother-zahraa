@@ -17,6 +17,7 @@ import '../../shared/models/enums.dart';
 import '../../shared/models/profile_model.dart';
 import '../../shared/models/stats_snapshot.dart';
 import '../config/app_config.dart';
+import '../config/app_permissions_model.dart';
 import '../data/supabase_repository.dart';
 import '../storage/hive_service.dart';
 import '../storage/settings_store.dart';
@@ -47,7 +48,31 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
 
+// ── صلاحيات التطبيق الديناميكية ──────────────────────────────
+
+class AppPermissionsNotifier extends Notifier<AppPermissionsModel> {
+  @override
+  AppPermissionsModel build() => SettingsStore.instance.appPermissions;
+
+  Future<void> update(AppPermissionsModel permissions) async {
+    state = permissions;
+    await SettingsStore.instance.setAppPermissions(permissions);
+  }
+
+  Future<void> toggleKey(String key, bool value) async {
+    final currentMap = state.toMap();
+    currentMap[key] = value;
+    final updated = AppPermissionsModel.fromMap(currentMap);
+    await update(updated);
+  }
+}
+
+final appPermissionsProvider =
+    NotifierProvider<AppPermissionsNotifier, AppPermissionsModel>(
+        AppPermissionsNotifier.new);
+
 // ── الجلسة ───────────────────────────────────────────────────
+
 
 /// جلسة المستخدم الحالية.
 ///

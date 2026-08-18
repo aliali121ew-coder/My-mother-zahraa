@@ -172,13 +172,18 @@ String arabicError(Object e) {
   }
 
   if (e is PostgrestException) {
-    // 42501 = رفض من سياسة RLS
-    if (e.code == '42501' || e.message.contains('permission denied')) {
-      return 'ليست لديك صلاحية كافية — تأكّد أن حسابك معتمد بالدور المناسب';
+    final lowerMsg = e.message.toLowerCase();
+    // 42501 أو انتهاك سياسة RLS
+    if (e.code == '42501' ||
+        lowerMsg.contains('permission denied') ||
+        lowerMsg.contains('row-level security') ||
+        lowerMsg.contains('violates row-level security')) {
+      return 'حسابك الحالي لا يملك صلاحية مدير في السيرفر (RLS) — تأكد من تفعيل دور admin في جدول profiles';
     }
-    if (e.code == 'PGRST116') return 'لا توجد بيانات مطابقة';
+    if (e.code == 'PGRST116') return 'لا توجد بيانات مطابقة في السيرفر';
     if (e.code == '23505') return 'هذا السجل مسجّل مسبقاً ولا يمكن تكراره';
     if (e.code == '23503') return 'تعذّر إتمام الإجراء لارتباط هذا السجل ببيانات أخرى';
+    if (e.message.isNotEmpty) return 'خطأ قاعدة البيانات: ${e.message}';
     return 'تعذّر إتمام العملية السحابية، يرجى المحاولة لاحقاً';
   }
 

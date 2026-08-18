@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/app_permissions_model.dart';
 import 'hive_service.dart';
 
 /// الإعدادات المحلية البسيطة: الثيم وقفل البصمة.
@@ -53,6 +54,21 @@ class SettingsStore {
   Future<void> clearLastLoginTime() =>
       HiveService.instance.settings.delete(_kLastLoginTime);
 
+  static const _kAppPermissions = 'app_permissions_config';
+
+  AppPermissionsModel get appPermissions {
+    final raw = HiveService.instance.settings.get(_kAppPermissions) as String?;
+    if (raw == null || raw.isEmpty) return const AppPermissionsModel();
+    try {
+      return AppPermissionsModel.fromJson(raw);
+    } catch (_) {
+      return const AppPermissionsModel();
+    }
+  }
+
+  Future<void> setAppPermissions(AppPermissionsModel permissions) =>
+      HiveService.instance.settings.put(_kAppPermissions, permissions.toJson());
+
   /// هل انتهت صلاحية الجلسة (أكثر من 72 ساعة)؟
   bool get isSessionExpired {
     final t = lastLoginTime;
@@ -60,3 +76,4 @@ class SettingsStore {
     return DateTime.now().difference(t).inHours >= 72;
   }
 }
+

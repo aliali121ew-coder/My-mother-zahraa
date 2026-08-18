@@ -138,6 +138,21 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       return;
     }
 
+    // فحص الصلاحية عند الحفظ — إن لم تكن الصلاحية مفعّلة تظهر نافذة تنبيه مخصصة لمدير النظام فقط
+    final session = ref.read(sessionProvider);
+    final permissions = ref.read(appPermissionsProvider);
+    final isAllowed = session.isAdmin ||
+        switch (widget.mode) {
+          ContributorType.subscriber => permissions.canAddSubscriber,
+          ContributorType.donor => permissions.canAddDonor,
+          ContributorType.inKind => permissions.canAddSupporter,
+        };
+
+    if (!isAllowed) {
+      _showAdminOnlyDialog(context);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -962,4 +977,90 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
       ),
     );
   }
+
+  void _showAdminOnlyDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF141D17) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: const BorderSide(color: AppColors.gold, width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(22, 24, 22, 16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.45),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings_rounded,
+                  color: AppColors.gold,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'تنبيه الصلاحيات',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.gold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'هذه الصلاحية مخصصة لمدير النظام فقط.\nلا يمكنك إتمام عملية الحفظ أو الإضافة دون الحصول على إذن من إدارة الموكب.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13,
+                  height: 1.5,
+                  color: isDark ? Colors.white70 : const Color(0xFF334438),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.greenAbyss,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'فهمت ذلك',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+

@@ -217,6 +217,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _Tile(
                   icon: Icons.admin_panel_settings_outlined,
                   title: 'الصلاحيات والأدوار',
+                  subtitle: 'إدارة صلاحيات المنظومة ورتب المستخدمين',
                   onTap: () => context.go('/settings/roles'),
                 ),
                 _Tile(

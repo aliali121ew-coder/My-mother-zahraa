@@ -7,7 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass.dart';
-import '../../../shared/models/permissions.dart';
+import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/contributor_tile.dart';
 import '../../../shared/widgets/mawkib_logo.dart';
 import '../../../shared/widgets/stat_cards.dart';
@@ -264,12 +264,26 @@ class HomePage extends ConsumerWidget {
                   sliver: SliverList.separated(
                     itemCount: top.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => ContributorTile(
-                      contributor: top[i],
-                      rank: i + 1,
-                      hideName: !session.role.canSeeNames,
-                      showTypeBadge: true,
-                    ),
+                    itemBuilder: (context, i) {
+                      final item = top[i];
+                      final permissions = ref.watch(appPermissionsProvider);
+                      final canSeeItemName = session.isAdmin ||
+                          switch (item.type) {
+                            ContributorType.subscriber =>
+                              permissions.canShowSubscriberNames,
+                            ContributorType.donor =>
+                              permissions.canShowDonorNames,
+                            ContributorType.inKind =>
+                              permissions.canShowSupporterNames,
+                          };
+
+                      return ContributorTile(
+                        contributor: item,
+                        rank: i + 1,
+                        hideName: !canSeeItemName,
+                        showTypeBadge: true,
+                      );
+                    },
                   ),
                 );
               },

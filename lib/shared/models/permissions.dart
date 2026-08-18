@@ -15,8 +15,8 @@ extension RolePermissions on UserRole {
   /// عرض وطباعة التقارير بالأسماء — المدير والمسؤول المالي
   bool get canViewReports => this == UserRole.admin || this == UserRole.finance;
 
-  /// رؤية أسماء المساهمين في القوائم — العضو لا يرى أسماء
-  bool get canSeeNames => this == UserRole.admin || this == UserRole.finance;
+  /// رؤية أسماء المساهمين في القوائم — متاح لكافة الأدوار المسجلة
+  bool get canSeeNames => true;
 
   /// النشر في المنشورات ورفع الستوريز
   bool get canPublish => this == UserRole.admin || this == UserRole.publisher;

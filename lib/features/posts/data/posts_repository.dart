@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
+import '../../../shared/models/enums.dart';
 import '../../auth/data/auth_repository.dart';
 import '../domain/post_model.dart';
 
@@ -327,7 +328,8 @@ class PostsRepository extends SupabaseRepository {
           (profile['avatar_url'] as String?)?.toString().trim().isNotEmpty == true
               ? profile['avatar_url'] as String
               : 'assets/images/logo.png',
-      isVerified: false,
+      isVerified: profile['role'] == 'admin' ||
+          AppConfig.isMasterAdmin(profile['email']?.toString()),
       location: null,
       images: images,
       caption: (p['caption'] as String?)?.trim().isNotEmpty == true
@@ -420,9 +422,10 @@ class PostsRepository extends SupabaseRepository {
     final user = authRepo.user;
     final uid = user?.id;
 
-    // اسم وصورة الناشر
+    // اسم وصورة الناشر وحالة التوثيق
     String publisherName = 'موكب أمنا الزهراء (ع)';
     String publisherAvatar = 'assets/images/logo.png';
+    bool isVerified = false;
     try {
       final profile = await authRepo.fetchMyProfile();
       if (profile != null && profile.fullName.isNotEmpty) {
@@ -430,6 +433,8 @@ class PostsRepository extends SupabaseRepository {
         if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
           publisherAvatar = profile.avatarUrl!;
         }
+        isVerified = profile.role == UserRole.admin ||
+            AppConfig.isMasterAdmin(profile.email);
       }
     } catch (_) {}
 
@@ -456,7 +461,7 @@ class PostsRepository extends SupabaseRepository {
           id: postId,
           publisherName: publisherName,
           publisherAvatar: publisherAvatar,
-          isVerified: true,
+          isVerified: isVerified,
           location: location,
           images: imageUrls,
           caption: caption,
@@ -482,7 +487,7 @@ class PostsRepository extends SupabaseRepository {
       id: 'local_post_${now.millisecondsSinceEpoch}',
       publisherName: publisherName,
       publisherAvatar: publisherAvatar,
-      isVerified: true,
+      isVerified: isVerified,
       location: location,
       images: imageUrls,
       caption: caption,

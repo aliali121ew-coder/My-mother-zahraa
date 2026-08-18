@@ -99,10 +99,11 @@ void main() {
       expect(UserRole.finance.canRecordPayments, isFalse);
     });
 
-    test('العضو لا يرى الأسماء', () {
-      expect(UserRole.member.canSeeNames, isFalse);
+    test('كل شخص مسجل يرى الأسماء', () {
+      expect(UserRole.member.canSeeNames, isTrue);
       expect(UserRole.admin.canSeeNames, isTrue);
       expect(UserRole.finance.canSeeNames, isTrue);
+      expect(UserRole.publisher.canSeeNames, isTrue);
     });
 
     test('الناشر ينشر ولا يرى التقارير', () {

@@ -1,6 +1,6 @@
 {
-  "version": 9,
+  "version": 10,
   "apk_url": "https://raw.githubusercontent.com/aliali121ew-coder/My-mother-zahraa/main/releases/mawkib_zahraa_release.apk",
   "force": true,
-  "message": "تحديث جديد (1.1.2): تثبيت نافذة التحديث في وسط الشاشة حتى اكتمال التنزيل، وإصلاح مزامنة المشتركين والرصيد."
+  "message": "تحديث جديد (1.2.0): لوحة تحكم كاملة بالصلاحيات والأدوار، تحديث شاشة التقارير والمنشورات ونوافذ الإضافة."
 }

@@ -151,6 +151,10 @@ class ContributorsRepository extends SupabaseRepository {
       if (writeData['subscription_amount'] == null) {
         writeData.remove('subscription_amount');
       }
+      if (writeData['photo_url'] != null &&
+          !writeData['photo_url'].toString().startsWith('http')) {
+        writeData.remove('photo_url');
+      }
 
       final row = await db
           .from('contributors')

@@ -9,7 +9,6 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../shared/models/enums.dart';
-import '../../../shared/models/permissions.dart';
 import '../../purchases/data/purchases_provider.dart';
 import 'widgets/reports_analytics_chart.dart';
 
@@ -35,8 +34,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // التقارير بالأسماء للمدير والمسؤول المالي فقط
-    if (!session.role.canViewReports) {
+    // الزوار غير المعتمدين فقط
+    if (!session.isApproved) {
       return Scaffold(
         backgroundColor: Colors.transparent,
         appBar: const AutoHidingAppBar(title: Text('التقارير والتحليلات')),
@@ -52,11 +51,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   const Icon(Icons.lock_outline_rounded,
                       size: 38, color: AppColors.gold),
                   const SizedBox(height: 16),
-                  Text('التقارير غير متاحة لدورك',
+                  Text('التقارير بانتظار الاعتماد',
                       style: theme.textTheme.titleMedium),
                   const SizedBox(height: 10),
                   Text(
-                    'عرض وطباعة التقارير والتحليلات متاح للمدير العام والمسؤول المالي فقط.',
+                    'عرض التقارير والتحليلات متاح للحسابات المعتمدة من قبل الإدارة.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -269,19 +268,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           const ReportsAnalyticsChart(),
           const SizedBox(height: 20),
 
-          // ── 4️⃣ شبكة الكروت الزجاجية للتقارير الشاملة ──
-          Text(
-            'سجلات وتقارير المنظومة المعتمدة',
-            style: TextStyle(
-              fontFamily: AppTheme.displayFamily,
-              fontSize: 14.5,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.goldBright : AppColors.greenDeep,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          _buildReportsGrid(context),
+          // ── 4️⃣ شبكة الكروت الزجاجية للتقارير الشاملة (محجوبة إن لم توجد صلاحية) ──
+          _buildReportsSection(context, isDark),
         ],
       ),
     );
@@ -416,7 +404,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _buildReportsGrid(BuildContext context) {
+  Widget _buildReportsSection(BuildContext context, bool isDark) {
+    final session = ref.watch(sessionProvider);
+    final permissions = ref.watch(appPermissionsProvider);
+    final canSeeAll = session.isAdmin || session.role == UserRole.finance;
+
     final allReports = [
       // 1. الخزنة
       _ReportItemData(
@@ -553,32 +545,70 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 750;
-        final crossCount = isWide
-            ? (constraints.maxWidth > 1050 ? 4 : 3)
-            : 2;
-        final ratio = isWide
-            ? 1.25
-            : (constraints.maxWidth < 360 ? 0.78 : 0.82);
+    final visibleReports = allReports.where((r) {
+      if (canSeeAll) return true;
+      return switch (r.id) {
+        'vault' => permissions.canViewVaultReport,
+        'all_consolidated' => permissions.canViewConsolidatedReport,
+        'subscribers' => permissions.canViewSubscribersReport,
+        'donors' => permissions.canViewDonorsReport,
+        'supporters' => permissions.canViewSupportersReport,
+        'paid' => permissions.canViewPaidReport,
+        'overdue' => permissions.canViewOverdueReport,
+        'visits_log' => permissions.canViewVisitsLog,
+        'interactions_log' => permissions.canViewInteractionsLog,
+        'account_requests' => permissions.canViewAccountRequests,
+        'blocked_users' => permissions.canViewBlockedUsers,
+        'archive_log' => permissions.canViewArchiveLog,
+        _ => false,
+      };
+    }).toList();
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossCount,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: ratio,
+    if (visibleReports.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'سجلات وتقارير المنظومة المعتمدة',
+          style: TextStyle(
+            fontFamily: AppTheme.displayFamily,
+            fontSize: 14.5,
+            fontWeight: FontWeight.bold,
+            color: isDark ? AppColors.goldBright : AppColors.greenDeep,
           ),
-          itemCount: allReports.length,
-          itemBuilder: (context, idx) {
-            final item = allReports[idx];
-            return _ReportGridCard(item: item);
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 750;
+            final crossCount = isWide
+                ? (constraints.maxWidth > 1050 ? 4 : 3)
+                : 2;
+            final ratio = isWide
+                ? 1.25
+                : (constraints.maxWidth < 360 ? 0.78 : 0.82);
+
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossCount,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: ratio,
+              ),
+              itemCount: visibleReports.length,
+              itemBuilder: (context, idx) {
+                final item = visibleReports[idx];
+                return _ReportGridCard(item: item);
+              },
+            );
           },
-        );
-      },
+        ),
+      ],
     );
   }
 }

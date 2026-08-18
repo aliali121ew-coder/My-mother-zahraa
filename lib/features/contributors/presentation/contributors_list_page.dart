@@ -386,12 +386,23 @@ class _ContributorsListPageState extends ConsumerState<ContributorsListPage> {
                           separatorBuilder: (_, _) => const SizedBox(height: 10),
                           itemBuilder: (context, i) {
                             final item = list[i];
+                            final permissions = ref.watch(appPermissionsProvider);
+                            final canSeeItemName = session.isAdmin ||
+                                switch (item.type) {
+                                  ContributorType.subscriber =>
+                                    permissions.canShowSubscriberNames,
+                                  ContributorType.donor =>
+                                    permissions.canShowDonorNames,
+                                  ContributorType.inKind =>
+                                    permissions.canShowSupporterNames,
+                                };
+
                             return ContributorTile(
                             contributor: item,
                             showStatus: widget.showDonors != true &&
                                 !widget.showSupporters,
                             showTypeBadge: widget.showAll,
-                            hideName: !session.role.canSeeNames,
+                            hideName: !canSeeItemName,
                             rank: _sort == _SortBy.amountDesc ? i + 1 : null,
                             isSelectionMode: _isSelectionMode,
                             isSelected: _selectedIds.contains(item.id),

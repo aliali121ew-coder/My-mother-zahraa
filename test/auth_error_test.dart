@@ -73,7 +73,7 @@ void main() {
           message: 'new row violates row-level security policy for table profiles',
           code: '42501',
         )),
-        'ليست لديك صلاحية كافية — تأكّد أن حسابك معتمد بالدور المناسب',
+        'حسابك الحالي لا يملك صلاحية مدير في السيرفر (RLS) — تأكد من تفعيل دور admin في جدول profiles',
       );
     });
   });

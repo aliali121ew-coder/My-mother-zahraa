@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
+import '../../../shared/models/permissions.dart';
 import '../data/posts_repository.dart';
 import '../domain/post_model.dart';
 import '../../settings/presentation/edit_profile_page.dart';
@@ -60,7 +62,7 @@ class PostsPage extends ConsumerWidget {
   }
 }
 
-class _PostsFeedBody extends StatelessWidget {
+class _PostsFeedBody extends ConsumerWidget {
   const _PostsFeedBody({
     required this.posts,
     required this.onPullRefresh,
@@ -70,8 +72,10 @@ class _PostsFeedBody extends StatelessWidget {
   final Future<void> Function() onPullRefresh;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final session = ref.watch(sessionProvider);
+    final canPublish = session.role.canPublish;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -86,39 +90,41 @@ class _PostsFeedBody extends StatelessWidget {
           onPressed: () => InteractionsActivityPage.navigate(context),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.account_circle_outlined,
-              color: AppColors.gold,
-              size: 25,
+          if (canPublish) ...[
+            IconButton(
+              icon: const Icon(
+                Icons.account_circle_outlined,
+                color: AppColors.gold,
+                size: 25,
+              ),
+              tooltip: 'إعدادات الملف الشخصي',
+              onPressed: () => EditProfilePage.navigate(context),
             ),
-            tooltip: 'إعدادات الملف الشخصي',
-            onPressed: () => EditProfilePage.navigate(context),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: AppColors.gold,
-              size: 24,
+            IconButton(
+              icon: const Icon(
+                Icons.add_circle_outline_rounded,
+                color: AppColors.gold,
+                size: 24,
+              ),
+              tooltip: 'إضافة تغطية جديدة',
+              onPressed: () => CreatePostFlowPage.navigate(context),
             ),
-            tooltip: 'إضافة تغطية جديدة',
-            onPressed: () => CreatePostFlowPage.navigate(context),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.collections_bookmark_rounded,
-              color: AppColors.gold,
-              size: 24,
+            IconButton(
+              icon: const Icon(
+                Icons.collections_bookmark_rounded,
+                color: AppColors.gold,
+                size: 24,
+              ),
+              tooltip: 'معرض السنوات والأرشيف',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const YearlyArchivePage(),
+                  ),
+                );
+              },
             ),
-            tooltip: 'معرض السنوات والأرشيف',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const YearlyArchivePage(),
-                ),
-              );
-            },
-          ),
+          ],
           const SizedBox(width: 4),
         ],
       ),
