@@ -15,6 +15,7 @@ import '../../../../core/utils/thousands_formatter.dart';
 import '../../../../shared/models/contributor_model.dart';
 import '../../../../shared/models/enums.dart';
 import '../../../../shared/widgets/app_date_picker_dialog.dart';
+import '../../../../shared/widgets/app_image_cropper_dialog.dart';
 
 /// نافذة حوارية تفاعلية جذابة بعرض 50% موحّد، ترويسة ملونة في الأعلى وخلفية ضبابية زجاجية خلف النافذة.
 class AddContributorDialog extends ConsumerStatefulWidget {
@@ -80,12 +81,20 @@ class _AddContributorDialogState extends ConsumerState<AddContributorDialog> {
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 800,
-      maxHeight: 800,
-      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
     );
-    if (picked != null) {
-      setState(() => _pickedImage = picked);
+    if (picked != null && mounted) {
+      final categoryName = widget.mode.label;
+      final cropped = await AppImageCropperDialog.cropImage(
+        context,
+        picked,
+        title: 'قص وضبط صورة $categoryName',
+      );
+      if (cropped != null && mounted) {
+        setState(() => _pickedImage = cropped);
+      }
     }
   }
 

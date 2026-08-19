@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +15,7 @@ import '../../../core/widgets/glass.dart';
 import '../../../shared/models/contributor_model.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/app_date_picker_dialog.dart';
+import '../../../shared/widgets/app_photo_viewer_dialog.dart';
 
 /// أسماء الأشهر الترتيبية الـ 12 بالعربية
 const _monthNames = [
@@ -397,25 +400,51 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.gold.withValues(alpha: 0.22),
-                  backgroundImage: c.photoUrl != null && c.photoUrl!.isNotEmpty
-                      ? (c.photoUrl!.startsWith('http')
-                          ? NetworkImage(c.photoUrl!)
-                          : FileImage(File(c.photoUrl!)) as ImageProvider)
-                      : null,
-                  child: (c.photoUrl == null || c.photoUrl!.isEmpty)
-                      ? Text(
-                          c.fullName.isNotEmpty ? c.fullName[0] : 'م',
-                          style: const TextStyle(
-                            fontFamily: AppTheme.displayFamily,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                // الصورة الشخصية — قابلة للنقر لعرضها بملء الشاشة لجميع الأعضاء
+                InkWell(
+                  onTap: () => AppPhotoViewerDialog.show(context, contributor: c),
+                  borderRadius: BorderRadius.circular(32),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
                             color: AppColors.goldBright,
+                            width: 1.8,
                           ),
-                        )
-                      : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.gold.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _buildAvatarImage(context, c),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -2,
+                        left: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(3.5),
+                          decoration: const BoxDecoration(
+                            color: AppColors.goldBright,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.fullscreen_rounded,
+                            size: 11,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -571,6 +600,64 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
               );
             }),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarImage(BuildContext context, ContributorModel c) {
+    final url = c.photoUrl;
+    if (url != null && url.isNotEmpty) {
+      if (url.startsWith('http')) {
+        return CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          width: 58,
+          height: 58,
+          placeholder: (_, _) => _avatarInitials(c),
+          errorWidget: (_, _, _) => _avatarInitials(c),
+        );
+      } else if (url.startsWith('data:image') || url.startsWith('data:')) {
+        try {
+          final base64Str = url.split(',').last;
+          final bytes = base64Decode(base64Str);
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: 58,
+            height: 58,
+            errorBuilder: (_, _, _) => _avatarInitials(c),
+          );
+        } catch (_) {
+          return _avatarInitials(c);
+        }
+      } else {
+        final file = File(url);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            width: 58,
+            height: 58,
+            errorBuilder: (_, _, _) => _avatarInitials(c),
+          );
+        }
+      }
+    }
+    return _avatarInitials(c);
+  }
+
+  Widget _avatarInitials(ContributorModel c) {
+    return Container(
+      color: AppColors.greenDeep.withValues(alpha: 0.4),
+      alignment: Alignment.center,
+      child: Text(
+        c.fullName.isNotEmpty ? c.fullName.characters.first : 'م',
+        style: const TextStyle(
+          fontFamily: AppTheme.displayFamily,
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: AppColors.goldBright,
         ),
       ),
     );

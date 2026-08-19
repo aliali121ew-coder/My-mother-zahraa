@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -355,6 +356,21 @@ class _Avatar extends StatelessWidget {
           placeholder: (_, _) => _letterBox(context, letter),
           errorWidget: (_, _, _) => _letterBox(context, letter),
         );
+      } else if (url.startsWith('data:image') || url.startsWith('data:')) {
+        try {
+          final base64Str = url.split(',').last;
+          final bytes = base64Decode(base64Str);
+          inner = Image.memory(
+            bytes,
+            width: size,
+            height: size,
+            cacheWidth: 132,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _letterBox(context, letter),
+          );
+        } catch (_) {
+          inner = _letterBox(context, letter);
+        }
       } else {
         inner = Image.file(
           File(url),
@@ -362,7 +378,8 @@ class _Avatar extends StatelessWidget {
           height: size,
           cacheWidth: 132,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _letterBox(context, letter),
+          errorBuilder: (context, error, stackTrace) =>
+              _letterBox(context, letter),
         );
       }
     } else {

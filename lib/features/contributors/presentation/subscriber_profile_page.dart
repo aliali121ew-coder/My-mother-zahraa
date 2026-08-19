@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/contributor_model.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/widgets/app_date_picker_dialog.dart';
+import '../../../shared/widgets/app_image_cropper_dialog.dart';
 
 /// صفحة ملف الشخصي المستقلة للمشترك
 class SubscriberProfilePage extends ConsumerStatefulWidget {
@@ -87,12 +89,21 @@ class _SubscriberProfilePageState
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
     );
-    if (picked != null) {
-      setState(() {
-        _pickedImage = picked;
-      });
+    if (picked != null && mounted) {
+      final cropped = await AppImageCropperDialog.cropImage(
+        context,
+        picked,
+        title: 'قص وضبط صورة المشترك',
+      );
+      if (cropped != null && mounted) {
+        setState(() {
+          _pickedImage = cropped;
+        });
+      }
     }
   }
 
@@ -594,8 +605,12 @@ class _SubscriberProfilePageState
                           : (c.photoUrl != null && c.photoUrl!.isNotEmpty
                               ? (c.photoUrl!.startsWith('http')
                                   ? NetworkImage(c.photoUrl!)
-                                  : FileImage(File(c.photoUrl!))
-                                      as ImageProvider)
+                                  : (c.photoUrl!.startsWith('data:image') ||
+                                          c.photoUrl!.startsWith('data:')
+                                      ? MemoryImage(base64Decode(
+                                          c.photoUrl!.split(',').last))
+                                      : FileImage(File(c.photoUrl!))
+                                          as ImageProvider))
                               : null),
                       child: (_pickedImage == null &&
                               (c.photoUrl == null || c.photoUrl!.isEmpty))

@@ -1,3 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+
 import '../../../core/config/app_config.dart';
 import '../../../core/data/supabase_repository.dart';
 import '../../../shared/models/contributor_model.dart';
@@ -147,19 +153,83 @@ class ContributorsRepository extends SupabaseRepository {
     }
   }
 
+  /// يضمن رفع صورة المساهم إلى سحابة Supabase Storage أو تشفيرها لتصل لكافة الأعضاء
+  Future<String?> _processPhotoForCloud(String? photoPathOrUrl) async {
+    if (photoPathOrUrl == null || photoPathOrUrl.trim().isEmpty) return null;
+    final trimmed = photoPathOrUrl.trim();
+    if (trimmed.startsWith('http') || trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+
+    final file = File(trimmed);
+    if (!file.existsSync()) return null;
+
+    try {
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return null;
+
+      final ext = trimmed.split('.').last.toLowerCase();
+      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final fileName =
+          'avatar_${DateTime.now().millisecondsSinceEpoch}_${const Uuid().v4().substring(0, 6)}.$ext';
+      final storagePath = 'avatars/$fileName';
+
+      // محاولة أولى: الرفع إلى حاوية التخزين السحابية Supabase Storage
+      try {
+        await Supabase.instance.client.storage.from('avatars').uploadBinary(
+              storagePath,
+              bytes,
+              fileOptions: FileOptions(
+                contentType: mime,
+                upsert: true,
+              ),
+            );
+        final publicUrl =
+            Supabase.instance.client.storage.from('avatars').getPublicUrl(storagePath);
+        if (publicUrl.isNotEmpty) return publicUrl;
+      } catch (_) {
+        try {
+          await Supabase.instance.client.storage.from('media').uploadBinary(
+                storagePath,
+                bytes,
+                fileOptions: FileOptions(
+                  contentType: mime,
+                  upsert: true,
+                ),
+              );
+          final publicUrl =
+              Supabase.instance.client.storage.from('media').getPublicUrl(storagePath);
+          if (publicUrl.isNotEmpty) return publicUrl;
+        } catch (_) {}
+      }
+
+      // محاولة احتياطية ذكية ومضمونة 100%: تحويل الصورة إلى Data URI
+      // تُحفظ مباشرة في عمود photo_url بقاعدة بيانات PostgreSQL وتصل فوراً لجميع الهواتف
+      final base64String = base64Encode(bytes);
+      return 'data:$mime;base64,$base64String';
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// إضافة مساهم — يُحفظ في Supabase عند توفر الاتصال، ويُخزّن محلياً
   Future<ContributorModel> create(ContributorModel c) async {
     if (isLive) {
-      final writeData = c.toWriteJson()..remove('id');
+      final cloudPhoto = await _processPhotoForCloud(c.photoUrl);
+      final modelToSave = c.copyWith(photoUrl: cloudPhoto ?? c.photoUrl);
+
+      final writeData = modelToSave.toWriteJson()..remove('id');
       if (writeData['subscription_type'] == null) {
         writeData.remove('subscription_type');
       }
       if (writeData['subscription_amount'] == null) {
         writeData.remove('subscription_amount');
       }
-      if (writeData['photo_url'] != null &&
-          !writeData['photo_url'].toString().startsWith('http')) {
-        writeData.remove('photo_url');
+      if (writeData['photo_url'] != null) {
+        final pUrl = writeData['photo_url'].toString();
+        if (!pUrl.startsWith('http') && !pUrl.startsWith('data:')) {
+          writeData.remove('photo_url');
+        }
       }
 
       Map<String, dynamic> row;
@@ -211,7 +281,17 @@ class ContributorsRepository extends SupabaseRepository {
       return c;
     }
 
-    final writeData = c.toWriteJson()..remove('id');
+    final cloudPhoto = await _processPhotoForCloud(c.photoUrl);
+    final modelToUpdate = c.copyWith(photoUrl: cloudPhoto ?? c.photoUrl);
+
+    final writeData = modelToUpdate.toWriteJson()..remove('id');
+    if (writeData['photo_url'] != null) {
+      final pUrl = writeData['photo_url'].toString();
+      if (!pUrl.startsWith('http') && !pUrl.startsWith('data:')) {
+        writeData.remove('photo_url');
+      }
+    }
+
     Map<String, dynamic> row;
     try {
       row = await db
@@ -239,7 +319,9 @@ class ContributorsRepository extends SupabaseRepository {
         rethrow;
       }
     }
-    return ContributorModel.fromJson(row);
+    final updatedModel = ContributorModel.fromJson(row);
+    await cache.put(_demoBox, updatedModel.id, updatedModel.toJson());
+    return updatedModel;
   }
 
   /// حذف ناعم: نحفظ السجل ونخفيه، فلا تُفقد الدفعات المرتبطة به
