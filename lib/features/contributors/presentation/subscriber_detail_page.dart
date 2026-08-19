@@ -226,56 +226,6 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    if (!session.isAdmin) {
-      return AppBackground(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            title: const Text('الملف التفصيلي'),
-          ),
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: GlassCard(
-                blur: true,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.admin_panel_settings_rounded,
-                        size: 48, color: AppColors.gold),
-                    const SizedBox(height: 16),
-                    Text(
-                      'صلاحية غير متوفرة',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontFamily: AppTheme.displayFamily,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'الدخول إلى الملف التفصيلي وجدول السداد متاح لمدير النظام فقط.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.greenDeep,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('رجوع'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     final subscribersAsync = ref.watch(allContributorsProvider);
 
     final allList = subscribersAsync.valueOrNull ?? [];
@@ -367,16 +317,17 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                 }
               },
             ),
-            IconButton(
-              tooltip: 'الملف الشخصي',
-              icon: Icon(
-                Icons.person_rounded,
-                color: isDark ? AppColors.goldBright : AppColors.goldDark,
+            if (session.isAdmin)
+              IconButton(
+                tooltip: 'تعديل الملف الشخصي',
+                icon: Icon(
+                  Icons.person_rounded,
+                  color: isDark ? AppColors.goldBright : AppColors.goldDark,
+                ),
+                onPressed: () {
+                  context.push('/subscriber_profile/${widget.contributorId}');
+                },
               ),
-              onPressed: () {
-                context.push('/subscriber_profile/${widget.contributorId}');
-              },
-            ),
             const SizedBox(width: 6),
           ],
         ),
@@ -1038,8 +989,9 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     );
   }
 
-  /// ترويسة جدول التسديدات الخاص بالمشتركين
+  /// ترويسة جدول الـ 12 شهراً المخصصة للمشتركين
   Widget _buildSubscriberTableHeader(bool isDark) {
+    final isAdmin = ref.read(sessionProvider).isAdmin;
     return Container(
       height: 42,
       color: isDark ? AppColors.greenDeep : AppColors.lightGreenTint,
@@ -1085,16 +1037,18 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                     fontWeight: FontWeight.bold,
                     fontSize: 9.5)),
           ),
-          _vDivider(isDark),
-          const SizedBox(
-            width: 32,
-            child: Text('تعديل',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.0)),
-          ),
+          if (isAdmin) ...[
+            _vDivider(isDark),
+            const SizedBox(
+              width: 32,
+              child: Text('تعديل',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10.0)),
+            ),
+          ],
         ],
       ),
     );
@@ -1200,23 +1154,23 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
               ),
             ),
           ),
-          _vDivider(isDark),
-
-          // زر التعديل
-          SizedBox(
-            width: 32,
-            child: IconButton(
-              icon: Icon(
-                isPaid ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
-                size: 19,
-                color: AppColors.gold,
+          if (ref.read(sessionProvider).isAdmin) ...[
+            _vDivider(isDark),
+            SizedBox(
+              width: 32,
+              child: IconButton(
+                icon: Icon(
+                  isPaid ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                  size: 19,
+                  color: AppColors.gold,
+                ),
+                onPressed: () => _openSubscriberPaymentDialog(c, monthIndex, entry),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: isPaid ? 'تعديل تسديد هذا الشهر' : 'تسجيل تسديد لهذا الشهر',
               ),
-              onPressed: () => _openSubscriberPaymentDialog(c, monthIndex, entry),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: isPaid ? 'تعديل تسديد هذا الشهر' : 'تسجيل تسديد لهذا الشهر',
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1228,6 +1182,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     int monthIndex,
     Map<String, dynamic>? existingEntry,
   ) async {
+    if (!ref.read(sessionProvider).isAdmin) return;
     final monthName = _monthNames[monthIndex - 1];
     final isDonor = c.type == ContributorType.donor;
     final isPaid = existingEntry != null && existingEntry['is_paid'] == true;
@@ -1555,6 +1510,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
   /// ترويسة جدول التبرعات المخصصة للمتبرع (مطابق للمشترك بدون عمود الحالة)
   Widget _buildDonorTableHeader(bool isDark) {
+    final isAdmin = ref.read(sessionProvider).isAdmin;
     return Container(
       height: 42,
       color: isDark ? AppColors.greenDeep : AppColors.lightGreenTint,
@@ -1590,16 +1546,18 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                     fontWeight: FontWeight.bold,
                     fontSize: 10.0)),
           ),
-          _vDivider(isDark),
-          const SizedBox(
-            width: 32,
-            child: Text('تعديل',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.0)),
-          ),
+          if (isAdmin) ...[
+            _vDivider(isDark),
+            const SizedBox(
+              width: 32,
+              child: Text('تعديل',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10.0)),
+            ),
+          ],
         ],
       ),
     );
@@ -1707,23 +1665,25 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
               ),
             ),
           ),
-          _vDivider(isDark),
+          if (ref.read(sessionProvider).isAdmin) ...[
+            _vDivider(isDark),
 
-          // زر التعديل / تسجيل التبرع (يفتح نافذة الإضافة والتعديل متعددة الدفعات)
-          SizedBox(
-            width: 32,
-            child: IconButton(
-              icon: Icon(
-                isPaid ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
-                size: 19,
-                color: AppColors.gold,
+            // زر التعديل / تسجيل التبرع (يفتح نافذة الإضافة والتعديل متعددة الدفعات)
+            SizedBox(
+              width: 32,
+              child: IconButton(
+                icon: Icon(
+                  isPaid ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                  size: 19,
+                  color: AppColors.gold,
+                ),
+                onPressed: () => _openDonorMonthDialog(c, monthIndex, entry),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: isPaid ? 'تعديل / إضافة تبرع لهذا الشهر' : 'تسجيل تبرع لهذا الشهر',
               ),
-              onPressed: () => _openDonorMonthDialog(c, monthIndex, entry),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: isPaid ? 'تعديل / إضافة تبرع لهذا الشهر' : 'تسجيل تبرع لهذا الشهر',
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1731,6 +1691,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
   /// ترويسة جدول التبرعات العينية الخاصة بالداعمين
   Widget _buildSupporterTableHeader(bool isDark) {
+    final isAdmin = ref.read(sessionProvider).isAdmin;
     return Container(
       height: 42,
       color: isDark ? AppColors.greenDeep : AppColors.lightGreenTint,
@@ -1772,15 +1733,17 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.bold,
                       fontSize: 9.5))),
-          _vDivider(isDark),
-          const SizedBox(
-              width: 32,
-              child: Text('تعديل',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10.0))),
+          if (isAdmin) ...[
+            _vDivider(isDark),
+            const SizedBox(
+                width: 32,
+                child: Text('تعديل',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10.0))),
+          ],
         ],
       ),
     );
@@ -1948,18 +1911,20 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
               ),
             ),
           ),
-          _vDivider(isDark),
-          SizedBox(
-            width: 30,
-            child: IconButton(
-              icon: const Icon(Icons.edit_note_rounded,
-                  size: 19, color: AppColors.gold),
-              onPressed: () => _openDonorMonthDialog(c, monthIndex, entry),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: 'تعديل تبرعات هذا الشهر',
+          if (ref.read(sessionProvider).isAdmin) ...[
+            _vDivider(isDark),
+            SizedBox(
+              width: 30,
+              child: IconButton(
+                icon: const Icon(Icons.edit_note_rounded,
+                    size: 19, color: AppColors.gold),
+                onPressed: () => _openDonorMonthDialog(c, monthIndex, entry),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'تعديل تبرعات هذا الشهر',
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -2740,6 +2705,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
     int monthIndex,
     Map<String, dynamic>? existingEntry,
   ) async {
+    if (!ref.read(sessionProvider).isAdmin) return;
     final monthName = _monthNames[monthIndex - 1];
     String currentMode = 'add'; // 'add' (🟢 إضافة / ✏️ تعديل) أو 'edit' (📋 القائمة)
     String selectedKind = c.type == ContributorType.donor ? 'cash' : 'construction'; // 'cash', 'construction', 'food'

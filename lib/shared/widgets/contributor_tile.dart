@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/providers/app_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -55,7 +54,6 @@ class ContributorTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final c = contributor;
@@ -102,16 +100,6 @@ class ContributorTile extends ConsumerWidget {
           ? () => onSelectChanged?.call(!isSelected)
           : (onTap ??
               () {
-                if (!session.isAdmin) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('الملف التفصيلي وجدول السداد متاح لمدير النظام فقط'),
-                      backgroundColor: AppColors.goldDark,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                  return;
-                }
                 context.push('/subscriber_detail/${c.id}');
               }),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),

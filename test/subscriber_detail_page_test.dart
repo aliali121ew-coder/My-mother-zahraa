@@ -173,7 +173,7 @@ void main() {
     expect(find.text('مواد أنشائية'), findsOneWidget);
   });
 
-  testWidgets('اختبار منع غير مدير النظام من دخول الملف التفصيلي',
+  testWidgets('اختبار وضع المشاهدة فقط للأعضاء العاديين في الملف التفصيلي (إخفاء أزرار التعديل والحذف والملف الشخصي)',
       (tester) async {
     final sub = ContributorModel(
       id: 'sub-test-2',
@@ -206,7 +206,17 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('صلاحية غير متوفرة'), findsOneWidget);
-    expect(find.text('الدخول إلى الملف التفصيلي وجدول السداد متاح لمدير النظام فقط.'), findsOneWidget);
+    // العضو يستطيع رؤية تفاصيل المشترك والجدول
+    expect(find.text('ملف المشترك التفصيلي'), findsOneWidget);
+    expect(find.text('سيد علي'), findsOneWidget);
+    expect(find.text('مبلغ الاشتراك'), findsOneWidget);
+    expect(find.text('الحالة'), findsOneWidget);
+
+    // العضو لا يرى زر التعديل في الترويسة أو الصفوف
+    expect(find.text('تعديل'), findsNothing);
+
+    // العضو لا يرى زر حذف المساهم أو زر تعديل الملف الشخصي
+    expect(find.byTooltip('حذف المساهم'), findsNothing);
+    expect(find.byTooltip('تعديل الملف الشخصي'), findsNothing);
   });
 }

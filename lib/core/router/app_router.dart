@@ -62,9 +62,7 @@ String? _guard(BuildContext context, GoRouterState state) {
     '/settings/roles',
     '/settings/banned_users',
     '/settings/story_categories',
-    '/subscriber_detail',
     '/subscriber_profile',
-    '/contributors/subscriber_detail',
     '/contributors/subscriber_profile',
   ];
   if (adminOnlyRoutes.any((r) => path.startsWith(r)) && !s.isAdmin) {
