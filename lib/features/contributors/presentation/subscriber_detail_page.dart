@@ -563,7 +563,7 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
                 }
               }
               final displayTotalPaid =
-                  calcTotalPaid > 0 ? calcTotalPaid : c.totalPaid;
+                  _isLoadingLedger ? c.totalPaid : calcTotalPaid;
 
               return Container(
                 padding:

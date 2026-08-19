@@ -422,11 +422,9 @@ class ContributorsRepository extends SupabaseRepository {
               'is_paid': true,
             };
           }
-          await cache.put(
-            AppConfig.boxPayments,
-            boxKey,
-            {'ledger': res.map((k, v) => MapEntry(k.toString(), v))},
-          );
+          final mapped = res.map((k, v) => MapEntry(k.toString(), v));
+          await cache.put(AppConfig.boxPayments, boxKey, mapped);
+          await cache.put(AppConfig.boxContributors, boxKey, mapped);
           return res;
         } catch (_) {
           // فشل الشبكة — نكمل للمخزن المحلي أسفله
@@ -439,15 +437,21 @@ class ContributorsRepository extends SupabaseRepository {
       final res = <int, Map<String, dynamic>>{};
 
       if (raw != null) {
-        for (final e in raw.entries) {
+        final entriesMap = (raw.containsKey('ledger') && raw['ledger'] is Map)
+            ? (raw['ledger'] as Map)
+            : raw;
+        for (final e in entriesMap.entries) {
           final m = int.tryParse(e.key.toString());
           if (m != null && e.value is Map) {
-            res[m] = Map<String, dynamic>.from(e.value as Map);
+            final val = Map<String, dynamic>.from(e.value as Map);
+            if (val['is_paid'] == true && (val['amount'] as num? ?? 0) > 0) {
+              res[m] = val;
+            }
           }
         }
       }
 
-      if (raw == null) {
+      if (raw == null && !isLive) {
         // دعم احتياطي ضامن: ينفّذ فقط إذا لم يكن هنالك أي سجل دفعات مخزن للسنة المالية
         final contribRaw = cache.readOne(_demoBox, contributorId);
         if (contribRaw != null) {
@@ -464,20 +468,6 @@ class ContributorsRepository extends SupabaseRepository {
               }
             }
           } catch (_) {}
-        } else {
-          // فحص في الديمو الثابت إن وجد
-          final demoList = [...DemoData.donors, ...DemoData.subscribers];
-          final match = demoList.where((c) => c.id == contributorId).firstOrNull;
-          if (match != null && match.lastPaymentAt != null && match.lastPaymentAt!.year == year && match.totalPaid > 0) {
-            final m = match.lastPaymentAt!.month;
-            if (!res.containsKey(m)) {
-              res[m] = {
-                'amount': match.subscriptionAmount ?? match.totalPaid,
-                'paid_at': match.lastPaymentAt!.toUtc().toIso8601String(),
-                'is_paid': true,
-              };
-            }
-          }
         }
       }
 
@@ -527,16 +517,14 @@ class ContributorsRepository extends SupabaseRepository {
           final cid = r['contributor_id']?.toString();
           if (cid != null) {
             final prev = res[cid];
-            final amt =
-                ((prev?['amount'] as num?) ?? 0) + ((r['amount'] as num?) ?? 0);
             res[cid] = {
-              'amount': amt,
+              'amount': ((prev?['amount'] as num?) ?? 0) +
+                  ((r['amount'] as num?) ?? 0),
               'paid_at': r['paid_at'],
               'is_paid': true,
             };
           }
         }
-        return res;
       } catch (_) {}
     }
     return res;
@@ -564,7 +552,7 @@ class ContributorsRepository extends SupabaseRepository {
     return totals;
   }
 
-  /// حفظ أو تعديل تسديد شهر معين لمشترك
+  /// حفظ أو تعديل أو إلغاء تسديد شهر معين لمشترك
   Future<void> saveMonthPayment({
     required String contributorId,
     required int year,
@@ -578,9 +566,16 @@ class ContributorsRepository extends SupabaseRepository {
       var existing = cache.readOne(AppConfig.boxPayments, boxKey);
       existing ??= cache.readOne(AppConfig.boxContributors, boxKey);
 
-      final map = existing != null
-          ? Map<String, dynamic>.from(existing)
-          : <String, dynamic>{};
+      Map<String, dynamic> map;
+      if (existing != null) {
+        if (existing.containsKey('ledger') && existing['ledger'] is Map) {
+          map = Map<String, dynamic>.from(existing['ledger'] as Map);
+        } else {
+          map = Map<String, dynamic>.from(existing);
+        }
+      } else {
+        map = <String, dynamic>{};
+      }
 
       final monthStr = month.toString();
 
@@ -589,52 +584,26 @@ class ContributorsRepository extends SupabaseRepository {
             ? Map<String, dynamic>.from(map[monthStr] as Map)
             : <String, dynamic>{};
 
-        final donationsList = monthData.containsKey('donations') &&
-                monthData['donations'] is List
-            ? List<Map<String, dynamic>>.from(monthData['donations'] as List)
-            : <Map<String, dynamic>>[];
-
-        if (donationsList.isEmpty &&
-            monthData.containsKey('amount') &&
-            (monthData['amount'] as num? ?? 0) > 0) {
-          donationsList.add({
-            'id': 'legacy_1',
-            'kind': 'cash',
-            'amount': monthData['amount'],
-            'date': monthData['paid_at'] ?? paidAt.toUtc().toIso8601String(),
-          });
-        }
-
-        donationsList.add({
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'kind': 'cash',
-          'amount': amount,
-          'date': paidAt.toUtc().toIso8601String(),
-        });
-
-        num totalCash = 0;
-        DateTime latestDate = paidAt;
-        for (final d in donationsList) {
-          totalCash += (d['amount'] as num? ?? 0);
-          final dDateStr = d['date']?.toString();
-          if (dDateStr != null) {
-            final parsed = DateTime.tryParse(dDateStr);
-            if (parsed != null && parsed.isAfter(latestDate)) {
-              latestDate = parsed;
-            }
-          }
-        }
-
-        monthData['amount'] = totalCash;
-        monthData['paid_at'] = latestDate.toUtc().toIso8601String();
+        monthData['amount'] = amount;
+        monthData['paid_at'] = paidAt.toUtc().toIso8601String();
         monthData['is_paid'] = true;
-        monthData['donations'] = donationsList;
+        monthData['donations'] = [
+          {
+            'id': DateTime.now().millisecondsSinceEpoch.toString(),
+            'kind': 'cash',
+            'amount': amount,
+            'date': paidAt.toUtc().toIso8601String(),
+          }
+        ];
 
         map[monthStr] = monthData;
       } else {
+        // إلغاء التسديد
+        map.remove(monthStr);
         map[monthStr] = {
           'amount': 0,
           'is_paid': false,
+          'paid_at': null,
           'donations': <Map<String, dynamic>>[],
         };
       }
@@ -642,24 +611,61 @@ class ContributorsRepository extends SupabaseRepository {
       await cache.put(AppConfig.boxPayments, boxKey, map);
       await cache.put(AppConfig.boxContributors, boxKey, map);
 
-      await cache.put(AppConfig.boxPayments, boxKey, map);
-
-      final existingContrib = cache.readOne(_demoBox, contributorId);
-      if (existingContrib != null) {
-        final cMap = Map<String, dynamic>.from(existingContrib);
-        if (isPaid && amount > 0) {
-          cMap['last_payment_at'] = paidAt.toUtc().toIso8601String();
+      // تحديث رصيد المشترك وتاريخ آخر دفعة محلياً
+      num newTotalPaid = 0;
+      DateTime? latestDate;
+      for (final val in map.values) {
+        if (val is Map && val['is_paid'] == true) {
+          final amt = (val['amount'] as num?) ?? 0;
+          newTotalPaid += amt;
+          final pStr = val['paid_at']?.toString();
+          if (pStr != null) {
+            final dt = DateTime.tryParse(pStr);
+            if (dt != null && (latestDate == null || dt.isAfter(latestDate))) {
+              latestDate = dt;
+            }
+          }
         }
-        await cache.put(_demoBox, contributorId, cMap);
       }
 
-      if (isLive && isPaid && amount > 0) {
-        await addPayment(
-          contributorId: contributorId,
-          amount: amount,
-          paidAt: paidAt,
-          note: 'تسديد شهر $month لسنة $year',
-        );
+      final existingContrib = cache.readOne(_demoBox, contributorId) ??
+          cache.readOne(AppConfig.boxContributors, contributorId);
+      if (existingContrib != null) {
+        final cMap = Map<String, dynamic>.from(existingContrib);
+        cMap['total_paid'] = newTotalPaid;
+        if (latestDate != null) {
+          cMap['last_payment_at'] = latestDate.toUtc().toIso8601String();
+        } else {
+          cMap.remove('last_payment_at');
+        }
+        await cache.put(_demoBox, contributorId, cMap);
+        await cache.put(AppConfig.boxContributors, contributorId, cMap);
+      }
+
+      // المزامنة التامة مع خادم Supabase
+      if (isLive) {
+        final startUtc = DateTime.utc(year, month, 1);
+        final endUtc = month == 12
+            ? DateTime.utc(year + 1, 1, 1)
+            : DateTime.utc(year, month + 1, 1);
+
+        // 1. حذف الدفعات السابقة المسجلة لهذا الشهر على السيرفر
+        await db
+            .from('payments')
+            .delete()
+            .eq('contributor_id', contributorId)
+            .gte('paid_at', startUtc.toIso8601String())
+            .lt('paid_at', endUtc.toIso8601String());
+
+        // 2. إذا كان تسديداً نشطاً (وليس إلغاء)، نضيف الدفعة الجديدة
+        if (isPaid && amount > 0) {
+          await db.from('payments').insert({
+            'contributor_id': contributorId,
+            'amount': amount,
+            'paid_at': paidAt.toUtc().toIso8601String(),
+            'note': 'تسديد شهر $month لسنة $year',
+          });
+        }
       }
     } catch (_) {}
   }
