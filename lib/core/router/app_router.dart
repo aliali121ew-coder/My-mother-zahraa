@@ -46,8 +46,11 @@ String? _guard(BuildContext context, GoRouterState state) {
   // إذا كانت الجلسة لا تزال في طور القراءة والتحقق، ننتظر ولا نوجه لتسجيل الدخول
   if (s.loading) return null;
 
-  // من لا يملك ملفاً شخصياً (زائر أو خرج حديثاً) → تسجيل الدخول
-  if (s.isGuest) return '/auth';
+  // الزائر: يُسمح له بصفحة المنشورات فقط — بقية الصفحات تعيده لتسجيل الدخول
+  if (s.isGuest) {
+    if (path == '/posts') return null;
+    return '/auth';
+  }
 
   // حساب موقوف بانتظار موافقة المدير أو محظور → شاشة الانتظار
   if (s.isPending || s.isBanned) return '/pending';
@@ -59,6 +62,10 @@ String? _guard(BuildContext context, GoRouterState state) {
     '/settings/roles',
     '/settings/banned_users',
     '/settings/story_categories',
+    '/subscriber_detail',
+    '/subscriber_profile',
+    '/contributors/subscriber_detail',
+    '/contributors/subscriber_profile',
   ];
   if (adminOnlyRoutes.any((r) => path.startsWith(r)) && !s.isAdmin) {
     return '/home';
@@ -72,6 +79,7 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/splash',
+  // الزائر يبدأ من صفحة المنشورات مباشرة عبر زر «تصفح كزائر»
   debugLogDiagnostics: false,
   redirect: _guard,
   // إعادة تقييم المسارات عند كل تغيّر في الجلسة (دخول/خروج/تغيّر الدور)

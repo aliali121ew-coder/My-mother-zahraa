@@ -18,7 +18,7 @@ class SettingsStore {
     return switch (v) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
+      _ => ThemeMode.light, // افتراضي: وضع النهاري عند أول تشغيل
     };
   }
 

@@ -133,12 +133,52 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
           IconButton(
             tooltip: 'مشاركة PDF',
             icon: const Icon(Icons.share_rounded),
-            onPressed: () => _handleSharePdf(asyncData.valueOrNull ?? [], title),
+            onPressed: () {
+              final all = asyncData.valueOrNull ?? [];
+              final filteredForType = all.where((c) {
+                switch (type) {
+                  case 'donors':
+                    return c.type == ContributorType.donor;
+                  case 'supporters':
+                    return c.type == ContributorType.inKind;
+                  case 'paid':
+                    return c.isSubscriber && !c.isOverdue;
+                  case 'overdue':
+                    return c.isSubscriber && c.isOverdue;
+                  case 'all_consolidated':
+                    return true;
+                  case 'subscribers':
+                  default:
+                    return c.isSubscriber;
+                }
+              }).toList();
+              _handleSharePdf(filteredForType, title);
+            },
           ),
           IconButton(
             tooltip: 'طباعة A4',
             icon: const Icon(Icons.print_rounded),
-            onPressed: () => _handlePrintPdf(asyncData.valueOrNull ?? [], title),
+            onPressed: () {
+              final all = asyncData.valueOrNull ?? [];
+              final filteredForType = all.where((c) {
+                switch (type) {
+                  case 'donors':
+                    return c.type == ContributorType.donor;
+                  case 'supporters':
+                    return c.type == ContributorType.inKind;
+                  case 'paid':
+                    return c.isSubscriber && !c.isOverdue;
+                  case 'overdue':
+                    return c.isSubscriber && c.isOverdue;
+                  case 'all_consolidated':
+                    return true;
+                  case 'subscribers':
+                  default:
+                    return c.isSubscriber;
+                }
+              }).toList();
+              _handlePrintPdf(filteredForType, title);
+            },
           ),
           const SizedBox(width: 6),
         ],
@@ -666,55 +706,121 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
     );
   }
 
+  Future<List<ContributorModel>> _prepareReportItems(
+    List<ContributorModel> rawItems,
+    PrintFilterResult filter,
+  ) async {
+    final repo = ref.read(contributorsRepositoryProvider);
+    final isAnnual = filter.month == null;
+    final enriched = <ContributorModel>[];
+
+    if (isAnnual) {
+      // جلب مجاميع السنة دفعة واحدة من قاعدة البيانات
+      final yearlyPayments = await repo.loadYearlyPaymentsForYear(filter.year);
+      final yearlyDonations = await repo.loadYearlyDonationsForYear(filter.year);
+
+      for (final c in rawItems) {
+        if (c.type == ContributorType.subscriber) {
+          num yearlySum = yearlyPayments[c.id] ?? 0;
+          if (yearlySum == 0) {
+            // محاولة قراءة الدفتر المحلي
+            final ledger = await repo.loadMonthlyLedger(c.id, filter.year);
+            for (final mEntry in ledger.values) {
+              if (mEntry['is_paid'] == true) {
+                yearlySum += (mEntry['amount'] as num?) ?? 0;
+              }
+            }
+          }
+          enriched.add(c.copyWith(totalPaid: yearlySum));
+        } else if (c.type == ContributorType.donor) {
+          num yearlySum = yearlyDonations[c.id] ?? 0;
+          final desc = await repo.getDonationDescForMonth(c.id, filter.year, null);
+          if (yearlySum == 0) {
+            enriched.add(c.copyWith(totalPaid: c.totalPaid, latestDonationDesc: desc));
+          } else {
+            enriched.add(c.copyWith(totalPaid: yearlySum, latestDonationDesc: desc));
+          }
+        } else {
+          // داعم عيني
+          final desc = await repo.getDonationDescForMonth(c.id, filter.year, null);
+          enriched.add(c.copyWith(latestDonationDesc: desc));
+        }
+      }
+    } else {
+      // تقرير شهري
+      final month = filter.month!;
+      final monthlyPayments =
+          await repo.loadMonthlyPaymentsForMonth(filter.year, month);
+
+      for (final c in rawItems) {
+        if (c.type == ContributorType.subscriber) {
+          final p = monthlyPayments[c.id];
+          if (p != null && p['is_paid'] == true) {
+            final amt = (p['amount'] as num?) ?? (c.subscriptionAmount ?? 0);
+            final paidAt = DateTime.tryParse(p['paid_at']?.toString() ?? '');
+            enriched.add(c.copyWith(
+              isLateOverride: false,
+              totalPaid: amt,
+              lastPaymentAt: paidAt,
+            ));
+          } else {
+            // فحص الدفتر المحلي
+            final ledger = await repo.loadMonthlyLedger(c.id, filter.year);
+            final mData = ledger[month];
+            if (mData != null && mData['is_paid'] == true) {
+              final amt =
+                  (mData['amount'] as num?) ?? (c.subscriptionAmount ?? 0);
+              final paidAt =
+                  DateTime.tryParse(mData['paid_at']?.toString() ?? '');
+              enriched.add(c.copyWith(
+                isLateOverride: false,
+                totalPaid: amt,
+                lastPaymentAt: paidAt,
+              ));
+            } else {
+              enriched.add(c.copyWith(
+                isLateOverride: true,
+                totalPaid: 0,
+                lastPaymentAt: null,
+              ));
+            }
+          }
+        } else if (c.type == ContributorType.donor) {
+          final desc =
+              await repo.getDonationDescForMonth(c.id, filter.year, month);
+          enriched.add(c.copyWith(latestDonationDesc: desc));
+        } else {
+          final desc =
+              await repo.getDonationDescForMonth(c.id, filter.year, month);
+          enriched.add(c.copyWith(latestDonationDesc: desc));
+        }
+      }
+    }
+
+    return enriched;
+  }
+
   Future<void> _handlePrintPdf(List<ContributorModel> items, String title) async {
     if (items.isEmpty) return;
     
     final filter = await PrintFilterBottomSheet.show(context);
     if (filter == null) return;
 
-    final filteredItems = items.where((c) {
-      if (c.lastPaymentAt == null) return false;
-      final isYearMatch = c.lastPaymentAt!.year == filter.year;
-      if (filter.month == null) return isYearMatch;
-      return isYearMatch && c.lastPaymentAt!.month == filter.month;
-    }).toList();
-
-    if (filteredItems.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد بيانات لهذه الفترة المحددة.')),
-        );
-      }
-      return;
-    }
-
     setState(() => _isGeneratingPdf = true);
     
-    // جلب بيانات التبرع العيني من السجلات للشهر والسنة المحددة
-    final repo = ref.read(contributorsRepositoryProvider);
-    final enrichedItems = <ContributorModel>[];
-    for (final c in filteredItems) {
-      if (c.type != ContributorType.subscriber) {
-        final desc = await repo.getDonationDescForMonth(c.id, filter.year, filter.month);
-        if (desc != null && desc.isNotEmpty) {
-          enrichedItems.add(c.copyWith(latestDonationDesc: desc));
-        } else {
-          enrichedItems.add(c);
-        }
-      } else {
-        enrichedItems.add(c);
-      }
-    }
-
-    final periodTitle = filter.month == null 
-        ? '$title - سنة ${filter.year}'
-        : '$title - شهر ${filter.month}/${filter.year}';
-
     try {
+      final isAnnual = filter.month == null;
+      final enrichedItems = await _prepareReportItems(items, filter);
+
+      final periodTitle = isAnnual 
+          ? '$title - سنة ${filter.year}'
+          : '$title - شهر ${filter.month}/${filter.year}';
+
       await PdfReportService.printReport(
         title: periodTitle,
         items: enrichedItems,
         reportType: widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers'),
+        isAnnual: isAnnual,
       );
     } catch (e) {
       if (mounted) {
@@ -733,47 +839,21 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
     final filter = await PrintFilterBottomSheet.show(context);
     if (filter == null) return;
 
-    final filteredItems = items.where((c) {
-      if (c.lastPaymentAt == null) return false;
-      final isYearMatch = c.lastPaymentAt!.year == filter.year;
-      if (filter.month == null) return isYearMatch;
-      return isYearMatch && c.lastPaymentAt!.month == filter.month;
-    }).toList();
-
-    if (filteredItems.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا توجد بيانات لهذه الفترة المحددة.')),
-        );
-      }
-      return;
-    }
-    
-    // جلب بيانات التبرع العيني من السجلات للشهر والسنة المحددة
-    final repo = ref.read(contributorsRepositoryProvider);
-    final enrichedItems = <ContributorModel>[];
-    for (final c in filteredItems) {
-      if (c.type != ContributorType.subscriber) {
-        final desc = await repo.getDonationDescForMonth(c.id, filter.year, filter.month);
-        if (desc != null && desc.isNotEmpty) {
-          enrichedItems.add(c.copyWith(latestDonationDesc: desc));
-        } else {
-          enrichedItems.add(c);
-        }
-      } else {
-        enrichedItems.add(c);
-      }
-    }
-
-    final periodTitle = filter.month == null 
-        ? '$title - سنة ${filter.year}'
-        : '$title - شهر ${filter.month}/${filter.year}';
+    setState(() => _isGeneratingPdf = true);
 
     try {
+      final isAnnual = filter.month == null;
+      final enrichedItems = await _prepareReportItems(items, filter);
+
+      final periodTitle = isAnnual 
+          ? '$title - سنة ${filter.year}'
+          : '$title - شهر ${filter.month}/${filter.year}';
+
       await PdfReportService.shareReport(
         title: periodTitle,
         items: enrichedItems,
         reportType: widget.reportType ?? (widget.isDonorsReport ? 'donors' : 'subscribers'),
+        isAnnual: isAnnual,
       );
     } catch (e) {
       if (mounted) {
@@ -781,6 +861,8 @@ class _ReportDetailPageState extends ConsumerState<ReportDetailPage> {
           SnackBar(content: Text('حدث خطأ أثناء مشاركة الملف: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isGeneratingPdf = false);
     }
   }
 

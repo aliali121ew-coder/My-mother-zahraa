@@ -62,6 +62,31 @@ class AppUpdateService {
     }
   }
 
+  static const String defaultReleaseApkUrl =
+      'https://raw.githubusercontent.com/aliali121ew-coder/My-mother-zahraa/main/releases/mawkib_zahraa_release.apk';
+
+  /// فحص وتأمين رابط تحميل حزمة APK ضد أي تحويل غير موثوق (SEC-01)
+  static String validateAndSanitizeApkUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) return defaultReleaseApkUrl;
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri == null || uri.scheme != 'https') return defaultReleaseApkUrl;
+
+    final host = uri.host.toLowerCase();
+    final path = uri.path.toLowerCase();
+
+    // النطاقات الموثوقة حصراً لمستودع تطبيق الموكب الرسمي
+    final isAllowedHost = host == 'raw.githubusercontent.com' ||
+        host == 'github.com' ||
+        host == 'objects.githubusercontent.com';
+
+    final isAllowedRepo = path.contains('/aliali121ew-coder/my-mother-zahraa');
+
+    if (isAllowedHost && isAllowedRepo) {
+      return rawUrl.trim();
+    }
+    return defaultReleaseApkUrl;
+  }
+
   static bool _isDialogOpen = false;
 
   /// فتح حوار التحديث الإجباري مع شريط التقدم — يعتّم الشاشة كاملة ويبقى ثابتاً في المنتصف.
@@ -73,9 +98,8 @@ class AppUpdateService {
     if (targetContext == null || !targetContext.mounted) return;
 
     final config = await fetchConfig() ?? {};
-    final apkUrl =
-        (config['apk_url'] as String?) ??
-        'https://raw.githubusercontent.com/aliali121ew-coder/My-mother-zahraa/main/releases/mawkib_zahraa_release.apk';
+    final rawApkUrl = config['apk_url'] as String?;
+    final apkUrl = validateAndSanitizeApkUrl(rawApkUrl);
     final message =
         (config['message'] as String?) ??
         'تحديث جديد متاح لتحسين أداء التطبيق وأمانه — يرجى التحديث للمتابعة';

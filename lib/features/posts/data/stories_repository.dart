@@ -142,51 +142,12 @@ class StoriesRepository extends SupabaseRepository {
         }
       }
 
-      if (result.isNotEmpty) {
-        await _storeLocal(result);
-        return result;
-      }
-      final local = _loadLocal();
-      if (local.isNotEmpty) return local;
-      return _defaultDemoStories();
+      await _storeLocal(result);
+      return result;
     } catch (e) {
       final local = _loadLocal();
-      if (local.isNotEmpty) return local;
-      return _defaultDemoStories();
+      return local;
     }
-  }
-
-  List<StoryModel> _defaultDemoStories() {
-    return [
-      StoryModel(
-        id: 'story_demo_1',
-        title: 'موكب أمنا الزهراء (ع)',
-        coverUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
-        items: [
-          StoryItemModel(
-            id: 'item_d1',
-            imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
-            caption: 'خدمة زوار الحسين (ع) شرفنا وفخرنا',
-            durationSeconds: 5,
-          ),
-        ],
-        isViewed: false,
-      ),
-      StoryModel(
-        id: 'story_demo_2',
-        title: 'الاستعدادات',
-        coverUrl: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=500',
-        items: [
-          StoryItemModel(
-            id: 'item_d2',
-            imageUrl: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=800',
-            caption: 'تجهيز مضيف الإطعام والضيافة',
-            durationSeconds: 5,
-          ),
-        ],
-        isViewed: false,
-      ),
-    ];
   }
 
   Future<void> insertStory(

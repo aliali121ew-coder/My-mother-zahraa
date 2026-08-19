@@ -1216,7 +1216,6 @@ class _AuthPageState extends ConsumerState<AuthPage>
     }
 
     final email = _loginEmailController.text.trim();
-    final isMaster = AppConfig.isMasterAdmin(email);
 
     setState(() => _busy = true);
     final notifier = ref.read(sessionProvider.notifier);
@@ -1241,7 +1240,7 @@ class _AuthPageState extends ConsumerState<AuthPage>
       return;
     }
 
-    if (session.isPending && !isMaster) {
+    if (session.isPending) {
       context.go('/pending');
       return;
     }
@@ -1260,17 +1259,15 @@ class _AuthPageState extends ConsumerState<AuthPage>
     } catch (_) {}
 
     ref.read(loginAuditProvider.notifier).recordLogin(
-          accountName: isMaster ? 'مدير النظام (البريد الأساسي)' : (session.profile?.fullName ?? 'مستخدم موثق'),
+          accountName: session.profile?.fullName ?? 'مستخدم موثق',
           emailOrPhone: email,
-          roleName: isMaster ? 'مدير عام' : session.role.label,
+          roleName: session.role.label,
           avatarUrl: session.profile?.avatarUrl,
           deviceInfo: 'تسجيل دخول موثق',
         );
 
     if (!mounted) return;
-    _snack(isMaster
-        ? 'أهلاً بك يا مدير النظام، تم تسجيل الدخول بصلاحيات كاملة'
-        : 'أهلاً بك، تم تسجيل الدخول بنجاح');
+    _snack('أهلاً بك، تم تسجيل الدخول بنجاح');
     context.go('/home');
   }
 
@@ -1317,7 +1314,6 @@ class _AuthPageState extends ConsumerState<AuthPage>
     final phone = _registerPhoneController.text.trim();
     final email = _registerEmailController.text.trim();
     final password = _registerPasswordController.text;
-    final isMaster = AppConfig.isMasterAdmin(email);
 
     final error = await notifier.signUp(
       email,
@@ -1334,39 +1330,26 @@ class _AuthPageState extends ConsumerState<AuthPage>
       return;
     }
 
-    if (!isMaster) {
-      // تسجيل الطلب المعلق للمستخدمين العاديين
-      final repo = ref.read(authRepositoryProvider);
-      final currentUid = ref.read(sessionProvider).profile?.id;
-      await repo.recordPendingRegistration(
-        id: currentUid,
-        fullName: fullName,
-        phone: phone,
-        email: email,
-      );
+    // تسجيل الطلب المعلق للمستخدمين العاديين
+    final repo = ref.read(authRepositoryProvider);
+    final currentUid = ref.read(sessionProvider).profile?.id;
+    await repo.recordPendingRegistration(
+      id: currentUid,
+      fullName: fullName,
+      phone: phone,
+      email: email,
+    );
 
-      ref.read(loginAuditProvider.notifier).recordLogin(
-            accountName: fullName,
-            emailOrPhone: phone.isNotEmpty ? phone : email,
-            roleName: 'عضو (طلب جديد قيد الانتظار)',
-            deviceInfo: 'طلب إنشاء حساب جديد',
-          );
+    ref.read(loginAuditProvider.notifier).recordLogin(
+          accountName: fullName,
+          emailOrPhone: phone.isNotEmpty ? phone : email,
+          roleName: 'عضو (طلب جديد قيد الانتظار)',
+          deviceInfo: 'طلب إنشاء حساب جديد',
+        );
 
-      if (!mounted) return;
-      _snack('تم إنشاء الحساب بنجاح! طلبك قيد مراجعة المدير.');
-      context.go('/pending');
-    } else {
-      ref.read(loginAuditProvider.notifier).recordLogin(
-            accountName: fullName,
-            emailOrPhone: phone.isNotEmpty ? phone : email,
-            roleName: 'مدير عام (البريد الأساسي)',
-            deviceInfo: 'إنشاء حساب مدير النظام الأساسي',
-          );
-
-      if (!mounted) return;
-      _snack('مرحباً بك يا مدير النظام! تم تفعيل حسابك كمدير عام بنجاح.');
-      context.go('/home');
-    }
+    if (!mounted) return;
+    _snack('تم إنشاء الحساب بنجاح! طلبك قيد مراجعة المدير.');
+    context.go('/pending');
   }
 
   void _showForgotPasswordDialog() {

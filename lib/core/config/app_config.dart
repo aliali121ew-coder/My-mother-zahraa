@@ -1,5 +1,3 @@
-import '../storage/hive_service.dart';
-
 /// إعدادات التطبيق. مفاتيح Supabase تُمرَّر وقت البناء عبر --dart-define
 /// ولا تُكتب في الكود المصدري:
 ///
@@ -27,8 +25,8 @@ abstract final class AppConfig {
   static const currency = 'د.ع';
 
   /// معلومات الإصدار الموحّدة
-  static const appVersion = '1.2.1';
-  static const appBuildNumber = 11;
+  static const appVersion = '1.2.4';
+  static const appBuildNumber = 14;
   static String get versionDisplay => 'الإصدار $appVersion (Build $appBuildNumber)';
 
   /// أسماء صناديق Hive المحلية
@@ -43,32 +41,4 @@ abstract final class AppConfig {
   static const boxPurchases = 'purchases';
   static const boxAdminUsers = 'admin_users';
 
-  /// البريد الإلكتروني الافتراضي لمدير النظام
-  static const defaultMasterAdminEmail = 'see313see@gmail.com';
-
-  /// قراءة البريد الأساسي لمدير النظام (من التخزين المحلي إن عُدّل، أو الافتراضي)
-  static String get masterAdminEmail {
-    try {
-      final saved = HiveService.instance.settings.get('master_admin_email');
-      if (saved != null && saved.toString().trim().isNotEmpty) {
-        return saved.toString().trim().toLowerCase();
-      }
-    } catch (_) {}
-    return defaultMasterAdminEmail.toLowerCase();
-  }
-
-  /// تعيين وحفظ بريد مدير النظام الأساسي (حصراً للمدير العام)
-  static Future<void> setMasterAdminEmail(String email) async {
-    await HiveService.instance.settings.put(
-      'master_admin_email',
-      email.trim().toLowerCase(),
-    );
-  }
-
-  /// التحقق إن كان بريد معين هو بريد مدير النظام الأساسي
-  static bool isMasterAdmin(String? email) {
-    if (email == null || email.trim().isEmpty) return false;
-    final clean = email.trim().toLowerCase();
-    return clean == masterAdminEmail || clean == defaultMasterAdminEmail.toLowerCase();
-  }
 }

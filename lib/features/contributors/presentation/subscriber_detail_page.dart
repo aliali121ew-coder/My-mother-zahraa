@@ -222,9 +222,61 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final subscribersAsync = ref.watch(allContributorsProvider);
+    final session = ref.watch(sessionProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    if (!session.isAdmin) {
+      return AppBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: const Text('الملف التفصيلي'),
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: GlassCard(
+                blur: true,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.admin_panel_settings_rounded,
+                        size: 48, color: AppColors.gold),
+                    const SizedBox(height: 16),
+                    Text(
+                      'صلاحية غير متوفرة',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontFamily: AppTheme.displayFamily,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'الدخول إلى الملف التفصيلي وجدول السداد متاح لمدير النظام فقط.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.greenDeep,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      child: const Text('رجوع'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final subscribersAsync = ref.watch(allContributorsProvider);
 
     final allList = subscribersAsync.valueOrNull ?? [];
     final currentContrib = allList.firstWhere(
@@ -260,13 +312,14 @@ class _SubscriberDetailPageState extends ConsumerState<SubscriberDetailPage> {
             ),
           ),
           actions: [
-            IconButton(
-              tooltip: 'حذف المساهم',
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: Colors.redAccent,
-              ),
-              onPressed: () async {
+            if (session.isAdmin)
+              IconButton(
+                tooltip: 'حذف المساهم',
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                ),
+                onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(

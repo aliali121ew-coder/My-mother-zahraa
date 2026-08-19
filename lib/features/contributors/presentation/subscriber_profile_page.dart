@@ -316,9 +316,61 @@ class _SubscriberProfilePageState
 
   @override
   Widget build(BuildContext context) {
-    final subscribersAsync = ref.watch(allContributorsProvider);
+    final session = ref.watch(sessionProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    if (!session.isAdmin) {
+      return AppBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            title: const Text('الملف الشخصي'),
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: GlassCard(
+                blur: true,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.admin_panel_settings_rounded,
+                        size: 48, color: AppColors.gold),
+                    const SizedBox(height: 16),
+                    Text(
+                      'صلاحية غير متوفرة',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontFamily: AppTheme.displayFamily,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'تعديل وإدارة الملف الشخصي للمساهم متاح لمدير النظام فقط.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.greenDeep,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      child: const Text('رجوع'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final subscribersAsync = ref.watch(allContributorsProvider);
 
     final allList = subscribersAsync.valueOrNull ?? [];
     final currentContrib = allList.firstWhere(

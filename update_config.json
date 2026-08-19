@@ -1,6 +1,6 @@
 {
-  "version": 11,
+  "version": 15,
   "apk_url": "https://raw.githubusercontent.com/aliali121ew-coder/My-mother-zahraa/main/releases/mawkib_zahraa_release.apk",
   "force": true,
-  "message": "تحديث جديد (1.2.1): ضبط صلاحيات تسجيل المشتريات لمدير النظام فقط، وقصر نشر القصص (الستوري) على مدير النظام والناشر."
+  "message": "تحديث جديد (1.2.5): اعتماد صفحة المنشورات والستوريات الرسمية، إزالة البيانات الوهمية، وحل مشكلة صلاحيات وتجربة الستوري للأعضاء."
 }

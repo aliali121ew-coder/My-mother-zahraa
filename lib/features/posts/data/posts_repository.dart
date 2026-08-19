@@ -249,57 +249,12 @@ class PostsRepository extends SupabaseRepository {
           .map((p) => _postFromRow(p, likeCounts, commentCounts, liked, saved, authorProfiles))
           .toList();
 
-      if (result.isNotEmpty) {
-        await _storeLocalFeed(result);
-        return result;
-      }
-      final local = _loadLocalFeed();
-      if (local.isNotEmpty) return local;
-      return _defaultDemoPosts();
+      await _storeLocalFeed(result);
+      return result;
     } catch (e) {
       final local = _loadLocalFeed();
-      if (local.isNotEmpty) return local;
-      return _defaultDemoPosts();
+      return local;
     }
-  }
-
-  List<PostModel> _defaultDemoPosts() {
-    return [
-      PostModel(
-        id: 'demo_post_1',
-        publisherName: 'موكب أمنا الزهراء (ع)',
-        publisherAvatar: 'assets/images/logo.png',
-        isVerified: true,
-        location: 'كربلاء المقدسة',
-        images: const [
-          'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
-        ],
-        caption: 'بسم الله الرحمن الرحيم\nتغطية جانب من خدمة زوار الإمام الحسين (ع) في موكب أمنا الزهراء (ع). تقبل الله أعمال الجميع ووفقنا لخدمتكم دائماً.',
-        likesCount: 24,
-        commentsCount: 5,
-        isLiked: false,
-        isSaved: false,
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        yearTag: '1447',
-      ),
-      PostModel(
-        id: 'demo_post_2',
-        publisherName: 'إعلام الموكب',
-        publisherAvatar: 'assets/images/logo.png',
-        isVerified: true,
-        location: 'النجف الأشرف',
-        images: const [
-          'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=800',
-        ],
-        caption: 'استعدادات وتجهيزات الموكب لاستقبال الزائرين الكرام وتقديم أفضل الخدمات الغذائية واللوجستية.',
-        likesCount: 42,
-        commentsCount: 8,
-        isLiked: true,
-        isSaved: false,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        yearTag: '1447',
-      ),
-    ];
   }
 
   PostModel _postFromRow(
@@ -328,8 +283,7 @@ class PostsRepository extends SupabaseRepository {
           (profile['avatar_url'] as String?)?.toString().trim().isNotEmpty == true
               ? profile['avatar_url'] as String
               : 'assets/images/logo.png',
-      isVerified: profile['role'] == 'admin' ||
-          AppConfig.isMasterAdmin(profile['email']?.toString()),
+      isVerified: profile['role'] == 'admin',
       location: null,
       images: images,
       caption: (p['caption'] as String?)?.trim().isNotEmpty == true
@@ -394,16 +348,7 @@ class PostsRepository extends SupabaseRepository {
       }
       return comments;
     } catch (_) {
-      // إرجاع تعليق افتراضي أو قائمة فارغة دون انهيار
-      return [
-        CommentModel(
-          id: 'demo_c1',
-          userName: 'خادم الموكب',
-          userAvatar: 'assets/images/logo.png',
-          text: 'تقبل الله منا ومنكم صالح الأعمال والخدمة المباركة.',
-          createdAt: DateTime.now().subtract(const Duration(minutes: 40)),
-        ),
-      ];
+      return [];
     }
   }
 
@@ -433,8 +378,7 @@ class PostsRepository extends SupabaseRepository {
         if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
           publisherAvatar = profile.avatarUrl!;
         }
-        isVerified = profile.role == UserRole.admin ||
-            AppConfig.isMasterAdmin(profile.email);
+        isVerified = profile.role == UserRole.admin;
       }
     } catch (_) {}
 

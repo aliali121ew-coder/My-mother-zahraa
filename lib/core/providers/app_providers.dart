@@ -89,16 +89,13 @@ class AppSession {
   final String? error;
 
   bool get isGuest => profile == null;
-  bool get isMasterAdmin =>
-      AppConfig.isMasterAdmin(profile?.email) ||
-      (profile?.role == UserRole.admin && profile?.status == UserStatus.approved);
-  bool get isApproved => isMasterAdmin || (profile?.isActive ?? false);
-  bool get isPending => !isMasterAdmin && (profile?.isPending ?? false);
-  bool get isBanned => !isMasterAdmin && (profile?.isBanned ?? false);
-  bool get isAdmin => isMasterAdmin || (profile?.role == UserRole.admin);
+  bool get isApproved => profile?.isActive ?? false;
+  bool get isPending => profile?.isPending ?? false;
+  bool get isBanned => profile?.isBanned ?? false;
+  bool get isAdmin => profile?.role == UserRole.admin;
 
   /// دور المستخدم — الزائر يُعالَج كعضو بلا صلاحيات
-  UserRole get role => isMasterAdmin ? UserRole.admin : (profile?.role ?? UserRole.member);
+  UserRole get role => profile?.role ?? UserRole.member;
 
   /// الأرقام والإحصائيات للمعتمدين فقط
   bool get canSeeStats => isApproved;

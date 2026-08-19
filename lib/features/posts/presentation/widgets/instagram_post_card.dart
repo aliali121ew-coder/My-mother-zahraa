@@ -3,10 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass.dart';
+import '../../../../shared/models/permissions.dart';
 import '../../data/posts_repository.dart';
 import '../../data/stories_repository.dart';
 import '../../domain/post_model.dart';
@@ -54,6 +57,11 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
   }
 
   void _onDoubleTapLike() {
+    final isGuest = ref.read(sessionProvider).isGuest;
+    if (isGuest) {
+      _showGuestDialog(context);
+      return;
+    }
     if (!widget.post.isLiked) {
       ref
           .read(postsProvider.notifier)
@@ -73,11 +81,57 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
     });
   }
 
+  void _showGuestDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: Color(0xFFCFA14E)),
+            SizedBox(width: 10),
+            Text('يجب تسجيل الدخول',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'سجّل دخولك أو أنشئ حساباً لتفاعل مع المنشورات.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13.5, height: 1.5),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('لاحقاً', style: TextStyle(color: Colors.grey)),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/auth');
+            },
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: const Text('تسجيل الدخول'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0F5C2E),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final post = widget.post;
+    final session = ref.watch(sessionProvider);
+    final canPublish = session.role.canPublish;
+    final isAdmin = session.isAdmin;
+    final canManagePost = isAdmin || canPublish;
 
     return GlassCard(
       margin: const EdgeInsets.only(bottom: 20),
@@ -250,62 +304,64 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                     }
                   },
                   itemBuilder: (ctx) => [
-                    PopupMenuItem<String>(
-                      value: 'story',
-                      height: 44,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.purple.withValues(alpha: 0.15),
+                    if (canManagePost) ...[
+                      PopupMenuItem<String>(
+                        value: 'story',
+                        height: 44,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.purple.withValues(alpha: 0.15),
+                              ),
+                              child: const Icon(Icons.auto_stories_rounded,
+                                  color: Colors.purpleAccent, size: 18),
                             ),
-                            child: const Icon(Icons.auto_stories_rounded,
-                                color: Colors.purpleAccent, size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'مشاركة استوري 🌟',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
+                            const SizedBox(width: 12),
+                            Text(
+                              'مشاركة استوري 🌟',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuDivider(height: 1),
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      height: 44,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.gold.withValues(alpha: 0.15),
+                      const PopupMenuDivider(height: 1),
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        height: 44,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.gold.withValues(alpha: 0.15),
+                              ),
+                              child: const Icon(Icons.edit_note_rounded,
+                                  color: AppColors.gold, size: 18),
                             ),
-                            child: const Icon(Icons.edit_note_rounded,
-                                color: AppColors.gold, size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'تعديل المنشور ✏️',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
+                            const SizedBox(width: 12),
+                            Text(
+                              'تعديل المنشور ✏️',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuDivider(height: 1),
+                      const PopupMenuDivider(height: 1),
+                    ],
                     PopupMenuItem<String>(
                       value: 'copy',
                       height: 44,
@@ -322,7 +378,7 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            'نسخ الرابط 📋',
+                            'نسخ تفاصيل المنشور 📋',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 13.5,
@@ -333,34 +389,36 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                         ],
                       ),
                     ),
-                    const PopupMenuDivider(height: 1),
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      height: 44,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.red.withValues(alpha: 0.15),
+                    if (canManagePost) ...[
+                      const PopupMenuDivider(height: 1),
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        height: 44,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.red.withValues(alpha: 0.15),
+                              ),
+                              child: const Icon(Icons.delete_outline_rounded,
+                                  color: Colors.redAccent, size: 18),
                             ),
-                            child: const Icon(Icons.delete_outline_rounded,
-                                color: Colors.redAccent, size: 18),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'حذف المنشور 🗑️',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.redAccent,
+                            const SizedBox(width: 12),
+                            const Text(
+                              'حذف المنشور 🗑️',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.redAccent,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
@@ -444,6 +502,10 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                     size: 26,
                   ),
                   onPressed: () {
+                    if (ref.read(sessionProvider).isGuest) {
+                      _showGuestDialog(context);
+                      return;
+                    }
                     ref
                         .read(postsProvider.notifier)
                         .toggleLike(post.id, post.isLiked);
@@ -455,7 +517,13 @@ class _InstagramPostCardState extends ConsumerState<InstagramPostCard>
                     color: isDark ? Colors.white : Colors.black87,
                     size: 24,
                   ),
-                  onPressed: () => CommentsBottomSheet.show(context, post),
+                  onPressed: () {
+                    if (ref.read(sessionProvider).isGuest) {
+                      _showGuestDialog(context);
+                      return;
+                    }
+                    CommentsBottomSheet.show(context, post);
+                  },
                 ),
                 IconButton(
                   icon: Icon(

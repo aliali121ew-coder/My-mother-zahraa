@@ -95,7 +95,13 @@ class ContributorsRepository extends SupabaseRepository {
         fetch: () async {
           var query = db.from('contributors').select();
           if (type != null) {
-            query = query.eq('type', type.value);
+            if (type == ContributorType.inKind) {
+              query = query.or('type.eq.in_kind,and(type.eq.donor,notes.ilike.%داعم%)');
+            } else if (type == ContributorType.donor) {
+              query = query.eq('type', 'donor');
+            } else {
+              query = query.eq('type', type.value);
+            }
           }
           final rows = await query
               .isFilter('deleted_at', null)
@@ -156,11 +162,32 @@ class ContributorsRepository extends SupabaseRepository {
         writeData.remove('photo_url');
       }
 
-      final row = await db
-          .from('contributors')
-          .insert(writeData)
-          .select()
-          .single();
+      Map<String, dynamic> row;
+      try {
+        row = await db
+            .from('contributors')
+            .insert(writeData)
+            .select()
+            .single();
+      } catch (e) {
+        final errStr = e.toString();
+        // معالجة احتياطية إن كانت قاعدة البيانات لم تُحدّث بعد بتعداد in_kind
+        if (writeData['type'] == 'in_kind' &&
+            (errStr.contains('contributor_type') || errStr.contains('in_kind'))) {
+          writeData['type'] = 'donor';
+          final prevNotes = (writeData['notes'] as String?)?.trim() ?? '';
+          writeData['notes'] = prevNotes.isNotEmpty
+              ? '$prevNotes [داعم عيني]'
+              : '[داعم عيني]';
+          row = await db
+              .from('contributors')
+              .insert(writeData)
+              .select()
+              .single();
+        } else {
+          rethrow;
+        }
+      }
 
       final serverModel = ContributorModel.fromJson(row);
       // حذف المعرف المؤقت من الكاش إذا اختلف عن معرّف السيرفر
@@ -184,12 +211,34 @@ class ContributorsRepository extends SupabaseRepository {
       return c;
     }
 
-    final row = await db
-        .from('contributors')
-        .update(c.toWriteJson()..remove('id'))
-        .eq('id', c.id)
-        .select()
-        .single();
+    final writeData = c.toWriteJson()..remove('id');
+    Map<String, dynamic> row;
+    try {
+      row = await db
+          .from('contributors')
+          .update(writeData)
+          .eq('id', c.id)
+          .select()
+          .single();
+    } catch (e) {
+      final errStr = e.toString();
+      if (writeData['type'] == 'in_kind' &&
+          (errStr.contains('contributor_type') || errStr.contains('in_kind'))) {
+        writeData['type'] = 'donor';
+        final prevNotes = (writeData['notes'] as String?)?.trim() ?? '';
+        writeData['notes'] = prevNotes.isNotEmpty
+            ? '$prevNotes [داعم عيني]'
+            : '[داعم عيني]';
+        row = await db
+            .from('contributors')
+            .update(writeData)
+            .eq('id', c.id)
+            .select()
+            .single();
+      } else {
+        rethrow;
+      }
+    }
     return ContributorModel.fromJson(row);
   }
 
@@ -435,6 +484,84 @@ class ContributorsRepository extends SupabaseRepository {
       return res;
     } catch (_) {}
     return {};
+  }
+
+  /// جلب مجاميع الدفعات السنوية لكل مشترك لسنة محددة
+  Future<Map<String, num>> loadYearlyPaymentsForYear(int year) async {
+    final totals = <String, num>{};
+    if (isLive) {
+      try {
+        final rows = await db
+            .from('payments')
+            .select('contributor_id, amount')
+            .gte('paid_at', DateTime.utc(year, 1, 1).toIso8601String())
+            .lt('paid_at', DateTime.utc(year + 1, 1, 1).toIso8601String());
+        for (final r in List<Map<String, dynamic>>.from(rows)) {
+          final cid = r['contributor_id']?.toString();
+          if (cid != null) {
+            totals[cid] = (totals[cid] ?? 0) + ((r['amount'] as num?) ?? 0);
+          }
+        }
+        return totals;
+      } catch (_) {}
+    }
+    return totals;
+  }
+
+  /// جلب تسديدات المشتركين لشهر وسنة معينة
+  Future<Map<String, Map<String, dynamic>>> loadMonthlyPaymentsForMonth(
+      int year, int month) async {
+    final res = <String, Map<String, dynamic>>{};
+    if (isLive) {
+      try {
+        final startDate = DateTime.utc(year, month, 1);
+        final endDate = month == 12
+            ? DateTime.utc(year + 1, 1, 1)
+            : DateTime.utc(year, month + 1, 1);
+        final rows = await db
+            .from('payments')
+            .select('contributor_id, amount, paid_at')
+            .gte('paid_at', startDate.toIso8601String())
+            .lt('paid_at', endDate.toIso8601String());
+        for (final r in List<Map<String, dynamic>>.from(rows)) {
+          final cid = r['contributor_id']?.toString();
+          if (cid != null) {
+            final prev = res[cid];
+            final amt =
+                ((prev?['amount'] as num?) ?? 0) + ((r['amount'] as num?) ?? 0);
+            res[cid] = {
+              'amount': amt,
+              'paid_at': r['paid_at'],
+              'is_paid': true,
+            };
+          }
+        }
+        return res;
+      } catch (_) {}
+    }
+    return res;
+  }
+
+  /// جلب مجاميع التبرعات النقدية السنوية لكل متبرع
+  Future<Map<String, num>> loadYearlyDonationsForYear(int year) async {
+    final totals = <String, num>{};
+    if (isLive) {
+      try {
+        final rows = await db
+            .from('donations')
+            .select('contributor_id, amount')
+            .eq('kind', 'cash')
+            .gte('donated_at', DateTime.utc(year, 1, 1).toIso8601String())
+            .lt('donated_at', DateTime.utc(year + 1, 1, 1).toIso8601String());
+        for (final r in List<Map<String, dynamic>>.from(rows)) {
+          final cid = r['contributor_id']?.toString();
+          if (cid != null) {
+            totals[cid] = (totals[cid] ?? 0) + ((r['amount'] as num?) ?? 0);
+          }
+        }
+      } catch (_) {}
+    }
+    return totals;
   }
 
   /// حفظ أو تعديل تسديد شهر معين لمشترك

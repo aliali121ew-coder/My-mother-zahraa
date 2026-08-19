@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass.dart';
 import '../../../core/widgets/auto_hiding_app_bar.dart';
 import '../../../shared/models/permissions.dart';
@@ -202,13 +201,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             _SettingsGroup(
               children: [
                 _Tile(
-                  icon: Icons.shield_outlined,
-                  title: 'البريد الأساسي لمدير النظام',
-                  subtitle: AppConfig.masterAdminEmail,
-                  trailing: const Icon(Icons.edit_note_rounded, color: AppColors.gold, size: 22),
-                  onTap: () => _showEditMasterAdminDialog(context),
-                ),
-                _Tile(
                   icon: Icons.how_to_reg_outlined,
                   title: 'طلبات الحسابات',
                   subtitle: 'الموافقة أو الرفض',
@@ -328,106 +320,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
   }
 
-  void _showEditMasterAdminDialog(BuildContext context) {
-    final messenger = ScaffoldMessenger.of(context);
-    final current = AppConfig.masterAdminEmail;
-    final ctrl = TextEditingController(text: current);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.gold.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.shield_rounded, color: AppColors.gold, size: 20),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'البريد الأساسي لمدير النظام',
-                style: TextStyle(
-                  fontFamily: AppTheme.displayFamily,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.greenDeep.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.greenDeep.withValues(alpha: 0.18)),
-                ),
-                child: const Text(
-                  'هذا البريد يمتلك تلقائياً رتبة مدير عام وصلاحيات كاملة 100% فور تسجيله أو دخوله.',
-                  style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12.5, height: 1.4),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'بريد المدير الأساسي',
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.email_outlined, color: AppColors.gold),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.greenDeep,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () async {
-              final newEmail = ctrl.text.trim();
-              if (newEmail.isEmpty || !newEmail.contains('@')) {
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('يرجى كتابة بريد إلكتروني صحيح')),
-                );
-                return;
-              }
-              await AppConfig.setMasterAdminEmail(newEmail);
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) {
-                setState(() {});
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('تم تعيين $newEmail كبريد أساسي لمدير النظام بنجاح'),
-                    backgroundColor: AppColors.paid,
-                  ),
-                );
-              }
-            },
-            child: const Text('حفظ التعيين'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SectionTitle extends StatelessWidget {

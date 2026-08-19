@@ -48,7 +48,7 @@ class AppShell extends ConsumerWidget {
               } else if (notification is ScrollUpdateNotification &&
                   notification.scrollDelta != null) {
                 final delta = notification.scrollDelta!;
-                const maxRange = 75.0; // مسافة التمرير بالبكسل للانتقال الكامل من 10% إلى 100%
+                const maxRange = 75.0;
                 final current = ref.read(scrollProgressProvider);
                 final updated = (current + delta / maxRange).clamp(0.0, 1.0);
                 if (updated != current) {
@@ -69,6 +69,12 @@ class AppShell extends ConsumerWidget {
               currentIndex: shell.currentIndex,
               items: _items,
               onTap: (i) {
+                // الزائر: صفحة المنشورات فقط (index 2)
+                final session = ref.read(sessionProvider);
+                if (session.isGuest && i != 2) {
+                  _showGuestLoginDialog(context);
+                  return;
+                }
                 ref.read(scrollProgressProvider.notifier).state = 0.0;
                 if (i == 0) {
                   ref.invalidate(statsRawProvider);
@@ -96,6 +102,49 @@ class AppShell extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// نافذة تسجيل دخول للزائر عند محاولة الوصول لصفحة محمية
+void _showGuestLoginDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.lock_outline_rounded, color: Color(0xFFCFA14E)),
+          SizedBox(width: 10),
+          Text('تسجيل الدخول مطلوب',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      content: const Text(
+        'هذه الصفحة متاحة للأعضاء المسجلين فقط.\nسجّل دخولك أو أنشئ حساباً للوصول إليها.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 13.5, height: 1.5),
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('لاحقاً', style: TextStyle(color: Colors.grey)),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            Navigator.pop(ctx);
+            context.go('/auth');
+          },
+          icon: const Icon(Icons.login_rounded, size: 18),
+          label: const Text('تسجيل الدخول'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF0F5C2E),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _NavItem {

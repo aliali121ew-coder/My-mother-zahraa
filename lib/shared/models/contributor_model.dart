@@ -122,9 +122,18 @@ class ContributorModel {
     return diff > 0 ? diff : 1;
   }
 
-  factory ContributorModel.fromJson(Map<String, dynamic> j) => ContributorModel(
-        id: j['id'].toString(),
-        type: ContributorType.fromValue(j['type'] as String?),
+  factory ContributorModel.fromJson(Map<String, dynamic> j) {
+    final rawType = j['type'] as String?;
+    final notes = j['notes'] as String?;
+    final detectedType = (rawType == 'donor' &&
+            (notes?.contains('[داعم عيني]') == true ||
+                notes?.contains('نوع المساهمة:') == true))
+        ? ContributorType.inKind
+        : ContributorType.fromValue(rawType);
+
+    return ContributorModel(
+      id: j['id'].toString(),
+      type: detectedType,
         fullName: (j['full_name'] as String?) ?? 'بلا اسم',
         phone: j['phone'] as String?,
         photoUrl: j['photo_url'] as String?,
@@ -142,6 +151,7 @@ class ContributorModel {
         pendingSync: (j['pending_sync'] as bool?) ?? false,
         latestDonationDesc: j['latest_donation_desc'] as String?,
       );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,

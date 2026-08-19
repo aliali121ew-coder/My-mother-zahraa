@@ -20,6 +20,9 @@ class InstagramStoryBar extends ConsumerWidget {
     // AsyncValue — أثناء فشل الشبكة يُعرض آخر محتوى محلي من المخزن
     final storiesAsync = ref.watch(storiesProvider);
     final allStories = storiesAsync.value ?? const [];
+    final session = ref.watch(sessionProvider);
+    final isPublisherOrAdmin =
+        session.isAdmin || session.profile?.role == UserRole.publisher;
 
     // قصة المستخدم الموحدة 'قصتك'
     final myStoryIndex = allStories.indexWhere(
@@ -34,19 +37,37 @@ class InstagramStoryBar extends ConsumerWidget {
     // باقي قصص الأقسام / الأشخاص دون تكرار
     final otherStories = allStories.where((s) => s != myStory).toList();
 
+    // إذا لم تكن هناك ستوريز والمستخدم ليس ناشراً أو مديراً
+    if (allStories.isEmpty && !isPublisherOrAdmin) {
+      return const SizedBox.shrink();
+    }
+
+    final hasMyStory = myStory != null;
+    final showAddSlot = isPublisherOrAdmin || hasMyStory;
+    final totalCount = (showAddSlot ? 1 : 0) + otherStories.length;
+
+    if (totalCount == 0) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: 105,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         scrollDirection: Axis.horizontal,
-        itemCount: otherStories.length + 1,
+        itemCount: totalCount,
         separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
-          if (i == 0) {
-            return _AddStoryItem(existingStory: myStory);
+          if (showAddSlot) {
+            if (i == 0) {
+              return _AddStoryItem(existingStory: myStory);
+            }
+            final story = otherStories[i - 1];
+            return _StoryCircleItem(story: story);
+          } else {
+            final story = otherStories[i];
+            return _StoryCircleItem(story: story);
           }
-          final story = otherStories[i - 1];
-          return _StoryCircleItem(story: story);
         },
       ),
     );

@@ -31,6 +31,7 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create type contributor_type as enum ('subscriber', 'donor', 'in_kind');
 exception when duplicate_object then null; end $$;
+alter type contributor_type add value if not exists 'in_kind';
 
 do $$ begin
   create type subscription_type as enum ('monthly', 'yearly');
@@ -327,31 +328,26 @@ drop trigger if exists trg_posts_touch on public.posts;
 create trigger trg_posts_touch before update on public.posts
   for each row execute function public.touch_updated_at();
 
--- إنشاء ملف تلقائياً عند تسجيل مستخدم جديد.
--- الحالة الافتراضية pending: **لا يرى شيئاً حتى يوافق المدير**، باستثناء البريد الأساسي لمدير النظام.
+-- إنشاء ملف تلقامًا عند تسجيل مستخدم جديد.
+-- الحالة الافتراضية pending: **لا يرى شيئاً حتى يوافق المدير**.
+-- الأمان يعتمد كلياً على سياسات RLS وعمود role في قاعدة البيانات.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare
-  is_master boolean;
 begin
   -- الجلسات المجهولة (للإعجاب فقط) لا تحتاج ملفاً
   if coalesce((new.raw_app_meta_data ->> 'provider') = 'anonymous', false) then
     return new;
   end if;
 
-  -- فحص إن كان هذا البريد هو البريد الأساسي لمدير النظام
-  is_master := (lower(trim(coalesce(new.email, ''))) = 'see313see@gmail.com');
-
   insert into public.profiles (id, full_name, role, status)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'full_name', case when is_master then 'مدير النظام' else 'مستخدم' end),
-    case when is_master then 'admin'::public.user_role else 'member'::public.user_role end,
-    case when is_master then 'approved'::public.user_status else 'pending'::public.user_status end
+    coalesce(new.raw_user_meta_data ->> 'full_name', 'مستخدم'),
+    'member'::public.user_role,
+    'pending'::public.user_status
   )
   on conflict (id) do update set
-    role = case when is_master then 'admin'::public.user_role else public.profiles.role end,
-    status = case when is_master then 'approved'::public.user_status else public.profiles.status end;
+    full_name = coalesce(new.raw_user_meta_data ->> 'full_name', public.profiles.full_name);
 
   return new;
 end $$;

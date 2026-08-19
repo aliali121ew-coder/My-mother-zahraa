@@ -7,6 +7,35 @@ import 'package:mawkib_zahra/core/providers/app_providers.dart';
 import 'package:mawkib_zahra/features/contributors/presentation/subscriber_detail_page.dart';
 import 'package:mawkib_zahra/shared/models/contributor_model.dart';
 import 'package:mawkib_zahra/shared/models/enums.dart';
+import 'package:mawkib_zahra/shared/models/profile_model.dart';
+
+class FakeAdminSessionNotifier extends SessionNotifier {
+  @override
+  AppSession build() {
+    return const AppSession(
+      profile: ProfileModel(
+        id: 'admin-1',
+        fullName: 'المدير العام',
+        role: UserRole.admin,
+        status: UserStatus.approved,
+      ),
+    );
+  }
+}
+
+class FakeMemberSessionNotifier extends SessionNotifier {
+  @override
+  AppSession build() {
+    return const AppSession(
+      profile: ProfileModel(
+        id: 'member-1',
+        fullName: 'عضو عادي',
+        role: UserRole.member,
+        status: UserStatus.approved,
+      ),
+    );
+  }
+}
 
 void main() {
   setUpAll(() async {
@@ -27,6 +56,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sessionProvider.overrideWith(FakeAdminSessionNotifier.new),
           subscribersRawProvider.overrideWith(
             (ref) async => CachedResult(data: [sub], fromCache: false),
           ),
@@ -76,6 +106,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sessionProvider.overrideWith(FakeAdminSessionNotifier.new),
           subscribersRawProvider.overrideWith(
             (ref) async => CachedResult(data: [donor], fromCache: false),
           ),
@@ -115,6 +146,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sessionProvider.overrideWith(FakeAdminSessionNotifier.new),
           subscribersRawProvider.overrideWith(
             (ref) async => CachedResult(data: [supporter], fromCache: false),
           ),
@@ -139,5 +171,42 @@ void main() {
     // التحقق من ترويسة جدول الداعم (مواد غذائية ومواد أنشائية)
     expect(find.text('مواد غذائية'), findsOneWidget);
     expect(find.text('مواد أنشائية'), findsOneWidget);
+  });
+
+  testWidgets('اختبار منع غير مدير النظام من دخول الملف التفصيلي',
+      (tester) async {
+    final sub = ContributorModel(
+      id: 'sub-test-2',
+      type: ContributorType.subscriber,
+      fullName: 'سيد علي',
+      subscriptionAmount: 50000,
+      subscriptionType: SubscriptionType.monthly,
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith(FakeMemberSessionNotifier.new),
+          subscribersRawProvider.overrideWith(
+            (ref) async => CachedResult(data: [sub], fromCache: false),
+          ),
+          subscribersProvider.overrideWith(
+            (ref) async => [sub],
+          ),
+          allContributorsProvider.overrideWith(
+            (ref) async => [sub],
+          ),
+        ],
+        child: const MaterialApp(
+          home: SubscriberDetailPage(contributorId: 'sub-test-2'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('صلاحية غير متوفرة'), findsOneWidget);
+    expect(find.text('الدخول إلى الملف التفصيلي وجدول السداد متاح لمدير النظام فقط.'), findsOneWidget);
   });
 }

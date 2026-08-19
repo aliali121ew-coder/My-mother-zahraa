@@ -32,7 +32,7 @@ class AuthRepository extends SupabaseRepository {
     String? phone,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
-    final res = await db.auth.signUp(
+    await db.auth.signUp(
       email: cleanEmail,
       password: password,
       data: {
@@ -40,52 +40,8 @@ class AuthRepository extends SupabaseRepository {
         if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
       },
     );
-    final isMaster = AppConfig.isMasterAdmin(cleanEmail);
-    final uid = res.user?.id ?? user?.id;
-
-    if (uid != null) {
-      try {
-        await db.from('profiles').upsert({
-          'id': uid,
-          'full_name': fullName.trim(),
-          'email': cleanEmail,
-          'phone': phone?.trim(),
-          'role': isMaster ? 'admin' : 'member',
-          'status': isMaster ? 'approved' : 'pending',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-      } catch (_) {}
-    }
-
-    if (isMaster && uid != null) {
-      try {
-        await db.from('profiles').update({'role': 'admin', 'status': 'approved'}).eq('id', uid);
-      } catch (_) {}
-    }
-
-    final p = await fetchMyProfile(fallbackEmail: cleanEmail);
-    if (isMaster) {
-      final elevated = (p ?? ProfileModel(
-        id: uid ?? 'master_admin',
-        fullName: fullName.isNotEmpty ? fullName : 'مدير النظام',
-        email: cleanEmail,
-        phone: phone,
-        role: UserRole.admin,
-        status: UserStatus.approved,
-      )).copyWith(
-        role: UserRole.admin,
-        status: UserStatus.approved,
-        email: cleanEmail,
-      );
-      await HiveService.instance.settings.put(
-        'cached_my_profile',
-        jsonEncode(elevated.toJson()),
-      );
-      await SettingsStore.instance.setLastLoginTime();
-      return elevated;
-    }
     await SettingsStore.instance.setLastLoginTime();
-    return p;
+    return fetchMyProfile(fallbackEmail: cleanEmail);
   }
 
   Future<ProfileModel?> signIn({
@@ -93,44 +49,12 @@ class AuthRepository extends SupabaseRepository {
     required String password,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
-    final res = await db.auth.signInWithPassword(
+    await db.auth.signInWithPassword(
       email: cleanEmail,
       password: password,
     );
-    final isMaster = AppConfig.isMasterAdmin(cleanEmail);
-    final uid = res.user?.id ?? user?.id;
-    if (isMaster && uid != null) {
-      try {
-        await db.from('profiles').upsert({
-          'id': uid,
-          'full_name': 'مدير النظام',
-          'role': 'admin',
-          'status': 'approved',
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        });
-      } catch (_) {}
-    }
     await SettingsStore.instance.setLastLoginTime();
-    final p = await fetchMyProfile(fallbackEmail: cleanEmail);
-    if (isMaster) {
-      final elevated = (p ?? ProfileModel(
-        id: uid ?? 'master_admin',
-        fullName: 'مدير النظام',
-        email: cleanEmail,
-        role: UserRole.admin,
-        status: UserStatus.approved,
-      )).copyWith(
-        role: UserRole.admin,
-        status: UserStatus.approved,
-        email: cleanEmail,
-      );
-      await HiveService.instance.settings.put(
-        'cached_my_profile',
-        jsonEncode(elevated.toJson()),
-      );
-      return elevated;
-    }
-    return p;
+    return fetchMyProfile(fallbackEmail: cleanEmail);
   }
 
   /// دخول مجهول — يُستخدم فقط لتمكين الزائر من الإعجاب بالمنشورات.
@@ -140,12 +64,50 @@ class AuthRepository extends SupabaseRepository {
     await db.auth.signInAnonymously();
   }
 
-  /// تسجيل الخروج مع **مسح البيانات الحساسة والملف الشخصي محلياً** أولاً
+  /// تسجيل الخروج مع **مسح البيانات الحساسة والملف الشخصي محلياً ومشفراً** أولاً
   Future<void> signOut() async {
     await cache.clearSensitiveCache();
+    try {
+      if (HiveService.instance.isReady) {
+        final encryptedBox = HiveService.instance.box(AppConfig.boxAdminUsers);
+        await encryptedBox.delete('cached_my_profile');
+      }
+    } catch (_) {}
     await HiveService.instance.settings.delete('cached_my_profile');
     await SettingsStore.instance.clearLastLoginTime();
     return db.auth.signOut();
+  }
+
+  /// حفظ الملف الشخصي محلياً بالتخزين المشفر AES-256
+  Future<void> _cacheMyProfile(ProfileModel p) async {
+    final encoded = jsonEncode(p.toJson());
+    try {
+      if (HiveService.instance.isReady) {
+        final encryptedBox = HiveService.instance.box(AppConfig.boxAdminUsers);
+        await encryptedBox.put('cached_my_profile', encoded);
+      }
+    } catch (_) {}
+    await HiveService.instance.settings.put('cached_my_profile', encoded);
+  }
+
+  /// قراءة الملف الشخصي من التخزين المشفر أولاً ثم التخزين الاحتياطي
+  ProfileModel? _readCachedMyProfile(String? currentEmail) {
+    try {
+      if (HiveService.instance.isReady) {
+        final encryptedBox = HiveService.instance.box(AppConfig.boxAdminUsers);
+        final encryptedRow = encryptedBox.get('cached_my_profile');
+        if (encryptedRow != null && encryptedRow.trim().isNotEmpty) {
+          final map = jsonDecode(encryptedRow) as Map<String, dynamic>;
+          return ProfileModel.fromJson(map, email: currentEmail);
+        }
+      }
+      final fallbackRow = HiveService.instance.settings.get('cached_my_profile');
+      if (fallbackRow != null) {
+        final map = jsonDecode(fallbackRow.toString()) as Map<String, dynamic>;
+        return ProfileModel.fromJson(map, email: currentEmail);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> resetPassword(String email) =>
@@ -163,25 +125,9 @@ class AuthRepository extends SupabaseRepository {
     }
 
     final currentEmail = user?.email ?? fallbackEmail;
-    final isMaster = AppConfig.isMasterAdmin(currentEmail);
 
-    // 1. فحص المخزن المحلي أولاً لضمان عدم تسجيل الخروج عند انقطاع الاتصال أو بطء الشبكة
-    final localRow = HiveService.instance.settings.get('cached_my_profile');
-    ProfileModel? localProfile;
-    if (localRow != null) {
-      try {
-        final map = jsonDecode(localRow.toString()) as Map<String, dynamic>;
-        localProfile = ProfileModel.fromJson(map, email: currentEmail);
-      } catch (_) {}
-    }
-
-    if (isMaster && localProfile != null && (localProfile.role != UserRole.admin || localProfile.status != UserStatus.approved)) {
-      localProfile = localProfile.copyWith(
-        role: UserRole.admin,
-        status: UserStatus.approved,
-        email: currentEmail,
-      );
-    }
+    // 1. فحص المخزن المحلي المشفّر أولاً لضمان عدم تسجيل الخروج عند انقطاع الاتصال أو بطء الشبكة
+    ProfileModel? localProfile = _readCachedMyProfile(currentEmail);
 
     if (localProfile != null && SettingsStore.instance.lastLoginTime == null) {
       await SettingsStore.instance.setLastLoginTime();
@@ -189,19 +135,6 @@ class AuthRepository extends SupabaseRepository {
 
     final uid = user?.id;
     if (uid == null || isAnonymous) {
-      if (isMaster) {
-        return (localProfile ?? ProfileModel(
-          id: 'master_admin',
-          fullName: 'مدير النظام',
-          email: currentEmail,
-          role: UserRole.admin,
-          status: UserStatus.approved,
-        )).copyWith(
-          role: UserRole.admin,
-          status: UserStatus.approved,
-          email: currentEmail,
-        );
-      }
       return localProfile;
     }
 
@@ -213,71 +146,15 @@ class AuthRepository extends SupabaseRepository {
           .maybeSingle();
 
       if (row == null) {
-        if (isMaster) {
-          try {
-            await db.from('profiles').upsert({
-              'id': uid,
-              'full_name': 'مدير النظام',
-              'role': 'admin',
-              'status': 'approved',
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-            });
-          } catch (_) {}
-
-          final p = ProfileModel(
-            id: uid,
-            fullName: 'مدير النظام',
-            email: currentEmail,
-            role: UserRole.admin,
-            status: UserStatus.approved,
-          );
-          await HiveService.instance.settings.put(
-            'cached_my_profile',
-            jsonEncode(p.toJson()),
-          );
-          return p;
-        }
         return localProfile;
       }
 
-      var profile = ProfileModel.fromJson(row, email: currentEmail);
-      if (isMaster) {
-        profile = profile.copyWith(
-          role: UserRole.admin,
-          status: UserStatus.approved,
-          email: currentEmail,
-        );
-        try {
-          await db.from('profiles').upsert({
-            'id': uid,
-            'full_name': profile.fullName.isNotEmpty ? profile.fullName : 'مدير النظام',
-            'role': 'admin',
-            'status': 'approved',
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          });
-        } catch (_) {}
-      }
+      final profile = ProfileModel.fromJson(row, email: currentEmail);
 
-      // حفظ في المخزن المحلي
-      await HiveService.instance.settings.put(
-        'cached_my_profile',
-        jsonEncode(profile.toJson()),
-      );
+      // حفظ في المخزن المحلي المشفّر
+      await _cacheMyProfile(profile);
       return profile;
     } catch (_) {
-      if (isMaster) {
-        return (localProfile ?? ProfileModel(
-          id: uid,
-          fullName: 'مدير النظام',
-          email: currentEmail,
-          role: UserRole.admin,
-          status: UserStatus.approved,
-        )).copyWith(
-          role: UserRole.admin,
-          status: UserStatus.approved,
-          email: currentEmail,
-        );
-      }
       return localProfile;
     }
   }
@@ -298,18 +175,8 @@ class AuthRepository extends SupabaseRepository {
       status: current?.status ?? UserStatus.approved,
     );
 
-    // حفظ فوري في المخزن المحلي
-    await HiveService.instance.settings.put(
-      'cached_my_profile',
-      jsonEncode({
-        'id': updated.id,
-        'full_name': updated.fullName,
-        'phone': updated.phone,
-        'avatar_url': updated.avatarUrl,
-        'role': updated.role.name,
-        'status': updated.status.name,
-      }),
-    );
+    // حفظ فوري في المخزن المحلي المشفّر
+    await _cacheMyProfile(updated);
 
     final uid = user?.id;
     if (uid == null) return;

@@ -17,15 +17,18 @@ class PdfReportService {
   const PdfReportService._();
 
   /// توليد وطباعة تقرير A4 تفصيلي للمشتركين أو المتبرعين.
+  /// توليد وطباعة تقرير A4 تفصيلي للمشتركين أو المتبرعين.
   static Future<void> printReport({
     required String title,
     required List<ContributorModel> items,
     String reportType = 'subscribers',
+    bool isAnnual = false,
   }) async {
     final pdfBytes = await generateReportPdf(
       title: title,
       items: items,
       reportType: reportType,
+      isAnnual: isAnnual,
     );
 
     await Printing.layoutPdf(
@@ -39,11 +42,13 @@ class PdfReportService {
     required String title,
     required List<ContributorModel> items,
     String reportType = 'subscribers',
+    bool isAnnual = false,
   }) async {
     final pdfBytes = await generateReportPdf(
       title: title,
       items: items,
       reportType: reportType,
+      isAnnual: isAnnual,
     );
 
     try {
@@ -79,6 +84,7 @@ class PdfReportService {
     required String title,
     required List<ContributorModel> items,
     String reportType = 'subscribers',
+    bool isAnnual = false,
   }) async {
     final pdf = pw.Document();
 
@@ -98,7 +104,13 @@ class PdfReportService {
     // حساب المجموع الكلي
     num totalSum = 0;
     for (final item in items) {
-      totalSum += item.isSubscriber ? (item.subscriptionAmount ?? 0) : item.totalPaid;
+      if (isAnnual) {
+        totalSum += item.totalPaid;
+      } else {
+        totalSum += item.isSubscriber
+            ? (item.totalPaid > 0 ? item.totalPaid : (item.subscriptionAmount ?? 0))
+            : item.totalPaid;
+      }
     }
 
     final printDate = DateTime.now();
@@ -131,11 +143,13 @@ class PdfReportService {
             totalCount: items.length,
             totalSum: totalSum,
             reportType: reportType,
+            isAnnual: isAnnual,
           ),
           pw.SizedBox(height: 14),
           _buildTable(
             items: items,
             reportType: reportType,
+            isAnnual: isAnnual,
           ),
         ],
       ),
@@ -235,9 +249,16 @@ class PdfReportService {
     required int totalCount,
     required num totalSum,
     required String reportType,
+    bool isAnnual = false,
   }) {
-    String typeLabel = reportType == 'donors' ? 'المتبرعين' : (reportType == 'all_consolidated' ? 'المساهمين' : 'المشتركين');
-    
+    String typeLabel = reportType == 'donors'
+        ? 'المتبرعين'
+        : (reportType == 'supporters'
+            ? 'الداعمين العينيين'
+            : (reportType == 'all_consolidated'
+                ? 'كافة المساهمين والداعمين'
+                : 'المشتركين'));
+
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: pw.BoxDecoration(
@@ -256,14 +277,17 @@ class PdfReportService {
               color: PdfColor.fromHex('101C16'),
             ),
           ),
-          pw.Text(
-            'المبلغ الإجمالي: ${Fmt.money(totalSum)}',
-            style: pw.TextStyle(
-              fontSize: 12,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColor.fromHex('8A6A33'),
+          if (reportType != 'supporters')
+            pw.Text(
+              isAnnual
+                  ? 'المجموع الكلي المسدد للسنة: ${Fmt.money(totalSum)}'
+                  : 'المبلغ الإجمالي: ${Fmt.money(totalSum)}',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromHex('8A6A33'),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -272,44 +296,87 @@ class PdfReportService {
   static pw.Widget _buildTable({
     required List<ContributorModel> items,
     required String reportType,
+    bool isAnnual = false,
   }) {
     final bool isConsolidated = reportType == 'all_consolidated';
     final bool isDonors = reportType == 'donors';
+    final bool isSupporters = reportType == 'supporters';
 
     final headers = isConsolidated
-        ? ['الملاحظات / التبرع', 'الحالة', 'التاريخ', 'الهاتف', 'المبلغ', 'الفئة', 'الاسم', 'ت']
+        ? (isAnnual
+            ? ['الملاحظات / التبرع العيني', 'رقم الهاتف', 'مجموع دفعات السنة', 'الفئة', 'اسم المساهم', 'ت']
+            : ['الملاحظات / التبرع', 'الحالة', 'التاريخ', 'الهاتف', 'المبلغ', 'الفئة', 'الاسم', 'ت'])
         : isDonors
-            ? ['تاريخ آخر تبرع', 'رقم الهاتف', 'المبلغ الإجمالي', 'اسم المتبرع', 'ت']
-            : ['تاريخ آخر دفعة', 'رقم الهاتف', 'حالة السداد', 'نوع الاشتراك', 'مبلغ الاشتراك', 'اسم المشترك', 'ت'];
+            ? (isAnnual
+                ? ['رقم الهاتف', 'مجموع تبرعات السنة', 'اسم المتبرع', 'ت']
+                : ['تاريخ التبرع', 'رقم الهاتف', 'المبلغ الإجمالي', 'اسم المتبرع', 'ت'])
+            : isSupporters
+                ? ['تفاصيل ومواد الدعم العيني', 'رقم الهاتف', 'تاريخ الدعم', 'اسم الداعم', 'ت']
+                : (isAnnual
+                    ? ['تاريخ آخر دفعة بالسنة', 'رقم الهاتف', 'نوع الاشتراك', 'مجموع دفعات السنة', 'اسم المشترك', 'ت']
+                    : ['تاريخ آخر دفعة', 'رقم الهاتف', 'حالة السداد', 'نوع الاشتراك', 'مبلغ الاشتراك', 'اسم المشترك', 'ت']);
 
     final columnWidths = isConsolidated
-        ? <int, pw.TableColumnWidth>{
-            0: const pw.FlexColumnWidth(1.2),
-            1: const pw.FlexColumnWidth(0.8),
-            2: const pw.FlexColumnWidth(1.1),
-            3: const pw.FlexColumnWidth(1.0),
-            4: const pw.FlexColumnWidth(1.0),
-            5: const pw.FlexColumnWidth(0.8),
-            6: const pw.FlexColumnWidth(1.7),
-            7: const pw.FixedColumnWidth(28),
-          }
-        : isDonors
+        ? (isAnnual
             ? <int, pw.TableColumnWidth>{
-                0: const pw.FlexColumnWidth(1.2),
-                1: const pw.FlexColumnWidth(1.2),
-                2: const pw.FlexColumnWidth(1.4),
-                3: const pw.FlexColumnWidth(2.4),
-                4: const pw.FixedColumnWidth(28),
+                0: const pw.FlexColumnWidth(1.8),
+                1: const pw.FlexColumnWidth(1.0),
+                2: const pw.FlexColumnWidth(1.2),
+                3: const pw.FlexColumnWidth(0.8),
+                4: const pw.FlexColumnWidth(1.8),
+                5: const pw.FixedColumnWidth(28),
               }
             : <int, pw.TableColumnWidth>{
-                0: const pw.FlexColumnWidth(1.1),
-                1: const pw.FlexColumnWidth(1.1),
-                2: const pw.FlexColumnWidth(0.85),
-                3: const pw.FlexColumnWidth(0.85),
-                4: const pw.FlexColumnWidth(1.2),
-                5: const pw.FlexColumnWidth(2.0),
-                6: const pw.FixedColumnWidth(28),
-              };
+                0: const pw.FlexColumnWidth(1.2),
+                1: const pw.FlexColumnWidth(0.8),
+                2: const pw.FlexColumnWidth(1.1),
+                3: const pw.FlexColumnWidth(1.0),
+                4: const pw.FlexColumnWidth(1.0),
+                5: const pw.FlexColumnWidth(0.8),
+                6: const pw.FlexColumnWidth(1.7),
+                7: const pw.FixedColumnWidth(28),
+              })
+        : isDonors
+            ? (isAnnual
+                ? <int, pw.TableColumnWidth>{
+                    0: const pw.FlexColumnWidth(1.4),
+                    1: const pw.FlexColumnWidth(1.6),
+                    2: const pw.FlexColumnWidth(2.6),
+                    3: const pw.FixedColumnWidth(28),
+                  }
+                : <int, pw.TableColumnWidth>{
+                    0: const pw.FlexColumnWidth(1.2),
+                    1: const pw.FlexColumnWidth(1.2),
+                    2: const pw.FlexColumnWidth(1.4),
+                    3: const pw.FlexColumnWidth(2.4),
+                    4: const pw.FixedColumnWidth(28),
+                  })
+            : isSupporters
+                ? <int, pw.TableColumnWidth>{
+                    0: const pw.FlexColumnWidth(2.5),
+                    1: const pw.FlexColumnWidth(1.2),
+                    2: const pw.FlexColumnWidth(1.2),
+                    3: const pw.FlexColumnWidth(2.0),
+                    4: const pw.FixedColumnWidth(28),
+                  }
+                : (isAnnual
+                    ? <int, pw.TableColumnWidth>{
+                        0: const pw.FlexColumnWidth(1.2),
+                        1: const pw.FlexColumnWidth(1.1),
+                        2: const pw.FlexColumnWidth(0.9),
+                        3: const pw.FlexColumnWidth(1.3),
+                        4: const pw.FlexColumnWidth(2.0),
+                        5: const pw.FixedColumnWidth(28),
+                      }
+                    : <int, pw.TableColumnWidth>{
+                        0: const pw.FlexColumnWidth(1.1),
+                        1: const pw.FlexColumnWidth(1.1),
+                        2: const pw.FlexColumnWidth(0.85),
+                        3: const pw.FlexColumnWidth(0.85),
+                        4: const pw.FlexColumnWidth(1.2),
+                        5: const pw.FlexColumnWidth(2.0),
+                        6: const pw.FixedColumnWidth(28),
+                      });
 
     final rows = <pw.TableRow>[];
 
@@ -351,7 +418,7 @@ class PdfReportService {
         
         final amt = (c.type == ContributorType.inKind) 
             ? (c.totalPaid > 0 ? Fmt.money(c.totalPaid) : '—') 
-            : (c.type == ContributorType.subscriber ? Fmt.money(c.subscriptionAmount ?? 0) : Fmt.money(c.totalPaid));
+            : Fmt.money(c.totalPaid > 0 ? c.totalPaid : (c.subscriptionAmount ?? 0));
         
         final dateStr = c.lastPaymentAt != null 
             ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) 
@@ -384,81 +451,141 @@ class PdfReportService {
           );
         }
 
+        if (isAnnual) {
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.latestDonationDesc?.isNotEmpty == true ? c.latestDonationDesc! : (c.notes?.isNotEmpty == true ? c.notes! : '—'), align: pw.Alignment.centerRight),
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                _cell(amt, align: pw.Alignment.center, isBold: true),
+                _cell(categoryStr, align: pw.Alignment.center),
+                _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        } else {
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.latestDonationDesc?.isNotEmpty == true ? c.latestDonationDesc! : (c.notes?.isNotEmpty == true ? c.notes! : '—'), align: pw.Alignment.centerRight),
+                pw.Container(alignment: pw.Alignment.center, padding: const pw.EdgeInsets.all(5), child: statusWidget),
+                _cell(dateStr, align: pw.Alignment.center),
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                _cell(amt, align: pw.Alignment.center, isBold: true),
+                _cell(categoryStr, align: pw.Alignment.center),
+                _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        }
+      } else if (isDonors) {
+        if (isAnnual) {
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                _cell(Fmt.money(c.totalPaid), align: pw.Alignment.center, isBold: true),
+                _cell(c.fullName.isEmpty ? 'متبرع' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        } else {
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.lastPaymentAt != null ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) : '—', align: pw.Alignment.center),
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                _cell(Fmt.money(c.totalPaid), align: pw.Alignment.center, isBold: true),
+                _cell(c.fullName.isEmpty ? 'متبرع' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        }
+      } else if (isSupporters) {
         rows.add(
           pw.TableRow(
             decoration: pw.BoxDecoration(color: rowBg),
             children: [
               _cell(c.latestDonationDesc?.isNotEmpty == true ? c.latestDonationDesc! : (c.notes?.isNotEmpty == true ? c.notes! : '—'), align: pw.Alignment.centerRight),
-              pw.Container(alignment: pw.Alignment.center, padding: const pw.EdgeInsets.all(5), child: statusWidget),
-              _cell(dateStr, align: pw.Alignment.center),
               _cell(c.phone ?? '—', align: pw.Alignment.center),
-              _cell(amt, align: pw.Alignment.center, isBold: true),
-              _cell(categoryStr, align: pw.Alignment.center),
-              _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
-              _cell(Fmt.count(i + 1), align: pw.Alignment.center),
-            ],
-          ),
-        );
-      } else if (isDonors) {
-        rows.add(
-          pw.TableRow(
-            decoration: pw.BoxDecoration(color: rowBg),
-            children: [
               _cell(c.lastPaymentAt != null ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) : '—', align: pw.Alignment.center),
-              _cell(c.phone ?? '—', align: pw.Alignment.center),
-              _cell(Fmt.money(c.totalPaid), align: pw.Alignment.center, isBold: true),
-              _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
+              _cell(c.fullName.isEmpty ? 'داعم' : c.fullName, align: pw.Alignment.centerRight),
               _cell(Fmt.count(i + 1), align: pw.Alignment.center),
             ],
           ),
         );
       } else {
-        final statusColor = switch (c.paymentStatus) {
-          PaymentStatus.paid => PdfColor.fromHex('#2E9E6B'),
-          PaymentStatus.grace => PdfColor.fromHex('#D79A3C'),
-          PaymentStatus.overdue => PdfColor.fromHex('#E54D42'),
-        };
-        final statusBg = switch (c.paymentStatus) {
-          PaymentStatus.paid => PdfColor.fromHex('#EAF6F0'),
-          PaymentStatus.grace => PdfColor.fromHex('#FDF8ED'),
-          PaymentStatus.overdue => PdfColor.fromHex('#FDF0EE'),
-        };
+        // المشتركون
+        if (isAnnual) {
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.lastPaymentAt != null ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) : '—', align: pw.Alignment.center),
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                _cell(c.subscriptionType?.label ?? '—', align: pw.Alignment.center),
+                _cell(Fmt.money(c.totalPaid), align: pw.Alignment.center, isBold: true),
+                _cell(c.fullName.isEmpty ? 'مشترك' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        } else {
+          final statusColor = switch (c.paymentStatus) {
+            PaymentStatus.paid => PdfColor.fromHex('#2E9E6B'),
+            PaymentStatus.grace => PdfColor.fromHex('#D79A3C'),
+            PaymentStatus.overdue => PdfColor.fromHex('#E54D42'),
+          };
+          final statusBg = switch (c.paymentStatus) {
+            PaymentStatus.paid => PdfColor.fromHex('#EAF6F0'),
+            PaymentStatus.grace => PdfColor.fromHex('#FDF8ED'),
+            PaymentStatus.overdue => PdfColor.fromHex('#FDF0EE'),
+          };
 
-        rows.add(
-          pw.TableRow(
-            decoration: pw.BoxDecoration(color: rowBg),
-            children: [
-              _cell(c.lastPaymentAt != null ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) : '—', align: pw.Alignment.center),
-              _cell(c.phone ?? '—', align: pw.Alignment.center),
-              // شارة حالة السداد (مسدد بالأخضر / متأخر بالأحمر)
-              pw.Container(
-                alignment: pw.Alignment.center,
-                padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 5),
-                child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                  decoration: pw.BoxDecoration(
-                    color: statusBg,
-                    borderRadius: pw.BorderRadius.circular(8),
-                    border: pw.Border.all(color: statusColor, width: 0.6),
-                  ),
-                  child: pw.Text(
-                    c.paymentStatus.label,
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: statusColor,
+          rows.add(
+            pw.TableRow(
+              decoration: pw.BoxDecoration(color: rowBg),
+              children: [
+                _cell(c.lastPaymentAt != null ? DateFormat('yyyy-MM-dd', 'en').format(c.lastPaymentAt!) : '—', align: pw.Alignment.center),
+                _cell(c.phone ?? '—', align: pw.Alignment.center),
+                // شارة حالة السداد (مسدد بالأخضر / متأخر بالأحمر)
+                pw.Container(
+                  alignment: pw.Alignment.center,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 5),
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                    decoration: pw.BoxDecoration(
+                      color: statusBg,
+                      borderRadius: pw.BorderRadius.circular(8),
+                      border: pw.Border.all(color: statusColor, width: 0.6),
+                    ),
+                    child: pw.Text(
+                      c.paymentStatus.label,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: statusColor,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _cell(c.subscriptionType?.label ?? '—', align: pw.Alignment.center),
-              _cell(Fmt.money(c.subscriptionAmount ?? 0), align: pw.Alignment.center, isBold: true),
-              _cell(c.fullName.isEmpty ? 'مساهم' : c.fullName, align: pw.Alignment.centerRight),
-              _cell(Fmt.count(i + 1), align: pw.Alignment.center),
-            ],
-          ),
-        );
+                _cell(c.subscriptionType?.label ?? '—', align: pw.Alignment.center),
+                _cell(Fmt.money(c.subscriptionAmount ?? c.totalPaid), align: pw.Alignment.center, isBold: true),
+                _cell(c.fullName.isEmpty ? 'مشترك' : c.fullName, align: pw.Alignment.centerRight),
+                _cell(Fmt.count(i + 1), align: pw.Alignment.center),
+              ],
+            ),
+          );
+        }
       }
     }
 
